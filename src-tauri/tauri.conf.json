@@ -35,9 +35,10 @@
                                                                      "deny":  [
 
                                                                               ]
-                                                                 }
+                                                                }
                                                    }
-                             }
+                             },
+                "macOSPrivateApi":  true
             },
     "bundle":  {
                    "active":  true,

@@ -5177,7 +5177,6 @@ fn ensure_pet_window(app: &AppHandle, focus: bool) -> AppResult<()> {
     .resizable(false)
     .decorations(false);
 
-    #[cfg(not(target_os = "macos"))]
     let pet_window_builder = pet_window_builder.transparent(true);
 
     #[cfg(windows)]
