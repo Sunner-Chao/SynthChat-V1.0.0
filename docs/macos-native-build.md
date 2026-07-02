@@ -41,6 +41,11 @@ Equivalent direct command:
 bash scripts/build-macos-native.sh
 ```
 
+The default `dmg` mode intentionally asks Tauri to build the `.app` bundle first,
+then creates a simple installer DMG with macOS `hdiutil`. This avoids failures in
+Tauri's generated `bundle_dmg.sh` while still producing a normal drag-to-
+Applications disk image.
+
 Run preflight checks only:
 
 ```bash

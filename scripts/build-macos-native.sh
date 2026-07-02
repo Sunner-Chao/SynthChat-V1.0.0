@@ -19,6 +19,7 @@ Usage: scripts/build-macos-native.sh [options]
 
 Options:
   --bundle <all|app|dmg>          Bundle type to build. Default: dmg.
+                                  dmg/all build the .app first, then create a DMG with hdiutil.
   --target <native|universal|aarch64|x86_64>
                                   Build target. Default: native.
   --output <dir>                  Artifact copy destination. Default: release-dist/macos.
@@ -177,6 +178,49 @@ collect_artifacts() {
   fi
 }
 
+clean_stale_dmg_artifacts() {
+  local triple="$1"
+  local roots=()
+  roots+=("$REPO_ROOT/src-tauri/target/release/bundle/dmg")
+  if [[ -n "$triple" ]]; then
+    roots+=("$REPO_ROOT/src-tauri/target/$triple/release/bundle/dmg")
+  fi
+
+  for root in "${roots[@]}"; do
+    [[ -d "$root" ]] || continue
+    find "$root" -maxdepth 1 -type f -name "*.dmg" -delete
+  done
+}
+
+create_manual_dmg() {
+  local app_bundle version dmg_name dmg_path staging
+  app_bundle="$(find "$OUTPUT_ROOT" -maxdepth 1 -type d -name "*.app" | sort | head -n 1 || true)"
+  [[ -n "$app_bundle" ]] || die "Cannot create DMG: no .app bundle found in $OUTPUT_ROOT"
+
+  version="$(get_app_version)"
+  dmg_name="SynthChat_${version:-dev}_macos.dmg"
+  dmg_path="$OUTPUT_ROOT/$dmg_name"
+  staging="$(mktemp -d "${TMPDIR:-/tmp}/synthchat-dmg.XXXXXX")"
+
+  step "Creating macOS DMG with hdiutil"
+  ditto "$app_bundle" "$staging/$(basename "$app_bundle")"
+  ln -s /Applications "$staging/Applications"
+  rm -f "$dmg_path"
+  if ! hdiutil create \
+    -volname "SynthChat" \
+    -srcfolder "$staging" \
+    -ov \
+    -format UDZO \
+    "$dmg_path"; then
+    rm -rf "$staging"
+    die "hdiutil failed to create DMG"
+  fi
+  rm -rf "$staging"
+
+  echo "  $dmg_path"
+  write_update_manifest "$dmg_path"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle)
@@ -292,8 +336,14 @@ if [[ "$FAST_INCREMENTAL" -eq 1 ]]; then
 fi
 
 step "Building SynthChat native macOS package"
+if [[ "$BUNDLE" = "dmg" || "$BUNDLE" = "all" ]]; then
+  clean_stale_dmg_artifacts "$TRIPLE"
+fi
+
 TAURI_ARGS=(run tauri -- build)
-if [[ "$BUNDLE" != "all" ]]; then
+if [[ "$BUNDLE" = "dmg" || "$BUNDLE" = "all" ]]; then
+  TAURI_ARGS+=(--bundles app)
+elif [[ "$BUNDLE" != "all" ]]; then
   TAURI_ARGS+=(--bundles "$BUNDLE")
 fi
 if [[ -n "$TRIPLE" ]]; then
@@ -303,6 +353,10 @@ npm "${TAURI_ARGS[@]}"
 
 step "Collecting macOS artifacts"
 collect_artifacts "$TRIPLE"
+
+if [[ "$BUNDLE" = "dmg" || "$BUNDLE" = "all" ]]; then
+  create_manual_dmg
+fi
 
 if [[ "$OPEN_OUTPUT" -eq 1 ]]; then
   open "$OUTPUT_ROOT"
