@@ -58,9 +58,8 @@ pub(super) async fn complete_responses_compatible(
     if options.fast_mode_enabled {
         body["service_tier"] = json!("priority");
     }
-    let thinking_enabled = options.thinking_enabled
-        && provider_thinking_enabled(provider)
-        && provider_supports_responses_thinking(provider);
+    let thinking_cards_enabled = options.thinking_enabled && provider_thinking_enabled(provider);
+    let thinking_enabled = thinking_cards_enabled && provider_supports_responses_thinking(provider);
     if options.responses_reasoning_replay_enabled || thinking_enabled {
         let mut include = Vec::new();
         if options.responses_reasoning_replay_enabled {
@@ -151,7 +150,11 @@ pub(super) async fn complete_responses_compatible(
                 retry_count,
                 retry_reason,
             };
-            return parse_responses_compatible_with_tool_name_map(payload, &tool_name_map)
+            return parse_responses_compatible_with_tool_name_map_and_thinking_cards(
+                payload,
+                &tool_name_map,
+                thinking_cards_enabled,
+            )
                 .map(|reply| stamp_responses_provider_data_issuer(reply, &issuer_kind))
                 .map(|reply| {
                     with_reply_metadata_and_transport(
@@ -209,6 +212,7 @@ pub(super) async fn complete_responses_compatible(
             callback,
             provider_stream_stale_timeout_duration(provider, model),
             &tool_name_map,
+            thinking_cards_enabled,
         )
         .await?;
         return Ok(with_reply_metadata_and_transport(
@@ -230,7 +234,11 @@ pub(super) async fn complete_responses_compatible(
             invalid_response_body_detail(&text, &response_headers)
         ))
     })?;
-    parse_responses_compatible_with_tool_name_map(payload, &tool_name_map)
+    parse_responses_compatible_with_tool_name_map_and_thinking_cards(
+        payload,
+        &tool_name_map,
+        thinking_cards_enabled,
+    )
         .map(|reply| stamp_responses_provider_data_issuer(reply, &issuer_kind))
         .map(|reply| {
             with_reply_metadata_and_transport(
@@ -248,6 +256,7 @@ async fn read_responses_sse_stream(
     callback: &LlmDeltaCallback,
     stale_timeout: Option<std::time::Duration>,
     tool_name_map: &serde_json::Map<String, Value>,
+    thinking_cards_enabled: bool,
 ) -> AppResult<LlmReply> {
     let mut buffer = String::new();
     let mut content = String::new();
@@ -294,6 +303,7 @@ async fn read_responses_sse_stream(
                 &mut reasoning_tokens,
                 &mut output_items,
                 &mut tool_state,
+                thinking_cards_enabled,
             )?;
         }
     }
@@ -309,12 +319,17 @@ async fn read_responses_sse_stream(
             &mut reasoning_tokens,
             &mut output_items,
             &mut tool_state,
+            thinking_cards_enabled,
         )?;
     }
 
     if let Some(mut payload) = final_response {
         merge_responses_stream_fallback_output(&mut payload, &output_items, &content);
-        let mut reply = parse_responses_compatible_with_tool_name_map(payload, tool_name_map)?;
+        let mut reply = parse_responses_compatible_with_tool_name_map_and_thinking_cards(
+            payload,
+            tool_name_map,
+            thinking_cards_enabled,
+        )?;
         if !content.trim().is_empty() {
             let cleaned = strip_thinking_cards_from_visible_content(&content, &reply.provider_data);
             reply.content = scrub_reasoning_blocks(&cleaned);
@@ -337,7 +352,11 @@ async fn read_responses_sse_stream(
                 }
             }
         });
-        if let Ok(reply) = parse_responses_compatible_with_tool_name_map(payload, tool_name_map) {
+        if let Ok(reply) = parse_responses_compatible_with_tool_name_map_and_thinking_cards(
+            payload,
+            tool_name_map,
+            thinking_cards_enabled,
+        ) {
             return Ok(reply);
         }
     }
@@ -383,6 +402,7 @@ fn handle_responses_sse_line(
     reasoning_tokens: &mut usize,
     output_items: &mut Vec<Value>,
     tool_state: &mut ResponsesStreamToolCallState,
+    emit_thinking_deltas: bool,
 ) -> AppResult<()> {
     let Some(data) = line.trim().strip_prefix("data:") else {
         return Ok(());
@@ -401,7 +421,7 @@ fn handle_responses_sse_line(
     if event_type == "error" {
         return Err(AppError::Llm(format_responses_stream_error(&payload)));
     }
-    if responses_stream_event_is_reasoning_delta(event_type) {
+    if emit_thinking_deltas && responses_stream_event_is_reasoning_delta(event_type) {
         if let Some(delta) = responses_stream_text_delta(&payload).filter(|delta| !delta.is_empty())
         {
             callback(LlmStreamDeltaKind::Thinking, delta)?;
@@ -1008,6 +1028,14 @@ fn parse_responses_compatible_with_tool_name_map(
     payload: Value,
     tool_name_map: &serde_json::Map<String, Value>,
 ) -> AppResult<LlmReply> {
+    parse_responses_compatible_with_tool_name_map_and_thinking_cards(payload, tool_name_map, true)
+}
+
+fn parse_responses_compatible_with_tool_name_map_and_thinking_cards(
+    payload: Value,
+    tool_name_map: &serde_json::Map<String, Value>,
+    include_thinking_cards: bool,
+) -> AppResult<LlmReply> {
     if let Some(status) = payload.get("status").and_then(Value::as_str) {
         let normalized = status.trim().to_ascii_lowercase();
         if matches!(normalized.as_str(), "failed" | "cancelled") {
@@ -1026,7 +1054,7 @@ fn parse_responses_compatible_with_tool_name_map(
     let tool_calls = responses_tool_calls(&payload, tool_name_map);
     let finish_reason =
         responses_finish_reason(&payload, !content.trim().is_empty(), !tool_calls.is_empty());
-    let provider_data = responses_provider_data(&payload);
+    let provider_data = responses_provider_data(&payload, include_thinking_cards);
     content = strip_thinking_cards_from_visible_content(&content, &provider_data);
     if !tool_calls.is_empty() {
         let tool_json = json!({"tool_calls": tool_calls}).to_string();
@@ -1194,10 +1222,14 @@ fn responses_tool_calls(
         .collect()
 }
 
-fn responses_provider_data(payload: &Value) -> Option<Value> {
+fn responses_provider_data(payload: &Value, include_thinking_cards: bool) -> Option<Value> {
     let reasoning_items = responses_reasoning_replay_items(payload);
     let message_items = responses_message_replay_items(payload);
-    let thinking_cards = responses_thinking_cards(payload);
+    let thinking_cards = if include_thinking_cards {
+        responses_thinking_cards(payload)
+    } else {
+        Vec::new()
+    };
     if reasoning_items.is_empty() && message_items.is_empty() && thinking_cards.is_empty() {
         return None;
     }
@@ -1610,6 +1642,7 @@ mod tests {
             &mut reasoning_tokens,
             &mut output_items,
             &mut tool_state,
+            true,
         )
         .unwrap();
 
@@ -1645,6 +1678,7 @@ mod tests {
             &mut reasoning_tokens,
             &mut output_items,
             &mut tool_state,
+            true,
         )
         .unwrap_err();
 
@@ -1674,6 +1708,7 @@ mod tests {
             &mut reasoning_tokens,
             &mut output_items,
             &mut tool_state,
+            true,
         )
         .unwrap();
 
@@ -1710,6 +1745,7 @@ mod tests {
                 &mut reasoning_tokens,
                 &mut output_items,
                 &mut tool_state,
+                true,
             )
             .unwrap();
         }

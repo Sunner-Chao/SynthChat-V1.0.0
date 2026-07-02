@@ -159,6 +159,7 @@ pub(super) async fn complete_anthropic_compatible(
             callback,
             provider_stream_stale_timeout_duration(provider, model),
             &tool_name_map,
+            thinking_enabled,
         )
         .await?;
         return Ok(with_reply_metadata_and_transport(
@@ -181,7 +182,12 @@ pub(super) async fn complete_anthropic_compatible(
         ))
     })?;
 
-    parse_anthropic_compatible_with_tool_name_map(payload, &tool_name_map).map(|reply| {
+    parse_anthropic_compatible_with_tool_name_map_and_thinking_cards(
+        payload,
+        &tool_name_map,
+        thinking_enabled,
+    )
+    .map(|reply| {
         with_reply_metadata_and_transport(
             reply,
             provider,
@@ -228,6 +234,7 @@ async fn read_anthropic_sse_stream(
     callback: &LlmDeltaCallback,
     stale_timeout: Option<std::time::Duration>,
     tool_name_map: &serde_json::Map<String, Value>,
+    thinking_cards_enabled: bool,
 ) -> AppResult<LlmReply> {
     let mut buffer = String::new();
     let mut content = String::new();
@@ -276,6 +283,7 @@ async fn read_anthropic_sse_stream(
                 &mut stop_reason,
                 &mut tool_calls,
                 &mut replay_blocks,
+                thinking_cards_enabled,
             )?;
         }
     }
@@ -292,6 +300,7 @@ async fn read_anthropic_sse_stream(
             &mut stop_reason,
             &mut tool_calls,
             &mut replay_blocks,
+            thinking_cards_enabled,
         )?;
     }
 
@@ -306,7 +315,8 @@ async fn read_anthropic_sse_stream(
         }
     }
     let replay_content_blocks = replay_blocks.into_values().collect::<Vec<_>>();
-    let provider_data = anthropic_provider_data(&replay_content_blocks);
+    let provider_data =
+        anthropic_provider_data_with_thinking_cards(&replay_content_blocks, thinking_cards_enabled);
     let content = strip_thinking_cards_from_visible_content(&content, &provider_data);
     let content = scrub_reasoning_blocks(&content);
     if content.trim().is_empty() {
@@ -355,6 +365,7 @@ fn handle_anthropic_sse_line(
     stop_reason: &mut Option<String>,
     tool_calls: &mut BTreeMap<usize, AnthropicStreamToolCall>,
     replay_blocks: &mut BTreeMap<usize, Value>,
+    emit_thinking_deltas: bool,
 ) -> AppResult<()> {
     let Some(data) = line.trim().strip_prefix("data:") else {
         return Ok(());
@@ -374,19 +385,18 @@ fn handle_anthropic_sse_line(
         content.push_str(delta);
         callback(LlmStreamDeltaKind::Answer, delta)?;
     }
-    if let Some(thinking_delta) = payload
-        .get("delta")
-        .filter(|delta| {
-            delta
-                .get("type")
-                .and_then(Value::as_str)
-                == Some("thinking_delta")
-        })
-        .and_then(|delta| delta.get("thinking"))
-        .and_then(Value::as_str)
-        .filter(|delta| !delta.is_empty())
-    {
-        callback(LlmStreamDeltaKind::Thinking, thinking_delta)?;
+    if emit_thinking_deltas {
+        if let Some(thinking_delta) = payload
+            .get("delta")
+            .filter(|delta| {
+                delta.get("type").and_then(Value::as_str) == Some("thinking_delta")
+            })
+            .and_then(|delta| delta.get("thinking"))
+            .and_then(Value::as_str)
+            .filter(|delta| !delta.is_empty())
+        {
+            callback(LlmStreamDeltaKind::Thinking, thinking_delta)?;
+        }
     }
     track_anthropic_stream_tool_call(&payload, tool_calls);
     track_anthropic_stream_replay_block(&payload, replay_blocks);
@@ -1001,6 +1011,14 @@ fn parse_anthropic_compatible_with_tool_name_map(
     payload: Value,
     tool_name_map: &serde_json::Map<String, Value>,
 ) -> AppResult<LlmReply> {
+    parse_anthropic_compatible_with_tool_name_map_and_thinking_cards(payload, tool_name_map, true)
+}
+
+fn parse_anthropic_compatible_with_tool_name_map_and_thinking_cards(
+    payload: Value,
+    tool_name_map: &serde_json::Map<String, Value>,
+    include_thinking_cards: bool,
+) -> AppResult<LlmReply> {
     let content_blocks = payload
         .get("content")
         .and_then(Value::as_array)
@@ -1018,7 +1036,8 @@ fn parse_anthropic_compatible_with_tool_name_map(
         })
         .collect::<Vec<_>>()
         .join("\n\n");
-    let provider_data = anthropic_provider_data(content_blocks);
+    let provider_data =
+        anthropic_provider_data_with_thinking_cards(content_blocks, include_thinking_cards);
     content = strip_thinking_cards_from_visible_content(&content, &provider_data);
     let tool_calls = anthropic_tool_calls(content_blocks, tool_name_map);
     let has_tool_calls = !tool_calls.is_empty();
@@ -1081,12 +1100,23 @@ fn parse_anthropic_compatible_with_tool_name_map(
 }
 
 fn anthropic_provider_data(content_blocks: &[Value]) -> Option<Value> {
+    anthropic_provider_data_with_thinking_cards(content_blocks, true)
+}
+
+fn anthropic_provider_data_with_thinking_cards(
+    content_blocks: &[Value],
+    include_thinking_cards: bool,
+) -> Option<Value> {
     let replay_blocks = content_blocks
         .iter()
         .filter(|block| anthropic_replay_block_is_required(block))
         .cloned()
         .collect::<Vec<_>>();
-    let thinking_cards = anthropic_thinking_cards(content_blocks);
+    let thinking_cards = if include_thinking_cards {
+        anthropic_thinking_cards(content_blocks)
+    } else {
+        Vec::new()
+    };
     if replay_blocks.is_empty() && thinking_cards.is_empty() {
         None
     } else {

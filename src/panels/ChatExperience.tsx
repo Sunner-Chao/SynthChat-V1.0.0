@@ -776,6 +776,7 @@ function extractArtifactPaths(text: string): ArtifactTarget[] {
 
 const MessageList = memo(function MessageList({
   messages,
+  thinkingCardsEnabled,
   profileName,
   profileAvatar,
   personaName,
@@ -792,6 +793,7 @@ const MessageList = memo(function MessageList({
   emojiPathIndexes
 }: {
   messages: ChatMessage[];
+  thinkingCardsEnabled: boolean;
   profileName: string;
   profileAvatar: string;
   personaName: string;
@@ -851,8 +853,8 @@ const MessageList = memo(function MessageList({
       }
       deduped.push(msg);
     }
-    return materializeMessageRenderItems(deduped);
-  }, [messages, runStates]);
+    return materializeMessageRenderItems(deduped, thinkingCardsEnabled);
+  }, [messages, runStates, thinkingCardsEnabled]);
   return (
     <>
       {renderItems.map((item) => (
@@ -862,6 +864,7 @@ const MessageList = memo(function MessageList({
           mode={item.mode}
           elementId={item.elementId}
           thinkingCardsOverride={item.cards}
+          thinkingCardsEnabled={thinkingCardsEnabled}
           profileName={profileName}
           profileAvatar={profileAvatar}
           personaName={personaName}
@@ -903,6 +906,11 @@ function recordValue(value: unknown): Record<string, unknown> | null {
 
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function providerThinkingEnabled(provider: LlmProvider | null | undefined): boolean {
+  const meta = provider?.models?.__provider;
+  return Boolean(meta && typeof meta === "object" && !Array.isArray(meta) && meta.thinkingEnabled === true);
 }
 
 function thinkingCardsFromProviderData(providerData: unknown): ThinkingCard[] {
@@ -976,7 +984,8 @@ function messageRenderItem(message: ChatMessage, mode: MessageRenderMode = "norm
   };
 }
 
-function materializeMessageRenderItem(message: ChatMessage): MessageRenderItem[] {
+function materializeMessageRenderItem(message: ChatMessage, thinkingCardsEnabled: boolean): MessageRenderItem[] {
+  if (!thinkingCardsEnabled) return [messageRenderItem(message)];
   if (message.role === "tool") {
     const cards = messageThinkingCards(message);
     return cards.length > 0
@@ -1006,12 +1015,12 @@ function thinkingCardsSignature(cards: ThinkingCard[]) {
     .join("|");
 }
 
-function materializeMessageRenderItems(messages: ChatMessage[]): MessageRenderItem[] {
+function materializeMessageRenderItems(messages: ChatMessage[], thinkingCardsEnabled: boolean): MessageRenderItem[] {
   const items: MessageRenderItem[] = [];
   let lastThinkingSignature = "";
   let previousItemWasThinking = false;
   for (const message of messages) {
-    const nextItems = materializeMessageRenderItem(message);
+    const nextItems = materializeMessageRenderItem(message, thinkingCardsEnabled);
     const first = nextItems[0];
     if (first?.mode === "thinking") {
       const signature = thinkingCardsSignature(first.cards ?? []);
@@ -1439,6 +1448,7 @@ export const ChatExperience = memo(function ChatExperience() {
     const providerId = providerBinding.providerId;
     return llmProviders.find((provider) => provider.id === providerId && provider.enabled) ?? null;
   }, [llmProviders, providerBinding.providerId]);
+  const thinkingCardsEnabled = providerThinkingEnabled(currentProvider);
   const effectiveModelValue = providerBinding.model;
   useEffect(() => {
     if (!currentProvider) {
@@ -2763,6 +2773,7 @@ export const ChatExperience = memo(function ChatExperience() {
                   ) : null}
                   <MessageList
                     messages={messages}
+                    thinkingCardsEnabled={thinkingCardsEnabled}
                     profileName={profile.name}
                     profileAvatar={profile.avatarPath ?? ""}
                     personaName={selectedPersona?.name ?? "assistant"}
@@ -3305,6 +3316,7 @@ const MessageRow = memo(function MessageRow({
   mode,
   elementId,
   thinkingCardsOverride,
+  thinkingCardsEnabled,
   profileName,
   profileAvatar,
   personaName,
@@ -3324,6 +3336,7 @@ const MessageRow = memo(function MessageRow({
   mode: MessageRenderMode;
   elementId: string;
   thinkingCardsOverride?: ThinkingCard[];
+  thinkingCardsEnabled: boolean;
   profileName: string;
   profileAvatar: string;
   personaName: string;
@@ -3347,7 +3360,7 @@ const MessageRow = memo(function MessageRow({
   const processEvent = mode !== "thinking" && message.role === "tool" ? parseManagedProcessEvent(message.content) : null;
   const isUser = message.role === "user";
   const rawThinkingCards = thinkingCardsOverride ?? messageThinkingCards(message);
-  const thinkingCards = mode !== "content" ? rawThinkingCards : [];
+  const thinkingCards = thinkingCardsEnabled && mode !== "content" ? rawThinkingCards : [];
   const visibleText = !isUser && rawThinkingCards.length > 0
     ? stripThinkingCardsFromText(message.content.trim(), rawThinkingCards)
     : message.content.trim();
@@ -3423,18 +3436,22 @@ const ThinkingCards = memo(function ThinkingCards({ cards }: { cards: ThinkingCa
 
 const ThinkingCardView = memo(function ThinkingCardView({ card }: { card: ThinkingCard }) {
   const [expanded, setExpanded] = useState(card.streaming);
+  useEffect(() => {
+    setExpanded(card.streaming);
+  }, [card.streaming, card.key]);
   const providerLabel = card.provider === "anthropic"
     ? "Anthropic"
     : card.provider === "openai_responses"
       ? "Responses"
       : "Reasoning";
+  const statusLabel = card.streaming ? "思考中" : card.redacted ? "已隐藏" : "思考完成";
   const detail = card.summary || (card.redacted ? "服务商返回了受保护的思考内容，当前仅展示占位，不显示原始链路。" : "");
   return (
     <div className={`claw-thinking-card${expanded ? " claw-thinking-card--expanded" : ""}`}>
       <button className="claw-thinking-card-head" onClick={() => setExpanded((value) => !value)} type="button">
         <Brain size={15} />
         <strong>{card.title}</strong>
-        <small>{[providerLabel, card.streaming ? "思考中" : card.redacted ? "已隐藏" : "摘要"].filter(Boolean).join(" · ")}</small>
+        <small>{[providerLabel, statusLabel].filter(Boolean).join(" · ")}</small>
         <span className={`claw-tool-chevron${expanded ? " claw-tool-chevron--open" : ""}`}>
           <ChevronRight size={14} />
         </span>
