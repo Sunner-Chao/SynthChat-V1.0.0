@@ -156,7 +156,7 @@ normalize_version_ref() {
 }
 
 get_remote_version_tags() {
-    git ls-remote --tags origin 2>/dev/null | while read line; do
+    git ls-remote --tags origin 2>/dev/null | while read -r line; do
         if [ -z "$line" ]; then continue; fi
         ref=$(echo "$line" | awk '{print $2}')
         if [ -z "$ref" ]; then continue; fi
@@ -199,7 +199,12 @@ resolve_version_choice() {
         requested=''
     fi
     
-    mapfile -t remote_tags < <(get_remote_version_tags)
+    remote_tags=()
+    while IFS= read -r tag; do
+        if [ -n "$tag" ]; then
+            remote_tags+=("$tag")
+        fi
+    done < <(get_remote_version_tags)
     if [ ${#remote_tags[@]} -eq 0 ]; then
         echo -e "\033[33m[pull-github] 当前远端没有可用版本标签，将继续使用默认分支。\033[0m"
         VERSION_CHOICE_RESULT=""
@@ -297,6 +302,10 @@ get_status_lines() {
     git status --short 2>/dev/null || true
 }
 
+trim_count() {
+    echo "$1" | tr -d '[:space:]'
+}
+
 has_unmerged_files() {
     local unmerged=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
     [ -n "$unmerged" ]
@@ -311,18 +320,18 @@ write_status_summary() {
     
     local tracked=$(echo "$lines" | grep -v '^??' | wc -l)
     local untracked=$(echo "$lines" | grep '^??' | wc -l)
-    echo -e "\033[33m[pull-github] 当前工作区存在改动：已跟踪改动 ${tracked##*( )} 个，未跟踪文件 ${untracked##*( )} 个。\033[0m"
+    echo -e "\033[33m[pull-github] 当前工作区存在改动：已跟踪改动 $(trim_count "$tracked") 个，未跟踪文件 $(trim_count "$untracked") 个。\033[0m"
 }
 
 get_remote_default_branch() {
     local head_info=$(git ls-remote --symref origin HEAD 2>/dev/null || true)
-    local head_line=$(echo "$head_info" | grep '^ref:' | head -1 || true)
-    if [ -z "$head_line" ]; then
+    local branch=$(echo "$head_info" | awk '/^ref:/ { sub(/^refs\/heads\//, "", $2); print $2; exit }')
+    if [ -z "$branch" ]; then
         echo ""
         return
     fi
     
-    echo "$head_line" | sed -E 's|^ref:\s*refs/heads/(\S+).*|\1|'
+    echo "$branch" | tr -d '[:space:]'
 }
 
 ensure_local_branch() {
@@ -406,7 +415,7 @@ invoke_update_version_pull() {
     
     local status_lines=$(get_status_lines)
     local tracked_changes=$(echo "$status_lines" | grep -v '^??' | wc -l)
-    if [ "${tracked_changes##*( )}" -gt 0 ]; then
+    if [ "$(trim_count "$tracked_changes")" -gt 0 ]; then
         echo "当前工作区存在已跟踪改动，无法安全切换到指定版本 $version_ref。请先提交/清理，或改用全量拉取。" >&2
         exit 1
     fi
