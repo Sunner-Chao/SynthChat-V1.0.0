@@ -5180,14 +5180,16 @@ fn ensure_pet_window(app: &AppHandle, focus: bool) -> AppResult<()> {
     #[cfg(not(target_os = "macos"))]
     let pet_window_builder = pet_window_builder.transparent(true);
 
+    #[cfg(windows)]
+    let pet_window_builder = pet_window_builder.drag_and_drop(true);
+
     let window = pet_window_builder
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .shadow(false)
-    .focused(false)
-    .drag_and_drop(true)
-    .build()
-    .map_err(|error| AppError::BadRequest(error.to_string()))?;
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .focused(false)
+        .build()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?;
 
     if let Some(monitor) = window
         .current_monitor()
