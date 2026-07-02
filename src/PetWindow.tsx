@@ -640,7 +640,8 @@ export function PetWindow() {
   const assistantCloudDurationMsRef = useRef(DEFAULT_PET_ASSISTANT_CLOUD_DURATION_SECONDS * 1000);
   const isNearModelRef = useRef(false);
   const modelMenuOpenRef = useRef(false);
-  const showInputRef = useRef(true);
+  const showInputRef = useRef(false);
+  const petStartupVisibleRef = useRef(true);
   const inputShellHoverRef = useRef(false);
   const inputDraftActiveRef = useRef(false);
   const [brokenCloudImages, setBrokenCloudImages] = useState<Record<string, true>>({});
@@ -756,7 +757,7 @@ export function PetWindow() {
   const [sending, setSending] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [cloudBubble, setCloudBubble] = useState<PetCloudBubble | null>(null);
-  const [showInput, setShowInput] = useState(true);
+  const [showInput, setShowInput] = useState(false);
   const [petWindowMode, setPetWindowMode] = useState<PetWindowMode>("model");
   const [dockEdge, setDockEdge] = useState<PetDockEdge>("right");
   const [composerAttachments, setComposerAttachments] = useState<PetComposerAttachment[]>([]);
@@ -891,6 +892,23 @@ export function PetWindow() {
   useEffect(() => {
     showInputRef.current = showInput;
   }, [showInput]);
+
+  useEffect(() => {
+    petStartupVisibleRef.current = petStartupVisible;
+    if (!petStartupVisible) return;
+    clearInputHideTimer();
+    clearCloudTimer();
+    clearCloudStreamTimer();
+    isNearModelRef.current = false;
+    inputShellHoverRef.current = false;
+    showInputRef.current = false;
+    modelMenuOpenRef.current = false;
+    thinkingCloudRef.current = null;
+    assistantStreamRef.current = null;
+    setShowInput(false);
+    setModelMenuOpen(false);
+    setCloudBubble(null);
+  }, [petStartupVisible]);
 
   useEffect(() => {
     if (petWindowMode !== "model") {
@@ -1395,6 +1413,14 @@ export function PetWindow() {
         void syncPetPointerPassthrough(false);
         return;
       }
+      if (petStartupVisibleRef.current) {
+        void syncPetPointerPassthrough(false);
+        if (showInputRef.current) {
+          showInputRef.current = false;
+          setShowInput(false);
+        }
+        return;
+      }
       void invoke<PetCursorPosition>("cursor_position").then((position) => {
         const point = normalizeCursorPosition(position);
         if (!point) return;
@@ -1492,7 +1518,7 @@ export function PetWindow() {
             height: message.height
           };
         }
-        if (message.type === "model_hover" && message.hovering) {
+        if (message.type === "model_hover" && message.hovering && !isPetStartupUiSuppressed()) {
           revealPetInputShell();
         }
         return;
@@ -1517,6 +1543,7 @@ export function PetWindow() {
         return;
       }
       if (message.type === "tap") {
+        if (isPetStartupUiSuppressed()) return;
         const now = Date.now();
         pokeCountRef.current = now - lastPokeAtRef.current < 2500 ? pokeCountRef.current + 1 : 1;
         lastPokeAtRef.current = now;
@@ -1525,6 +1552,7 @@ export function PetWindow() {
         return;
       }
       if (message.type === "poke") {
+        if (isPetStartupUiSuppressed()) return;
         showCloud(touchAreaCloudText(message.area ?? message.areas?.[0], 1), "active", 3000);
         inputRef.current?.focus();
         return;
@@ -1607,7 +1635,12 @@ export function PetWindow() {
     }
   }
 
+  function isPetStartupUiSuppressed() {
+    return petWindowModeRef.current !== "orb" && petStartupVisibleRef.current;
+  }
+
   function revealInput() {
+    if (isPetStartupUiSuppressed()) return;
     clearInputHideTimer();
     isNearModelRef.current = true;
     showInputRef.current = true;
@@ -1615,6 +1648,7 @@ export function PetWindow() {
   }
 
   function holdPetInputInteractivity() {
+    if (isPetStartupUiSuppressed()) return;
     clearInputHideTimer();
     inputShellHoverRef.current = true;
     inputInteractionUntilRef.current = Date.now() + PET_INPUT_INTERACTION_GRACE_MS;
@@ -1647,12 +1681,14 @@ export function PetWindow() {
   }
 
   function revealPetInputShell() {
+    if (isPetStartupUiSuppressed()) return;
     inputShellHoverRef.current = true;
     revealPetInputSurface();
   }
 
   function activatePetInputHotZone(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
+    if (isPetStartupUiSuppressed()) return;
     event.preventDefault();
     revealPetInputShell();
     window.requestAnimationFrame(() => inputRef.current?.focus());
@@ -1769,6 +1805,7 @@ export function PetWindow() {
   }
 
   function toggleModelMenu() {
+    if (isPetStartupUiSuppressed()) return;
     revealInput();
     void syncPetPointerPassthrough(false);
     setModelMenuOpen((open) => {
@@ -1779,6 +1816,7 @@ export function PetWindow() {
   }
 
   function showCloud(text: string, tone: PetCloudBubble["tone"] = "soft", durationMs = 4200, attachments?: PetCloudBubble["attachments"]) {
+    if (isPetStartupUiSuppressed()) return;
     const formatted = formatCloudText(text);
     if (!formatted && !attachments?.length) return;
     assistantStreamRef.current = null;
@@ -1803,6 +1841,7 @@ export function PetWindow() {
 
   function showThinkingCloud(conversationId: string) {
     if (!conversationId) return;
+    if (isPetStartupUiSuppressed()) return;
     const current = thinkingCloudRef.current;
     if (current?.conversationId === conversationId) {
       clearCloudTimer();
@@ -1863,6 +1902,7 @@ export function PetWindow() {
     durationMs = 4200,
     attachments?: PetCloudBubble["attachments"]
   ) {
+    if (isPetStartupUiSuppressed()) return "";
     const formatted = formatCloudText(text);
     if (!formatted && !attachments?.length) return "";
     thinkingCloudRef.current = null;
@@ -1903,6 +1943,7 @@ export function PetWindow() {
     tone: PetCloudBubble["tone"] = "soft",
     attachments?: PetCloudBubble["attachments"]
   ) {
+    if (isPetStartupUiSuppressed()) return null;
     const formatted = formatCloudText(text);
     if (!formatted && !attachments?.length) return null;
     thinkingCloudRef.current = null;
@@ -1920,6 +1961,7 @@ export function PetWindow() {
     tone: PetCloudBubble["tone"] = "active",
     attachments?: PetCloudBubble["attachments"]
   ) {
+    if (isPetStartupUiSuppressed()) return;
     const currentDraft = cloudTextDraftsRef.current.get(bubbleId) ?? "";
     const nextDraft = `${currentDraft}${delta}`;
     const nextText = formatCloudText(nextDraft);
@@ -3190,8 +3232,11 @@ export function PetWindow() {
     };
   }
 
+  const petStartupActive = petWindowMode !== "orb" && petStartupVisible;
+  const petChromeVisible = petWindowMode !== "orb" && !petStartupActive;
+
   return (
-    <main className={`live2d-pet-shell${cloudBubble || petVoicePlaybackActive ? " is-speaking" : ""}${petWindowMode === "orb" ? " is-orb" : ""}${petAvatarRevealed ? " is-avatar-revealed" : " is-avatar-priming"}`}>
+    <main className={`live2d-pet-shell${petChromeVisible && (cloudBubble || petVoicePlaybackActive) ? " is-speaking" : ""}${petWindowMode === "orb" ? " is-orb" : ""}${petAvatarRevealed ? " is-avatar-revealed" : " is-avatar-priming"}`}>
       <iframe
         className="live2d-pet-frame"
         ref={frameRef}
@@ -3199,7 +3244,7 @@ export function PetWindow() {
         title="SynthPet Live2D"
       />
 
-      {petWindowMode !== "orb" && petStartupVisible ? (
+      {petStartupActive ? (
         <PetStartupAwakening avatarRevealed={petAvatarRevealed} exiting={petStartupExiting} />
       ) : null}
 
@@ -3221,7 +3266,7 @@ export function PetWindow() {
         </button>
       ) : null}
 
-      {petWindowMode !== "orb" ? (
+      {petChromeVisible ? (
       <section className={`pet-speech-area${cloudBubble ? " has-bubble" : ""}`} aria-live="polite">
         {cloudBubble ? (
           <section
@@ -3268,7 +3313,7 @@ export function PetWindow() {
       </section>
       ) : null}
 
-      {petWindowMode !== "orb" ? (
+      {petChromeVisible ? (
       <section
         className={`pet-input-shell${showInput ? "" : " is-hidden"}${modelMenuOpen ? " is-menu-open" : ""}${inputDragActive ? " is-dragging" : ""}`}
         ref={inputShellRef}

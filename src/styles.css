@@ -11689,13 +11689,15 @@ select:focus-visible {
    Pet Window
    ============================================ */
 .pet-window-html,
-.pet-window-body {
+.pet-window-body,
+.pet-window-body #root {
   width: 100%;
   min-width: 0;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: transparent;
+  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
 }
 
 .pet-window-body {
@@ -11707,7 +11709,8 @@ select:focus-visible {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: transparent;
+  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
   color: #18212f;
   font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -11722,6 +11725,7 @@ select:focus-visible {
 }
 
 .live2d-pet-shell.is-orb .live2d-pet-frame {
+  display: none;
   opacity: 0;
   pointer-events: none;
 }
@@ -11733,7 +11737,8 @@ select:focus-visible {
   width: 100%;
   height: 100%;
   border: 0;
-  background: transparent;
+  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
   opacity: 1;
   transform: translateZ(0);
   transform-origin: 50% 58%;
@@ -12384,8 +12389,8 @@ select:focus-visible {
 .pet-pokeball-orb {
   position: absolute;
   inset: 0;
-  width: 84px;
-  height: 84px;
+  width: 72px;
+  height: 72px;
   margin: auto;
   padding: 0;
   border: 0;
@@ -12393,7 +12398,7 @@ select:focus-visible {
   overflow: hidden;
   background:
     radial-gradient(circle at 31% 24%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 24%),
-    linear-gradient(180deg, #ff6b7b 0 16%, #ef4444 16% calc(50% - 4px), #111827 calc(50% - 4px) calc(50% + 4px), #f8fafc calc(50% + 4px) 100%);
+    linear-gradient(180deg, #ff6b7b 0 16%, #ef4444 16% calc(50% - 3px), #111827 calc(50% - 3px) calc(50% + 3px), #f8fafc calc(50% + 3px) 100%);
   box-shadow:
     inset 0 6px 10px rgba(255, 255, 255, 0.4),
     inset 0 -10px 14px rgba(15, 23, 42, 0.12);
@@ -12410,10 +12415,10 @@ select:focus-visible {
 .pet-pokeball-orb::before {
   content: "";
   position: absolute;
-  left: 16px;
-  top: 10px;
-  width: 28px;
-  height: 13px;
+  left: 13px;
+  top: 9px;
+  width: 24px;
+  height: 11px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.56);
   transform: rotate(-24deg);
@@ -12440,7 +12445,7 @@ select:focus-visible {
   left: 0;
   right: 0;
   top: 0;
-  height: calc(50% - 4px);
+  height: calc(50% - 3px);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 35%);
 }
 
@@ -12448,8 +12453,8 @@ select:focus-visible {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(50% - 4px);
-  height: 8px;
+  top: calc(50% - 3px);
+  height: 6px;
   background: #111827;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18);
 }
@@ -12458,12 +12463,12 @@ select:focus-visible {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background:
     radial-gradient(circle at 35% 35%, #ffffff, #e2e8f0 72%);
-  border: 6px solid #111827;
+  border: 5px solid #111827;
   box-shadow:
     inset 0 0 0 2px rgba(148, 163, 184, 0.5),
     0 2px 5px rgba(15, 23, 42, 0.2);

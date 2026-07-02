@@ -39,6 +39,7 @@ use store::AppStore;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
+    utils::config::Color,
     App, AppHandle, DragDropEvent, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize,
     State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
@@ -58,8 +59,8 @@ const PET_MODEL_WINDOW_WIDTH: f64 = 340.0;
 const PET_MODEL_VISIBLE_HEIGHT: f64 = 440.0;
 const PET_MODEL_TOP_BUFFER_HEIGHT: f64 = 96.0;
 const PET_MODEL_WINDOW_HEIGHT: f64 = PET_MODEL_VISIBLE_HEIGHT + PET_MODEL_TOP_BUFFER_HEIGHT;
-const PET_ORB_WINDOW_WIDTH: f64 = 84.0;
-const PET_ORB_WINDOW_HEIGHT: f64 = 84.0;
+const PET_ORB_WINDOW_WIDTH: f64 = 72.0;
+const PET_ORB_WINDOW_HEIGHT: f64 = 72.0;
 const PET_DOCK_WINDOW_WIDTH: f64 = 48.0;
 const PET_DOCK_WINDOW_HEIGHT: f64 = 108.0;
 const PET_WINDOW_SAFE_MARGIN_TOP: i32 = 0;
@@ -5177,7 +5178,9 @@ fn ensure_pet_window(app: &AppHandle, focus: bool) -> AppResult<()> {
     .resizable(false)
     .decorations(false);
 
-    let pet_window_builder = pet_window_builder.transparent(true);
+    let pet_window_builder = pet_window_builder
+        .transparent(true)
+        .background_color(Color(0, 0, 0, 0));
 
     #[cfg(windows)]
     let pet_window_builder = pet_window_builder.drag_and_drop(true);
@@ -5189,6 +5192,8 @@ fn ensure_pet_window(app: &AppHandle, focus: bool) -> AppResult<()> {
         .focused(false)
         .build()
         .map_err(|error| AppError::BadRequest(error.to_string()))?;
+
+    let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
 
     if let Some(monitor) = window
         .current_monitor()

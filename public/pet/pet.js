@@ -5,13 +5,25 @@ const app = new PIXI.Application({
     autoStart: true,
     resizeTo: window,
     transparent: true,
+    antialias: true,
+    clearBeforeRender: true,
+    backgroundColor: 0x000000,
     backgroundAlpha: 0,
 });
+
+canvas.style.background = "transparent";
+canvas.style.backgroundColor = "transparent";
 
 try {
     app.renderer.background.alpha = 0;
 } catch {
     // Older Pixi builds may not expose renderer.background.
+}
+
+try {
+    app.renderer.clear?.();
+} catch {
+    // Clearing is best-effort; renderer startup should continue either way.
 }
 
 const HOST_MESSAGE_SOURCE = "synthchat-pet-host";
