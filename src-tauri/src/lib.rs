@@ -5166,7 +5166,7 @@ fn ensure_pet_window(app: &AppHandle, focus: bool) -> AppResult<()> {
         return Ok(());
     }
 
-    let window = WebviewWindowBuilder::new(
+    let pet_window_builder = WebviewWindowBuilder::new(
         app,
         PET_WINDOW_LABEL,
         WebviewUrl::App("index.html?window=pet".into()),
@@ -5175,8 +5175,12 @@ fn ensure_pet_window(app: &AppHandle, focus: bool) -> AppResult<()> {
     .inner_size(PET_MODEL_WINDOW_WIDTH, PET_MODEL_WINDOW_HEIGHT)
     .min_inner_size(PET_DOCK_WINDOW_WIDTH, PET_DOCK_WINDOW_HEIGHT)
     .resizable(false)
-    .decorations(false)
-    .transparent(true)
+    .decorations(false);
+
+    #[cfg(not(target_os = "macos"))]
+    let pet_window_builder = pet_window_builder.transparent(true);
+
+    let window = pet_window_builder
     .always_on_top(true)
     .skip_taskbar(true)
     .shadow(false)
