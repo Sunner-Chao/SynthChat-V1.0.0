@@ -41,6 +41,7 @@ const PET_INPUT_HOT_ZONE_X_PADDING_PX = 24;
 const PET_INPUT_HOT_ZONE_TOP_PADDING_PX = 34;
 const PET_INPUT_HOT_ZONE_BOTTOM_PADDING_PX = 26;
 const PET_INPUT_FALLBACK_HOT_ZONE_HEIGHT_PX = 116;
+const PET_INPUT_INTERACTION_GRACE_MS = 700;
 const PET_DEFAULT_MODEL_STORAGE_KEY = "synthchat.pet.defaultModelId";
 const PET_VISION_INTERVAL_STORAGE_KEY = "synthchat.pet.visionIntervalSeconds";
 const PET_VOICE_REPLY_ENABLED_STORAGE_KEY = "synthchat.pet.voiceReplyEnabled";
@@ -115,6 +116,7 @@ type PetMessage = {
   y?: number;
   width?: number;
   height?: number;
+  hovering?: boolean;
   group?: string;
   index?: number;
   name?: string;
@@ -609,6 +611,7 @@ export function PetWindow() {
   const petStartupClosingRef = useRef(false);
   const petStartupTimersRef = useRef<number[]>([]);
   const ignoreCursorEventsRef = useRef(false);
+  const inputInteractionUntilRef = useRef(0);
   const sendingRef = useRef(false);
   const cloudTimerRef = useRef<number | null>(null);
   const cloudStreamTimerRef = useRef<number | null>(null);
@@ -1402,12 +1405,13 @@ export function PetWindow() {
         const inInputHotZone = isPointInsidePetInputHotZone(clientX, clientY);
         const inputFocused = document.activeElement === inputRef.current;
         const focusShouldKeepInputVisible = inputFocused && inputDraftActiveRef.current;
-        const pointerInInputShell = onModelSurface || inInputHotZone || inPetUi || modelMenuOpenRef.current;
+        const inputInteractionActive = Date.now() < inputInteractionUntilRef.current;
+        const pointerInInputShell = onModelSurface || inInputHotZone || inPetUi || modelMenuOpenRef.current || inputInteractionActive;
         if (!pointerInInputShell && inputShellHoverRef.current) {
           inputShellHoverRef.current = false;
         }
-        const keepWindowInteractive = inputFocused || overModel || inPetUi || inInputHotZone || modelMenuOpenRef.current;
-        const keepInputVisible = onModelSurface || focusShouldKeepInputVisible || inputShellHoverRef.current || inPetUi || modelMenuOpenRef.current;
+        const keepWindowInteractive = inputFocused || overModel || inPetUi || inInputHotZone || modelMenuOpenRef.current || inputInteractionActive;
+        const keepInputVisible = onModelSurface || focusShouldKeepInputVisible || inputShellHoverRef.current || inPetUi || modelMenuOpenRef.current || inputInteractionActive;
 
         void syncPetPointerPassthrough(!keepWindowInteractive);
 
@@ -1610,6 +1614,13 @@ export function PetWindow() {
     setShowInput(true);
   }
 
+  function holdPetInputInteractivity() {
+    clearInputHideTimer();
+    inputShellHoverRef.current = true;
+    inputInteractionUntilRef.current = Date.now() + PET_INPUT_INTERACTION_GRACE_MS;
+    void syncPetPointerPassthrough(false);
+  }
+
   function scheduleInputHide() {
     inputShellHoverRef.current = false;
     isNearModelRef.current = false;
@@ -1632,7 +1643,7 @@ export function PetWindow() {
 
   function revealPetInputSurface() {
     revealInput();
-    void syncPetPointerPassthrough(false);
+    holdPetInputInteractivity();
   }
 
   function revealPetInputShell() {
@@ -2692,14 +2703,6 @@ export function PetWindow() {
 
     const cssWidth = Math.max(1, window.innerWidth);
     const cssHeight = Math.max(1, window.innerHeight);
-    if (
-      rawClientX >= -cssWidth * 0.2
-      && rawClientX <= cssWidth * 1.2
-      && rawClientY >= -cssHeight * 0.2
-      && rawClientY <= cssHeight * 1.2
-    ) {
-      return { clientX: rawClientX, clientY: rawClientY };
-    }
     const scaleX = typeof position.windowWidth === "number" && position.windowWidth > 0
       ? position.windowWidth / cssWidth
       : window.devicePixelRatio;
@@ -2707,26 +2710,33 @@ export function PetWindow() {
       ? position.windowHeight / cssHeight
       : window.devicePixelRatio;
 
+    const inWindow = (point: { clientX: number; clientY: number }, margin = 0.2) => (
+      point.clientX >= -cssWidth * margin
+      && point.clientX <= cssWidth * (1 + margin)
+      && point.clientY >= -cssHeight * margin
+      && point.clientY <= cssHeight * (1 + margin)
+    );
+    const raw = { clientX: rawClientX, clientY: rawClientY };
     const normalized = {
       clientX: scaleX > 1.01 ? rawClientX / scaleX : rawClientX,
       clientY: scaleY > 1.01 ? rawClientY / scaleY : rawClientY
     };
-    if (
-      normalized.clientX >= -cssWidth * 0.4
-      && normalized.clientX <= cssWidth * 1.4
-      && normalized.clientY >= -cssHeight * 0.4
-      && normalized.clientY <= cssHeight * 1.4
-    ) {
+    const hasScaledWindow =
+      Math.abs(scaleX - 1) > 0.01
+      || Math.abs(scaleY - 1) > 0.01;
+    if (hasScaledWindow && inWindow(normalized, 0.4)) {
       return normalized;
     }
+    if (inWindow(raw, 0.2)) return raw;
+    if (inWindow(normalized, 0.4)) return normalized;
     const windowX = typeof position.windowScreenX === "number" ? position.windowScreenX : Number.NaN;
     const windowY = typeof position.windowScreenY === "number" ? position.windowScreenY : Number.NaN;
     const screenX = typeof position.screenX === "number" ? position.screenX : position.x;
     const screenY = typeof position.screenY === "number" ? position.screenY : position.y;
     if (Number.isFinite(windowX) && Number.isFinite(windowY) && typeof screenX === "number" && typeof screenY === "number") {
       return {
-        clientX: screenX - windowX,
-        clientY: screenY - windowY
+        clientX: scaleX > 1.01 ? (screenX - windowX) / scaleX : screenX - windowX,
+        clientY: scaleY > 1.01 ? (screenY - windowY) / scaleY : screenY - windowY
       };
     }
     return normalized;
@@ -2800,12 +2810,11 @@ export function PetWindow() {
   function isPointerInPetUi(clientX: number, clientY: number) {
     // The bubble is display-only; only the input shell and model menu
     // participate in the hide/reveal hover logic.
-    if (!showInputRef.current && !modelMenuOpenRef.current) {
-      return Boolean(rectContainsPoint(modelMenuRef.current, clientX, clientY, 8));
-    }
     if (rectContainsPoint(modelMenuRef.current, clientX, clientY, 8)) return true;
+    if (rectContainsPoint(inputShellRef.current, clientX, clientY, 8)) return true;
+    if (!showInputRef.current && !modelMenuOpenRef.current) return false;
     const element = document.elementFromPoint(clientX, clientY);
-    return Boolean(element?.closest(".pet-input-wrap, .pet-input-model-menu, .pet-input-attachment-row, .pet-file-drop-overlay"));
+    return Boolean(element?.closest(".pet-input-shell, .pet-input-wrap, .pet-input-model-menu, .pet-input-attachment-row, .pet-file-drop-overlay"));
   }
 
   async function startModelDrag(screenX?: number, screenY?: number) {
@@ -3264,13 +3273,16 @@ export function PetWindow() {
         className={`pet-input-shell${showInput ? "" : " is-hidden"}${modelMenuOpen ? " is-menu-open" : ""}${inputDragActive ? " is-dragging" : ""}`}
         ref={inputShellRef}
         aria-label="桌宠输入"
-        onFocusCapture={revealInput}
+        onFocusCapture={revealPetInputShell}
         onDragEnter={handlePetFileDragEnter}
         onDragOver={handlePetFileDragOver}
         onDragLeave={handlePetFileDragLeave}
         onDrop={handlePetFileDrop}
+        onMouseMove={holdPetInputInteractivity}
         onMouseEnter={revealPetInputShell}
         onMouseLeave={scheduleInputHide}
+        onPointerEnter={revealPetInputShell}
+        onPointerMove={holdPetInputInteractivity}
         onPointerDown={revealPetInputShell}
       >
         <div
@@ -3278,7 +3290,12 @@ export function PetWindow() {
           aria-hidden="true"
           onPointerDown={activatePetInputHotZone}
         />
-        <div className="pet-input-wrap">
+        <div
+          className="pet-input-wrap"
+          onPointerEnter={revealPetInputShell}
+          onPointerMove={holdPetInputInteractivity}
+          onPointerDown={revealPetInputShell}
+        >
           <button
             className="pet-input-model-button"
             onClick={toggleModelMenu}
@@ -3349,7 +3366,15 @@ export function PetWindow() {
           </div>
         ) : null}
         {modelMenuOpen ? (
-          <div className="pet-input-model-menu" ref={modelMenuRef} role="menu" style={{ padding: "8px", gap: "6px" }}>
+          <div
+            className="pet-input-model-menu"
+            ref={modelMenuRef}
+            role="menu"
+            style={{ padding: "8px", gap: "6px" }}
+            onPointerEnter={revealPetInputShell}
+            onPointerMove={holdPetInputInteractivity}
+            onPointerDown={revealPetInputShell}
+          >
             <div style={{ gridColumn: "1 / -1", padding: "2px 8px 6px", fontSize: "11px", color: "#64748b", fontWeight: 700, letterSpacing: "0.5px" }}>功能选项</div>
             <div className="pet-vision-menu-row" role="group" aria-label="视觉感知">
               <button

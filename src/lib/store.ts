@@ -236,8 +236,9 @@ function preserveLiveThinkingCardsForFinalMessage(
   previousMessage: ChatMessage | null,
   options?: IncomingMessageUpsertOptions
 ) {
-  if (!options?.final || message.role !== "assistant" || !previousMessage) return message;
+  if (!options?.final || message.role !== "assistant") return message;
   if (providerDataThinkingCards(message.providerData).length > 0) return message;
+  if (!previousMessage) return message;
   const liveCards = providerDataThinkingCards(previousMessage.providerData);
   if (liveCards.length === 0) return message;
   const root = providerDataRecord(message.providerData);

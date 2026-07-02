@@ -69,7 +69,7 @@ fn emit_assistant_stream_event(
     );
 }
 
-fn stream_thinking_provider_data(summary: &str) -> Value {
+fn stream_thinking_provider_data(summary: &str, streaming: bool) -> Value {
     json!({
         "thinkingCards": [{
             "provider": "llm",
@@ -77,9 +77,43 @@ fn stream_thinking_provider_data(summary: &str) -> Value {
             "title": "模型思考",
             "summary": summary,
             "redacted": false,
-            "streaming": true
+            "streaming": streaming
         }]
     })
+}
+
+fn finalize_streaming_thinking_cards(provider_data: &mut Option<Value>) -> bool {
+    let Some(root) = provider_data.as_mut() else {
+        return false;
+    };
+    let mut changed = false;
+    finalize_streaming_thinking_card_array(root.get_mut("thinkingCards"), &mut changed);
+    if let Some(responses) = root.get_mut("responses").and_then(Value::as_object_mut) {
+        finalize_streaming_thinking_card_array(responses.get_mut("thinkingCards"), &mut changed);
+    }
+    if let Some(anthropic) = root.get_mut("anthropic").and_then(Value::as_object_mut) {
+        finalize_streaming_thinking_card_array(anthropic.get_mut("thinkingCards"), &mut changed);
+    }
+    changed
+}
+
+fn finalize_streaming_thinking_card_array(value: Option<&mut Value>, changed: &mut bool) {
+    let Some(cards) = value.and_then(Value::as_array_mut) else {
+        return;
+    };
+    for card in cards {
+        let Some(card) = card.as_object_mut() else {
+            continue;
+        };
+        if card
+            .get("streaming")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            card.insert("streaming".into(), json!(false));
+            *changed = true;
+        }
+    }
 }
 
 fn provider_data_has_thinking_cards(provider_data: &Option<Value>) -> bool {
@@ -94,6 +128,36 @@ fn provider_data_has_thinking_cards(provider_data: &Option<Value>) -> bool {
     .into_iter()
     .flatten()
     .any(|value| value.as_array().is_some_and(|items| !items.is_empty()))
+}
+
+fn emit_streaming_thinking_finished(
+    app: &AppHandle,
+    message: &Arc<Mutex<ChatMessage>>,
+    source: &str,
+    persona_id: &str,
+    conversation_id: &str,
+) {
+    let message = {
+        let mut message = message
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if !finalize_streaming_thinking_cards(&mut message.provider_data) {
+            return;
+        }
+        message.clone()
+    };
+    let _ = app.emit(
+        "synthchat-chat-event",
+        json!({
+            "type": "assistant_thinking_stream",
+            "source": source,
+            "personaId": persona_id,
+            "conversationId": conversation_id,
+            "message": message,
+            "delta": "",
+            "isLast": true,
+        }),
+    );
 }
 
 #[derive(Clone)]
@@ -183,6 +247,19 @@ impl DesktopVisibleStreamState {
             }),
         );
     }
+
+    fn finish_thinking_segment(&self, app: Option<&AppHandle>, persona_id: &str) {
+        let Some(app) = app else {
+            return;
+        };
+        emit_streaming_thinking_finished(
+            app,
+            &self.message,
+            &self.source,
+            persona_id,
+            &self.conversation_id,
+        );
+    }
 }
 
 fn desktop_visible_stream_callback(
@@ -232,7 +309,7 @@ fn desktop_visible_stream_callback(
                 if is_first_visible_delta {
                     message.created_at = now_iso();
                 }
-                message.provider_data = Some(stream_thinking_provider_data(&summary));
+                message.provider_data = Some(stream_thinking_provider_data(&summary, true));
                 message.clone()
             };
             let _ = app.emit(
@@ -249,6 +326,13 @@ fn desktop_visible_stream_callback(
             );
             return Ok(());
         }
+        emit_streaming_thinking_finished(
+            &app,
+            &callback_message,
+            &source,
+            &persona_id,
+            &conversation_id,
+        );
         let visible_delta = callback_parser
             .lock()
             .map(|mut parser| parser.push(delta))
@@ -1483,6 +1567,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 return Ok(vec![user, assistant]);
             }
         };
+        desktop_stream_state.finish_thinking_segment(desktop_app, &persona.id);
         if abort_agent_run_for_turn_aborted_marker(
             store,
             &saved_run.run_id,
