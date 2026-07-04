@@ -7,9 +7,13 @@ use crate::{
     store::AppStore,
 };
 
-use super::{decision_parser::validated_tool_requests_from_decision, ToolExecutionContext};
+use super::{
+    decision_parser::validated_tool_requests_from_decision, tool_policy::is_internal_tool,
+    tool_registry::resolve_mcp_tool, ToolExecutionContext,
+};
 
 pub(super) const SYNTHGRAPH_WORKFLOW_SCHEMA: &str = "synthgraph_workflow_v1";
+pub(super) const WORKFLOW_INTERNAL_TOOL_SERVER_ID: &str = "__internal";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -103,6 +107,93 @@ pub(super) enum WorkflowExecutorRoute {
     },
 }
 
+#[derive(Debug, Clone)]
+pub(super) enum WorkflowExecutorToolResolution {
+    Internal(WorkflowExecutorToolIdentity),
+    Mcp {
+        identity: WorkflowExecutorToolIdentity,
+        definition: ToolDefinition,
+    },
+    Unavailable {
+        requested_name: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum WorkflowExecutorToolKind {
+    Internal,
+    Mcp,
+}
+
+impl WorkflowExecutorToolKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Internal => "internal",
+            Self::Mcp => "mcp",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct WorkflowExecutorToolIdentity {
+    requested_name: String,
+    server_id: String,
+    tool_name: String,
+    kind: WorkflowExecutorToolKind,
+}
+
+impl WorkflowExecutorToolIdentity {
+    fn internal(tool_name: &str) -> Self {
+        Self {
+            requested_name: tool_name.to_string(),
+            server_id: WORKFLOW_INTERNAL_TOOL_SERVER_ID.into(),
+            tool_name: tool_name.to_string(),
+            kind: WorkflowExecutorToolKind::Internal,
+        }
+    }
+
+    fn mcp(requested_name: &str, server_id: &str, tool_name: &str) -> Self {
+        Self {
+            requested_name: requested_name.to_string(),
+            server_id: server_id.to_string(),
+            tool_name: tool_name.to_string(),
+            kind: WorkflowExecutorToolKind::Mcp,
+        }
+    }
+
+    pub(super) fn requested_name(&self) -> &str {
+        &self.requested_name
+    }
+
+    pub(super) fn server_id(&self) -> &str {
+        &self.server_id
+    }
+
+    pub(super) fn tool_name(&self) -> &str {
+        &self.tool_name
+    }
+
+    pub(super) fn kind(&self) -> WorkflowExecutorToolKind {
+        self.kind
+    }
+
+    pub(super) fn is_internal(&self) -> bool {
+        self.kind == WorkflowExecutorToolKind::Internal
+    }
+
+    pub(super) fn is_mcp(&self) -> bool {
+        self.kind == WorkflowExecutorToolKind::Mcp
+    }
+
+    pub(super) fn source_label(&self) -> String {
+        if self.is_internal() {
+            self.requested_name.clone()
+        } else {
+            format!("{}:{}", self.server_id, self.tool_name)
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum WorkflowReviewerRoute {
     Completed {
@@ -117,9 +208,45 @@ pub(super) struct WorkflowDriver {
     mode: WorkflowMode,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct WorkflowApprovalNode {
+    driver: WorkflowDriver,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct WorkflowPlannerNode {
+    driver: WorkflowDriver,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct WorkflowExecutorNode {
+    driver: WorkflowDriver,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct WorkflowReviewerNode {
+    driver: WorkflowDriver,
+}
+
 impl WorkflowDriver {
     pub(super) fn new(mode: WorkflowMode) -> Self {
         Self { mode }
+    }
+
+    pub(super) fn approval(self) -> WorkflowApprovalNode {
+        WorkflowApprovalNode { driver: self }
+    }
+
+    pub(super) fn planner(self) -> WorkflowPlannerNode {
+        WorkflowPlannerNode { driver: self }
+    }
+
+    pub(super) fn executor(self) -> WorkflowExecutorNode {
+        WorkflowExecutorNode { driver: self }
+    }
+
+    pub(super) fn reviewer(self) -> WorkflowReviewerNode {
+        WorkflowReviewerNode { driver: self }
     }
 
     pub(super) fn bootstrap(
@@ -132,16 +259,11 @@ impl WorkflowDriver {
         push_workflow_graph_bootstrap(run, request, request_source, tool_context, self.mode);
     }
 
-    pub(super) fn planner_running(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        iteration: u32,
-    ) -> AppResult<()> {
+    fn planner_running(self, store: &AppStore, run_id: &str, iteration: u32) -> AppResult<()> {
         record_workflow_planner_running(store, run_id, iteration, self.mode)
     }
 
-    pub(super) fn approval_resumed(
+    fn approval_resumed(
         self,
         store: &AppStore,
         run_id: &str,
@@ -151,7 +273,7 @@ impl WorkflowDriver {
         record_workflow_approval_resumed(store, run_id, self.mode, server_id, tool_name)
     }
 
-    pub(super) fn planner_route(
+    fn planner_route(
         self,
         store: &AppStore,
         run_id: &str,
@@ -171,7 +293,7 @@ impl WorkflowDriver {
         )
     }
 
-    pub(super) fn executor_continue(
+    fn executor_continue(
         self,
         store: &AppStore,
         run_id: &str,
@@ -184,7 +306,7 @@ impl WorkflowDriver {
         )
     }
 
-    pub(super) fn executor_approval(
+    fn executor_approval(
         self,
         store: &AppStore,
         run_id: &str,
@@ -195,7 +317,17 @@ impl WorkflowDriver {
         resolve_workflow_executor_approval_route(store, run_id, iteration, server_id, tool_name)
     }
 
-    pub(super) fn reviewer_completed(
+    fn executor_tool_resolution(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        resolution: &WorkflowExecutorToolResolution,
+    ) -> AppResult<()> {
+        record_workflow_executor_tool_resolution(store, run_id, iteration, self.mode, resolution)
+    }
+
+    fn reviewer_completed(
         self,
         store: &AppStore,
         run_id: &str,
@@ -211,6 +343,150 @@ impl WorkflowDriver {
             model,
             provider_id,
         )
+    }
+}
+
+impl WorkflowApprovalNode {
+    pub(super) fn resumed(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        server_id: &str,
+        tool_name: &str,
+    ) -> AppResult<()> {
+        self.driver
+            .approval_resumed(store, run_id, server_id, tool_name)
+    }
+}
+
+impl WorkflowPlannerNode {
+    pub(super) fn running(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+    ) -> AppResult<()> {
+        self.driver.planner_running(store, run_id, iteration)
+    }
+
+    pub(super) fn route(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        decision: &Value,
+        fallback_content: &str,
+        available_tools: &[ToolDefinition],
+    ) -> AppResult<WorkflowPlannerRoute> {
+        self.driver.planner_route(
+            store,
+            run_id,
+            iteration,
+            decision,
+            fallback_content,
+            available_tools,
+        )
+    }
+}
+
+impl WorkflowExecutorNode {
+    pub(super) fn resolve_tool(
+        self,
+        requested_name: &str,
+        mcp_tools: &[ToolDefinition],
+    ) -> WorkflowExecutorToolResolution {
+        if is_internal_tool(requested_name) {
+            return WorkflowExecutorToolResolution::Internal(self.internal_tool(requested_name));
+        }
+        if let Some(definition) = resolve_mcp_tool(mcp_tools, requested_name) {
+            let identity =
+                self.mcp_tool(requested_name, &definition.server_id, &definition.tool_name);
+            return WorkflowExecutorToolResolution::Mcp {
+                identity,
+                definition,
+            };
+        }
+        WorkflowExecutorToolResolution::Unavailable {
+            requested_name: requested_name.to_string(),
+        }
+    }
+
+    pub(super) fn record_tool_resolution(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        resolution: &WorkflowExecutorToolResolution,
+    ) -> AppResult<()> {
+        self.driver
+            .executor_tool_resolution(store, run_id, iteration, resolution)
+    }
+
+    pub(super) fn internal_tool(self, tool_name: &str) -> WorkflowExecutorToolIdentity {
+        WorkflowExecutorToolIdentity::internal(tool_name)
+    }
+
+    pub(super) fn mcp_tool(
+        self,
+        requested_name: &str,
+        server_id: &str,
+        tool_name: &str,
+    ) -> WorkflowExecutorToolIdentity {
+        WorkflowExecutorToolIdentity::mcp(requested_name, server_id, tool_name)
+    }
+
+    pub(super) fn continue_planning(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        tool_count: usize,
+        parallel: Option<bool>,
+    ) -> AppResult<WorkflowExecutorRoute> {
+        self.driver
+            .executor_continue(store, run_id, iteration, tool_count, parallel)
+    }
+
+    fn await_approval(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        server_id: &str,
+        tool_name: &str,
+    ) -> AppResult<WorkflowExecutorRoute> {
+        self.driver
+            .executor_approval(store, run_id, iteration, server_id, tool_name)
+    }
+
+    pub(super) fn await_tool_approval(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        identity: &WorkflowExecutorToolIdentity,
+    ) -> AppResult<WorkflowExecutorRoute> {
+        self.await_approval(
+            store,
+            run_id,
+            iteration,
+            identity.server_id(),
+            identity.tool_name(),
+        )
+    }
+}
+
+impl WorkflowReviewerNode {
+    pub(super) fn completed(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        message_id: &str,
+        model: Option<&str>,
+        provider_id: Option<&str>,
+    ) -> AppResult<WorkflowReviewerRoute> {
+        self.driver
+            .reviewer_completed(store, run_id, message_id, model, provider_id)
     }
 }
 
@@ -525,6 +801,48 @@ pub(super) fn record_workflow_executor_to_planner(
     )
 }
 
+pub(super) fn record_workflow_executor_tool_resolution(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    resolution: &WorkflowExecutorToolResolution,
+) -> AppResult<()> {
+    let mut detail = workflow_turn_detail(mode, Some(iteration));
+    let status = match resolution {
+        WorkflowExecutorToolResolution::Internal(identity) => {
+            detail.insert("resolution".into(), json!("internal"));
+            detail.insert("available".into(), json!(true));
+            append_workflow_tool_identity_detail(&mut detail, identity);
+            WorkflowNodeStatus::Running
+        }
+        WorkflowExecutorToolResolution::Mcp {
+            identity,
+            definition,
+        } => {
+            detail.insert("resolution".into(), json!("mcp"));
+            detail.insert("available".into(), json!(true));
+            detail.insert("definitionName".into(), json!(definition.name.as_str()));
+            detail.insert("requiresApproval".into(), json!(definition.requires_approval));
+            append_workflow_tool_identity_detail(&mut detail, identity);
+            WorkflowNodeStatus::Running
+        }
+        WorkflowExecutorToolResolution::Unavailable { requested_name } => {
+            detail.insert("resolution".into(), json!("unavailable"));
+            detail.insert("available".into(), json!(false));
+            detail.insert("requestedName".into(), json!(requested_name));
+            WorkflowNodeStatus::Failed
+        }
+    };
+    append_workflow_node_event(
+        store,
+        run_id,
+        WorkflowNodeName::Executor,
+        status,
+        Value::Object(detail),
+    )
+}
+
 pub(super) fn record_workflow_planner_to_reviewer(
     store: &AppStore,
     run_id: &str,
@@ -732,6 +1050,17 @@ fn workflow_turn_detail(mode: WorkflowMode, iteration: Option<u32>) -> Map<Strin
         detail.insert("iteration".into(), json!(iteration));
     }
     detail
+}
+
+fn append_workflow_tool_identity_detail(
+    detail: &mut Map<String, Value>,
+    identity: &WorkflowExecutorToolIdentity,
+) {
+    detail.insert("requestedName".into(), json!(identity.requested_name()));
+    detail.insert("serverId".into(), json!(identity.server_id()));
+    detail.insert("toolName".into(), json!(identity.tool_name()));
+    detail.insert("toolKind".into(), json!(identity.kind().as_str()));
+    detail.insert("sourceLabel".into(), json!(identity.source_label()));
 }
 
 fn workflow_iteration_label(mode: WorkflowMode, iteration: u32) -> String {

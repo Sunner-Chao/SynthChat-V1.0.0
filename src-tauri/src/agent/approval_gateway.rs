@@ -117,7 +117,11 @@ async fn continue_agent_run_after_approval(
     let mut assistant_provider_id: Option<String> = None;
 
     let workflow_driver = WorkflowDriver::new(WorkflowMode::ApprovalContinuation);
-    workflow_driver.approval_resumed(
+    let workflow_approval = workflow_driver.approval();
+    let workflow_planner = workflow_driver.planner();
+    let workflow_executor = workflow_driver.executor();
+    let workflow_reviewer = workflow_driver.reviewer();
+    workflow_approval.resumed(
         store,
         &run.run_id,
         &approval.server_id,
@@ -163,7 +167,7 @@ async fn continue_agent_run_after_approval(
         )? {
             return Ok(());
         }
-        workflow_driver.planner_running(
+        workflow_planner.running(
             store,
             &run.run_id,
             iteration + 1,
@@ -346,7 +350,7 @@ async fn continue_agent_run_after_approval(
             &decision,
         )?;
 
-        match workflow_driver.planner_route(
+        match workflow_planner.route(
             store,
             &run.run_id,
             iteration + 1,
@@ -387,11 +391,21 @@ async fn continue_agent_run_after_approval(
                             break;
                         }
                     }
-                    if is_internal_tool(&tool_name) {
+                    let tool_resolution = workflow_executor.resolve_tool(&tool_name, &mcp_tools);
+                    let run_id_for_resolution = run.run_id.clone();
+                    workflow_executor.record_tool_resolution(
+                        store,
+                        &run_id_for_resolution,
+                        iteration + 1,
+                        &tool_resolution,
+                    )?;
+                    run = store.agent_run(&run_id_for_resolution)?;
+                    match tool_resolution {
+                        WorkflowExecutorToolResolution::Internal(tool_identity) => {
                         let approval_reason = match tool_approval_reason(
                             store,
-                            "__internal",
-                            &tool_name,
+                            tool_identity.server_id(),
+                            tool_identity.tool_name(),
                             &payload,
                             is_risky_tool_call(&tool_name, &payload),
                         ) {
@@ -452,8 +466,8 @@ async fn continue_agent_run_after_approval(
                             run_pre_approval_request_hooks(
                                 store,
                                 &run.run_id,
-                                "__internal",
-                                &tool_name,
+                                tool_identity.server_id(),
+                                tool_identity.tool_name(),
                                 &payload,
                                 &reason,
                             )
@@ -464,18 +478,17 @@ async fn continue_agent_run_after_approval(
                                 &persona.id,
                                 &agent.id,
                                 &run.run_id,
-                                "__internal",
-                                &tool_name,
+                                tool_identity.server_id(),
+                                tool_identity.tool_name(),
                                 payload,
                                 reason,
                                 ToolExecutionContext::Interactive,
                             )?;
-                            let approval_route = workflow_driver.executor_approval(
+                            let approval_route = workflow_executor.await_tool_approval(
                                 store,
                                 &run.run_id,
                                 iteration + 1,
-                                "__internal",
-                                &tool_name,
+                                &tool_identity,
                             )?;
                             debug_assert!(matches!(
                                 approval_route,
@@ -485,8 +498,8 @@ async fn continue_agent_run_after_approval(
                             append_waiting_for_approval_message(
                                 store,
                                 &run.conversation_id,
-                                "__internal",
-                                &tool_name,
+                                tool_identity.server_id(),
+                                tool_identity.tool_name(),
                             )?;
                             return Ok(());
                         }
@@ -494,8 +507,8 @@ async fn continue_agent_run_after_approval(
                             store,
                             app,
                             &run.run_id,
-                            "__internal",
-                            &tool_name,
+                            tool_identity.server_id(),
+                            tool_identity.tool_name(),
                             &payload,
                             iteration + 1,
                         )?;
@@ -640,11 +653,15 @@ async fn continue_agent_run_after_approval(
                                 }
                             }
                         }
-                    } else if let Some(definition) = resolve_mcp_tool(&mcp_tools, &tool_name) {
+                        },
+                        WorkflowExecutorToolResolution::Mcp {
+                            identity: tool_identity,
+                            definition,
+                        } => {
                         let approval_reason = match tool_approval_reason(
                             store,
-                            &definition.server_id,
-                            &definition.tool_name,
+                            tool_identity.server_id(),
+                            tool_identity.tool_name(),
                             &payload,
                             definition.requires_approval,
                         ) {
@@ -675,7 +692,7 @@ async fn continue_agent_run_after_approval(
                             &providers,
                             &effective_persona,
                             approval_reason,
-                            &definition.tool_name,
+                            tool_identity.tool_name(),
                             &payload,
                         )
                         .await
@@ -705,8 +722,8 @@ async fn continue_agent_run_after_approval(
                             run_pre_approval_request_hooks(
                                 store,
                                 &run.run_id,
-                                &definition.server_id,
-                                &definition.tool_name,
+                                tool_identity.server_id(),
+                                tool_identity.tool_name(),
                                 &payload,
                                 &reason,
                             )
@@ -717,18 +734,17 @@ async fn continue_agent_run_after_approval(
                                 &persona.id,
                                 &agent.id,
                                 &run.run_id,
-                                &definition.server_id,
-                                &definition.tool_name,
+                                tool_identity.server_id(),
+                                tool_identity.tool_name(),
                                 payload,
                                 reason,
                                 ToolExecutionContext::Interactive,
                             )?;
-                            let approval_route = workflow_driver.executor_approval(
+                            let approval_route = workflow_executor.await_tool_approval(
                                 store,
                                 &run.run_id,
                                 iteration + 1,
-                                &definition.server_id,
-                                &definition.tool_name,
+                                &tool_identity,
                             )?;
                             debug_assert!(matches!(
                                 approval_route,
@@ -738,8 +754,8 @@ async fn continue_agent_run_after_approval(
                             append_waiting_for_approval_message(
                                 store,
                                 &run.conversation_id,
-                                &definition.server_id,
-                                &definition.tool_name,
+                                tool_identity.server_id(),
+                                tool_identity.tool_name(),
                             )?;
                             return Ok(());
                         }
@@ -747,8 +763,8 @@ async fn continue_agent_run_after_approval(
                             store,
                             app,
                             &run.run_id,
-                            &definition.server_id,
-                            &definition.tool_name,
+                            tool_identity.server_id(),
+                            tool_identity.tool_name(),
                             &payload,
                             iteration + 1,
                         )?;
@@ -787,8 +803,7 @@ async fn continue_agent_run_after_approval(
                                     &text,
                                     &mut event,
                                 )?;
-                                let tool_source =
-                                    format!("{}:{}", definition.server_id, definition.tool_name);
+                                let tool_source = tool_identity.source_label();
                                 let observation_text = append_subdirectory_hints_to_tool_result(
                                     &agent,
                                     &tool_name,
@@ -879,9 +894,10 @@ async fn continue_agent_run_after_approval(
                                 }
                             }
                         }
-                    } else {
+                        },
+                        WorkflowExecutorToolResolution::Unavailable { requested_name } => {
                         let error =
-                            AppError::BadRequest(format!("tool is not available: {tool_name}"));
+                            AppError::BadRequest(format!("tool is not available: {requested_name}"));
                         record_tool_failed_for_run(
                             store,
                             app,
@@ -922,6 +938,7 @@ async fn continue_agent_run_after_approval(
                                 break;
                             }
                         }
+                        },
                     }
                     if !assistant_text.trim().is_empty() {
                         break;
@@ -930,7 +947,7 @@ async fn continue_agent_run_after_approval(
                 if !assistant_text.trim().is_empty() {
                     break;
                 }
-                let executor_route = workflow_driver.executor_continue(
+                let executor_route = workflow_executor.continue_planning(
                     store,
                     &run.run_id,
                     iteration + 1,
@@ -1030,7 +1047,7 @@ async fn continue_agent_run_after_approval(
     final_run.updated_at = now_iso();
     final_run.completed_at = Some(final_run.updated_at.clone());
     let saved_final_run = store.save_agent_run(final_run)?;
-    let reviewer_route = workflow_driver.reviewer_completed(
+    let reviewer_route = workflow_reviewer.completed(
         store,
         &saved_final_run.run_id,
         &assistant.id,

@@ -20,7 +20,9 @@ use super::workflow_graph::{
     record_workflow_planner_to_executor, resolve_workflow_executor_approval_route,
     resolve_workflow_executor_continue_route, resolve_workflow_planner_route,
     resolve_workflow_reviewer_completed_route, WorkflowDriver, WorkflowExecutorRoute, WorkflowMode,
-    WorkflowNodeName, WorkflowNodeStatus, WorkflowPlannerRoute, WorkflowReviewerRoute,
+    WorkflowExecutorToolKind, WorkflowExecutorToolResolution, WorkflowNodeName,
+    WorkflowNodeStatus, WorkflowPlannerRoute, WorkflowReviewerRoute,
+    WORKFLOW_INTERNAL_TOOL_SERVER_ID,
 };
 use super::*;
 use crate::store::{ManagedProcess, ManagedProcessNotificationState};
@@ -58526,10 +58528,13 @@ fn workflow_driver_routes_planner_executor_and_reviewer() {
     store.save_agent_run(run.clone()).unwrap();
 
     let driver = WorkflowDriver::new(WorkflowMode::ChatTurn);
+    let planner = driver.planner();
+    let executor = driver.executor();
+    let reviewer = driver.reviewer();
     let decision =
         parse_agent_decision(r#"{"action":"tool","tool":"terminal","payload":{"command":"pwd"}}"#);
-    let planner_route = driver
-        .planner_route(
+    let planner_route = planner
+        .route(
             &store,
             &run.run_id,
             1,
@@ -58545,8 +58550,8 @@ fn workflow_driver_routes_planner_executor_and_reviewer() {
         other => panic!("expected execute route, got {other:?}"),
     }
 
-    let executor_route = driver
-        .executor_continue(&store, &run.run_id, 1, 1, Some(false))
+    let executor_route = executor
+        .continue_planning(&store, &run.run_id, 1, 1, Some(false))
         .unwrap();
     assert_eq!(
         executor_route,
@@ -58556,8 +58561,69 @@ fn workflow_driver_routes_planner_executor_and_reviewer() {
         }
     );
 
-    let reviewer_route = driver
-        .reviewer_completed(&store, &run.run_id, "msg-2", Some("model"), Some("provider"))
+    let internal_identity = executor.internal_tool("terminal");
+    assert_eq!(internal_identity.requested_name(), "terminal");
+    assert_eq!(
+        internal_identity.server_id(),
+        WORKFLOW_INTERNAL_TOOL_SERVER_ID
+    );
+    assert_eq!(internal_identity.tool_name(), "terminal");
+    assert_eq!(internal_identity.kind(), WorkflowExecutorToolKind::Internal);
+    assert!(internal_identity.is_internal());
+    assert!(!internal_identity.is_mcp());
+    assert_eq!(internal_identity.source_label(), "terminal");
+
+    let mcp_identity = executor.mcp_tool("mcp_files_write", "mcp.files", "write_file");
+    assert_eq!(mcp_identity.requested_name(), "mcp_files_write");
+    assert_eq!(mcp_identity.server_id(), "mcp.files");
+    assert_eq!(mcp_identity.tool_name(), "write_file");
+    assert_eq!(mcp_identity.kind(), WorkflowExecutorToolKind::Mcp);
+    assert!(mcp_identity.is_mcp());
+    assert!(!mcp_identity.is_internal());
+    assert_eq!(mcp_identity.source_label(), "mcp.files:write_file");
+
+    match executor.resolve_tool("terminal", &[]) {
+        WorkflowExecutorToolResolution::Internal(identity) => {
+            assert_eq!(identity.tool_name(), "terminal");
+            assert!(identity.is_internal());
+        }
+        other => panic!("expected internal tool resolution, got {other:?}"),
+    }
+
+    let mcp_tool = ToolDefinition {
+        name: "browser.snapshot".into(),
+        display_name: "Snapshot".into(),
+        description: "Take a browser snapshot".into(),
+        source: "mcp".into(),
+        server_id: "browser".into(),
+        tool_name: "snapshot".into(),
+        input_schema: json!({"type": "object"}),
+        requires_approval: true,
+    };
+    match executor.resolve_tool("mcp_browser_snapshot", &[mcp_tool.clone()]) {
+        WorkflowExecutorToolResolution::Mcp {
+            identity,
+            definition,
+        } => {
+            assert_eq!(identity.requested_name(), "mcp_browser_snapshot");
+            assert_eq!(identity.server_id(), "browser");
+            assert_eq!(identity.tool_name(), "snapshot");
+            assert!(identity.is_mcp());
+            assert_eq!(definition.tool_name, "snapshot");
+            assert!(definition.requires_approval);
+        }
+        other => panic!("expected mcp tool resolution, got {other:?}"),
+    }
+
+    match executor.resolve_tool("missing_tool", &[mcp_tool]) {
+        WorkflowExecutorToolResolution::Unavailable { requested_name } => {
+            assert_eq!(requested_name, "missing_tool");
+        }
+        other => panic!("expected unavailable tool resolution, got {other:?}"),
+    }
+
+    let reviewer_route = reviewer
+        .completed(&store, &run.run_id, "msg-2", Some("model"), Some("provider"))
         .unwrap();
     assert_eq!(
         reviewer_route,
@@ -58578,6 +58644,70 @@ fn workflow_driver_routes_planner_executor_and_reviewer() {
         .find(|node| node["node"] == "reviewer")
         .unwrap();
     assert_eq!(reviewer["status"], "completed");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_executor_records_tool_resolution_detail() {
+    let dir =
+        std::env::temp_dir().join(format!("synthchat-workflow-tool-resolution-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let executor = WorkflowDriver::new(WorkflowMode::ChatTurn).executor();
+    let mcp_tool = ToolDefinition {
+        name: "browser.snapshot".into(),
+        display_name: "Snapshot".into(),
+        description: "Take a browser snapshot".into(),
+        source: "mcp".into(),
+        server_id: "browser".into(),
+        tool_name: "snapshot".into(),
+        input_schema: json!({"type": "object"}),
+        requires_approval: true,
+    };
+    let resolution = executor.resolve_tool("mcp_browser_snapshot", &[mcp_tool]);
+    executor
+        .record_tool_resolution(&store, &run.run_id, 2, &resolution)
+        .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    let executor_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor_node["status"], "running");
+    assert_eq!(executor_node["detail"]["resolution"], "mcp");
+    assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+    assert_eq!(executor_node["detail"]["serverId"], "browser");
+    assert_eq!(executor_node["detail"]["toolName"], "snapshot");
+    assert_eq!(executor_node["detail"]["toolKind"], "mcp");
+    assert_eq!(executor_node["detail"]["sourceLabel"], "browser:snapshot");
+    assert_eq!(executor_node["detail"]["requiresApproval"], true);
+
+    let unavailable = executor.resolve_tool("missing_tool", &[]);
+    executor
+        .record_tool_resolution(&store, &run.run_id, 3, &unavailable)
+        .unwrap();
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let executor_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor_node["status"], "failed");
+    assert_eq!(executor_node["detail"]["resolution"], "unavailable");
+    assert_eq!(executor_node["detail"]["available"], false);
+    assert_eq!(executor_node["detail"]["requestedName"], "missing_tool");
 
     let _ = fs::remove_dir_all(dir);
 }

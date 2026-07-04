@@ -739,8 +739,8 @@ use web_tools::{
 };
 use workflow_graph::{
     append_workflow_checkpoint_event, append_workflow_transition_event,
-    WorkflowDriver, WorkflowExecutorRoute, WorkflowMode, WorkflowNodeName, WorkflowPlannerRoute,
-    WorkflowReviewerRoute,
+    WorkflowDriver, WorkflowExecutorRoute, WorkflowExecutorToolResolution, WorkflowMode,
+    WorkflowNodeName, WorkflowPlannerRoute, WorkflowReviewerRoute,
 };
 use workspace::{
     likely_binary, resolve_workspace_path, resolve_workspace_target_path, should_skip_dir,
