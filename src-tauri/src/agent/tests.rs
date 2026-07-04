@@ -58378,6 +58378,7 @@ fn workflow_planner_route_driver_recovers_from_schema_error() {
         .find(|node| node["node"] == "planner")
         .unwrap();
     assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "tool_schema_validation");
     assert!(planner["detail"]["error"]
         .as_str()
         .unwrap()
@@ -58848,29 +58849,48 @@ fn executor_core_resolves_records_and_routes_approval_waits() {
     assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
     assert_eq!(executor_node["detail"]["sourceLabel"], "browser:snapshot");
 
-    executor_core
-        .record_approval_policy_stage(
-            &store,
-            &run.run_id,
-            2,
-            &identity,
-            "base_policy",
+    let staged_policy_cases: [(WorkflowExecutorApprovalPolicyStage, Option<&str>, bool); 4] = [
+        (
+            WorkflowExecutorApprovalPolicyStage::Base,
             Some("needs review"),
-        )
-        .unwrap();
-    let saved = store.agent_run(&run.run_id).unwrap();
-    let graph = saved.workflow_graph.as_ref().unwrap();
-    let executor_node = graph["nodes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|node| node["node"] == "executor")
-        .unwrap();
-    assert_eq!(executor_node["status"], "running");
-    assert_eq!(executor_node["detail"]["stage"], "base_policy");
-    assert_eq!(executor_node["detail"]["requiresApproval"], true);
-    assert_eq!(executor_node["detail"]["reason"], "needs review");
-    assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+            true,
+        ),
+        (
+            WorkflowExecutorApprovalPolicyStage::Scheduled,
+            Some("scheduled review"),
+            true,
+        ),
+        (WorkflowExecutorApprovalPolicyStage::Smart, None, false),
+        (
+            WorkflowExecutorApprovalPolicyStage::Subagent,
+            Some("subagent review"),
+            true,
+        ),
+    ];
+    for (stage, reason, requires_approval) in staged_policy_cases {
+        executor_core
+            .record_approval_policy_stage(&store, &run.run_id, 2, &identity, stage, reason)
+            .unwrap();
+        let saved = store.agent_run(&run.run_id).unwrap();
+        let graph = saved.workflow_graph.as_ref().unwrap();
+        let executor_node = graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["node"] == "executor")
+            .unwrap();
+        assert_eq!(executor_node["status"], "running");
+        assert_eq!(executor_node["detail"]["stage"], stage.as_str());
+        assert_eq!(
+            executor_node["detail"]["requiresApproval"],
+            requires_approval
+        );
+        match reason {
+            Some(reason) => assert_eq!(executor_node["detail"]["reason"], reason),
+            None => assert!(executor_node["detail"].get("reason").is_none()),
+        }
+        assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+    }
 
     executor_core
         .record_approval_policy(&store, &run.run_id, 2, &identity, Some("needs review"))
@@ -59004,11 +59024,22 @@ fn automatic_mutation_checkpoint_emits_workflow_checkpoint_event() {
         })
         .unwrap();
     assert_eq!(workflow_checkpoint.detail["status"], "completed");
+    assert_eq!(
+        workflow_checkpoint.detail["detail"]["checkpointScope"],
+        "pre_mutation"
+    );
+    assert_eq!(workflow_checkpoint.detail["detail"]["mutationKind"], "file");
+    assert_eq!(
+        workflow_checkpoint.detail["detail"]["targetSummary"],
+        "path=src/main.rs"
+    );
     assert_eq!(workflow_checkpoint.detail["detail"]["toolName"], "write_file");
     let graph = saved.workflow_graph.as_ref().unwrap();
     assert_eq!(graph["currentNode"], "checkpoint");
     assert_eq!(graph["nodes"][0]["node"], "checkpoint");
     assert_eq!(graph["nodes"][0]["detail"]["kind"], "automatic_mutation_checkpoint");
+    assert_eq!(graph["nodes"][0]["detail"]["checkpointScope"], "pre_mutation");
+    assert_eq!(graph["nodes"][0]["detail"]["targetSummary"], "path=src/main.rs");
 
     let _ = fs::remove_dir_all(dir);
 }

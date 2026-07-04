@@ -1973,7 +1973,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             &saved_run.run_id,
                             iteration + 1,
                             &tool_identity,
-                            "base_policy",
+                            WorkflowExecutorApprovalPolicyStage::Base,
                             approval_reason.as_deref(),
                         )?;
                         let approval_reason = match apply_scheduled_approval_mode(
@@ -2003,6 +2003,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Scheduled,
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_smart_approval_mode(
                             store,
                             &saved_run.run_id,
@@ -2035,6 +2043,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Smart,
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_subagent_approval_override(
                             tool_context,
                             subagent_auto_approve,
@@ -2062,6 +2078,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Subagent,
+                            approval_reason.as_deref(),
+                        )?;
                         executor_core.record_approval_policy(
                             store,
                             &saved_run.run_id,
@@ -2295,7 +2319,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             &saved_run.run_id,
                             iteration + 1,
                             &tool_identity,
-                            "base_policy",
+                            WorkflowExecutorApprovalPolicyStage::Base,
                             approval_reason.as_deref(),
                         )?;
                         let approval_reason = match apply_scheduled_approval_mode(
@@ -2325,6 +2349,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Scheduled,
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_smart_approval_mode(
                             store,
                             &saved_run.run_id,
@@ -2357,6 +2389,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Smart,
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_subagent_approval_override(
                             tool_context,
                             subagent_auto_approve,
@@ -2384,6 +2424,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Subagent,
+                            approval_reason.as_deref(),
+                        )?;
                         executor_core.record_approval_policy(
                             store,
                             &saved_run.run_id,

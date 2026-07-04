@@ -162,7 +162,7 @@ impl ExecutorCore {
         run_id: &str,
         iteration: u32,
         identity: &WorkflowExecutorToolIdentity,
-        stage: &str,
+        stage: WorkflowExecutorApprovalPolicyStage,
         reason: Option<&str>,
     ) -> AppResult<()> {
         self.workflow

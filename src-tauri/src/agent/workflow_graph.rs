@@ -95,6 +95,21 @@ pub(super) enum WorkflowPlannerRoute {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorkflowPlannerErrorKind {
+    ToolSchemaValidation,
+    ToolRequest,
+}
+
+impl WorkflowPlannerErrorKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::ToolSchemaValidation => "tool_schema_validation",
+            Self::ToolRequest => "tool_request",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum WorkflowExecutorRoute {
     ContinuePlanning {
@@ -163,6 +178,27 @@ impl WorkflowExecutorToolKind {
         match self {
             Self::Internal => "internal",
             Self::Mcp => "mcp",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum WorkflowExecutorApprovalPolicyStage {
+    Base,
+    Scheduled,
+    Smart,
+    Subagent,
+    Final,
+}
+
+impl WorkflowExecutorApprovalPolicyStage {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Base => "base_policy",
+            Self::Scheduled => "scheduled_policy",
+            Self::Smart => "smart_policy",
+            Self::Subagent => "subagent_policy",
+            Self::Final => "approval_policy",
         }
     }
 }
@@ -401,7 +437,7 @@ impl WorkflowDriver {
         run_id: &str,
         iteration: u32,
         identity: &WorkflowExecutorToolIdentity,
-        stage: &str,
+        stage: WorkflowExecutorApprovalPolicyStage,
         reason: Option<&str>,
     ) -> AppResult<()> {
         record_workflow_executor_approval_policy_stage(
@@ -541,7 +577,7 @@ impl WorkflowExecutorNode {
         run_id: &str,
         iteration: u32,
         identity: &WorkflowExecutorToolIdentity,
-        stage: &str,
+        stage: WorkflowExecutorApprovalPolicyStage,
         reason: Option<&str>,
     ) -> AppResult<()> {
         self.driver
@@ -872,14 +908,16 @@ pub(super) fn record_workflow_planner_running(
     )
 }
 
-pub(super) fn record_workflow_planner_failed(
+fn record_workflow_planner_failed(
     store: &AppStore,
     run_id: &str,
     iteration: u32,
     mode: WorkflowMode,
+    error_kind: WorkflowPlannerErrorKind,
     error: &str,
 ) -> AppResult<()> {
     let mut detail = workflow_turn_detail(mode, Some(iteration));
+    detail.insert("errorKind".into(), json!(error_kind.as_str()));
     detail.insert("error".into(), json!(error));
     append_workflow_node_event(
         store,
@@ -1016,7 +1054,7 @@ pub(super) fn record_workflow_executor_approval_policy(
         iteration,
         mode,
         identity,
-        "approval_policy",
+        WorkflowExecutorApprovalPolicyStage::Final,
         reason,
     )
 }
@@ -1027,11 +1065,11 @@ pub(super) fn record_workflow_executor_approval_policy_stage(
     iteration: u32,
     mode: WorkflowMode,
     identity: &WorkflowExecutorToolIdentity,
-    stage: &str,
+    stage: WorkflowExecutorApprovalPolicyStage,
     reason: Option<&str>,
 ) -> AppResult<()> {
     let mut detail = workflow_turn_detail(mode, Some(iteration));
-    detail.insert("stage".into(), json!(stage));
+    detail.insert("stage".into(), json!(stage.as_str()));
     detail.insert("requiresApproval".into(), json!(reason.is_some()));
     if let Some(reason) = reason {
         detail.insert("reason".into(), json!(reason));
@@ -1123,6 +1161,7 @@ pub(super) fn resolve_workflow_planner_route(
                         run_id,
                         iteration,
                         mode,
+                        WorkflowPlannerErrorKind::ToolSchemaValidation,
                         &error_message,
                     )?;
                     return Ok(WorkflowPlannerRoute::Recover {
@@ -1137,7 +1176,14 @@ pub(super) fn resolve_workflow_planner_route(
             if requests.is_empty() {
                 let error_message =
                     "planner requested tool action without a valid tool name".to_string();
-                record_workflow_planner_failed(store, run_id, iteration, mode, &error_message)?;
+                record_workflow_planner_failed(
+                    store,
+                    run_id,
+                    iteration,
+                    mode,
+                    WorkflowPlannerErrorKind::ToolRequest,
+                    &error_message,
+                )?;
                 return Ok(WorkflowPlannerRoute::Recover {
                     observation: format!(
                         "{} tool error: {}",

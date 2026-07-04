@@ -438,7 +438,7 @@ async fn continue_agent_run_after_approval(
                             &run.run_id,
                             iteration + 1,
                             &tool_identity,
-                            "base_policy",
+                            WorkflowExecutorApprovalPolicyStage::Base,
                             approval_reason.as_deref(),
                         )?;
                         let approval_reason = match apply_smart_approval_mode(
@@ -473,6 +473,14 @@ async fn continue_agent_run_after_approval(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Smart,
+                            approval_reason.as_deref(),
+                        )?;
                         executor_core.record_approval_policy(
                             store,
                             &run.run_id,
@@ -697,7 +705,7 @@ async fn continue_agent_run_after_approval(
                             &run.run_id,
                             iteration + 1,
                             &tool_identity,
-                            "base_policy",
+                            WorkflowExecutorApprovalPolicyStage::Base,
                             approval_reason.as_deref(),
                         )?;
                         let approval_reason = match apply_smart_approval_mode(
@@ -732,6 +740,14 @@ async fn continue_agent_run_after_approval(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            WorkflowExecutorApprovalPolicyStage::Smart,
+                            approval_reason.as_deref(),
+                        )?;
                         executor_core.record_approval_policy(
                             store,
                             &run.run_id,

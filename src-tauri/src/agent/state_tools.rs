@@ -396,6 +396,7 @@ pub(super) fn automatic_mutation_checkpoint(
         return Ok(None);
     }
     let mut run = store.agent_run(run_id)?;
+    let target_summary = summarize_mutation_payload(tool_name, payload);
     let checkpoint = AgentCheckpointRecord {
         checkpoint_id: new_id("ckpt"),
         run_id: run_id.to_string(),
@@ -404,10 +405,7 @@ pub(super) fn automatic_mutation_checkpoint(
         state: "pre_file_mutation".into(),
         completed_call_ids: vec![],
         event_refs: vec![],
-        summary: format!(
-            "Automatic checkpoint before {tool_name}: {}",
-            summarize_mutation_payload(tool_name, payload)
-        ),
+        summary: format!("Automatic checkpoint before {tool_name}: {target_summary}"),
     };
     run.checkpoints.push(checkpoint.clone());
     run.updated_at = now_iso();
@@ -422,8 +420,11 @@ pub(super) fn automatic_mutation_checkpoint(
         &checkpoint_summary,
         json!({
             "kind": "automatic_mutation_checkpoint",
+            "checkpointScope": "pre_mutation",
             "checkpointId": checkpoint_id,
             "iteration": checkpoint.iteration,
+            "mutationKind": "file",
+            "targetSummary": target_summary,
             "toolName": tool_name,
         }),
     )?;
