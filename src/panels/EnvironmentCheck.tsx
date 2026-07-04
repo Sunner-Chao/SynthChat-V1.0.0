@@ -58,6 +58,7 @@ function ItemIcon({ id }: { id: string }) {
     vision_model: Cpu,
     python: Terminal,
     chattts: Mic,
+    "edge-tts": Mic,
     docker_requirements: Terminal,
   };
   const Icon = iconMap[id] ?? Zap;
@@ -221,6 +222,7 @@ export function EnvironmentCheck({ onComplete }: EnvironmentCheckProps) {
       start_ollama: () => api.startOllamaService(),
       pull_vision_model: () => api.pullVisionModel(),
       install_chattts_deps: (d) => api.installChatttsDeps(d),
+      install_edge_tts: () => api.installEdgeTts(),
     };
 
     const fn = actionMap[action];

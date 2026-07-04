@@ -553,6 +553,14 @@ export async function environmentCheck(): Promise<EnvCheckResult> {
   }));
 }
 
+export async function installEdgeTts(): Promise<ActionResult> {
+  return call("install_edge_tts", {}, () => ok("Standalone mock mode: edge-tts install skipped."));
+}
+
+export async function installMissingEnvironmentDeps(): Promise<ActionResult> {
+  return call("install_missing_environment_deps", {}, () => ok("Standalone mock mode: dependency install skipped."));
+}
+
 const empty = async <T,>(): Promise<T[]> => [];
 const pass = async <T,>(value: T): Promise<T> => value;
 
@@ -1072,7 +1080,8 @@ export const api: Record<string, any> = {
   startOllamaService: async () => ok(),
   pullVisionModel: async () => ok(),
   installChatttsDeps: async () => ok(),
-  installAllMissing: async () => ok(),
+  installEdgeTts,
+  installAllMissing: installMissingEnvironmentDeps,
   cancelEnvironmentAction: async () => ok(),
   getWechatConfig: () => call<WechatConfig>("get_wechat_config", {}, () => ({ baseUrl: "", timeoutSeconds: 35 })),
   saveWechatConfig: (config: WechatConfig) =>

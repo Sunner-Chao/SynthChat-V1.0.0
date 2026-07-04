@@ -18,7 +18,7 @@ use std::{
     hash::{Hash, Hasher},
     io::{self, BufRead, IsTerminal, Write},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
     sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -4995,12 +4995,299 @@ fn mime_for_image_path(path: &str) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PythonCommand {
+    program: String,
+    prefix_args: Vec<String>,
+}
+
+impl PythonCommand {
+    fn new(program: impl Into<String>, prefix_args: Vec<String>) -> Self {
+        Self {
+            program: program.into(),
+            prefix_args,
+        }
+    }
+
+    fn display_with(&self, extra_args: &[&str]) -> String {
+        let mut parts = vec![self.program.clone()];
+        parts.extend(self.prefix_args.iter().cloned());
+        parts.extend(extra_args.iter().map(|item| item.to_string()));
+        parts.join(" ")
+    }
+}
+
+fn edge_tts_platform_label() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => "Windows",
+        "macos" => "macOS",
+        "linux" => "Linux",
+        other => other,
+    }
+}
+
+fn edge_tts_install_hint() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => "python -m pip install edge-tts",
+        "macos" => "python3 -m pip install --user edge-tts",
+        "linux" => "python3 -m pip install --user edge-tts",
+        _ => "python -m pip install edge-tts",
+    }
+}
+
+fn edge_tts_python_candidates() -> Vec<PythonCommand> {
+    let mut candidates = Vec::new();
+    for key in ["SYNTHCHAT_EDGE_TTS_PYTHON", "HERMES_PYTHON"] {
+        if let Ok(value) = std::env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                candidates.push(PythonCommand::new(trimmed, vec![]));
+            }
+        }
+    }
+    if cfg!(windows) {
+        candidates.push(PythonCommand::new("python", vec![]));
+        candidates.push(PythonCommand::new("py", vec!["-3".into()]));
+        candidates.push(PythonCommand::new("python3", vec![]));
+    } else {
+        candidates.push(PythonCommand::new("python3", vec![]));
+        candidates.push(PythonCommand::new("python", vec![]));
+    }
+
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        let key = candidate.display_with(&[]);
+        if !unique
+            .iter()
+            .any(|item: &PythonCommand| item.display_with(&[]) == key)
+        {
+            unique.push(candidate);
+        }
+    }
+    unique
+}
+
+fn run_edge_tts_python_command(candidate: &PythonCommand, extra_args: &[&str]) -> io::Result<Output> {
+    let mut command = Command::new(&candidate.program);
+    command.args(&candidate.prefix_args).args(extra_args).hide_window();
+    command.output()
+}
+
+fn truncate_detail(value: &str, max_chars: usize) -> String {
+    let mut result = String::new();
+    for ch in value.chars().take(max_chars) {
+        result.push(ch);
+    }
+    if value.chars().count() > max_chars {
+        result.push_str("\n...");
+    }
+    result
+}
+
+fn command_output_text(output: &Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let mut text = String::new();
+    if !stdout.is_empty() {
+        text.push_str(&stdout);
+    }
+    if !stderr.is_empty() {
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        text.push_str(&stderr);
+    }
+    truncate_detail(&text, 2400)
+}
+
+fn find_edge_tts_python() -> (Option<(PythonCommand, String)>, Vec<String>) {
+    let mut attempts = Vec::new();
+    for candidate in edge_tts_python_candidates() {
+        match run_edge_tts_python_command(&candidate, &["--version"]) {
+            Ok(output) if output.status.success() => {
+                let version = command_output_text(&output);
+                return (Some((candidate, version)), attempts);
+            }
+            Ok(output) => attempts.push(format!(
+                "{} -> exit {:?}: {}",
+                candidate.display_with(&["--version"]),
+                output.status.code(),
+                command_output_text(&output)
+            )),
+            Err(error) => attempts.push(format!(
+                "{} -> {}",
+                candidate.display_with(&["--version"]),
+                error
+            )),
+        }
+    }
+    (None, attempts)
+}
+
+fn edge_tts_check_item() -> Value {
+    let platform = edge_tts_platform_label();
+    let install_hint = edge_tts_install_hint();
+    let (python, attempts) = find_edge_tts_python();
+    let Some((python, version)) = python else {
+        return json!({
+            "id": "edge-tts",
+            "name": "Edge TTS",
+            "status": "missing",
+            "detail": format!(
+                "未找到可用 Python 运行时。\nOS: {platform}\n检查命令：python --version\n安装 edge-tts 前请先安装 Python 3，并确保 python 或 python3 在 PATH 中。\n推荐安装命令：{install_hint}\n\n尝试记录：\n{}",
+                if attempts.is_empty() { "无".into() } else { attempts.join("\n") }
+            ),
+            "fixAction": null,
+            "fixLabel": null
+        });
+    };
+
+    let check_args = ["-m", "edge_tts", "--list-voices"];
+    let check_command = python.display_with(&check_args);
+    match run_edge_tts_python_command(&python, &check_args) {
+        Ok(output) if output.status.success() => {
+            let voice_count = String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .filter(|line| !line.trim().is_empty())
+                .count();
+            json!({
+                "id": "edge-tts",
+                "name": "Edge TTS",
+                "status": "ok",
+                "detail": format!(
+                    "edge-tts 已就绪。\nOS: {platform}\nPython: {}\nPython 版本：{}\n检查命令：{}\n语音列表输出行数：{}",
+                    python.display_with(&[]),
+                    version,
+                    check_command,
+                    voice_count
+                ),
+                "fixAction": null,
+                "fixLabel": null
+            })
+        }
+        Ok(output) => json!({
+            "id": "edge-tts",
+            "name": "Edge TTS",
+            "status": "missing",
+            "detail": format!(
+                "Python 可用，但 edge-tts 检查失败。\nOS: {platform}\nPython: {}\nPython 版本：{}\n检查命令：{}\n推荐安装命令：{}\n\n输出：\n{}",
+                python.display_with(&[]),
+                version,
+                check_command,
+                install_hint,
+                command_output_text(&output)
+            ),
+            "fixAction": "install_edge_tts",
+            "fixLabel": "安装 edge-tts"
+        }),
+        Err(error) => json!({
+            "id": "edge-tts",
+            "name": "Edge TTS",
+            "status": "error",
+            "detail": format!(
+                "无法执行 edge-tts 检查。\nOS: {platform}\nPython: {}\n检查命令：{}\n推荐安装命令：{}\n\n错误：{}",
+                python.display_with(&[]),
+                check_command,
+                install_hint,
+                error
+            ),
+            "fixAction": "install_edge_tts",
+            "fixLabel": "安装 edge-tts"
+        }),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn install_edge_tts() -> AppResult<Value> {
+    let platform = edge_tts_platform_label();
+    let install_hint = edge_tts_install_hint();
+    let (python, attempts) = find_edge_tts_python();
+    let Some((python, version)) = python else {
+        return Ok(json!({
+            "success": false,
+            "message": "未找到 Python，无法安装 edge-tts。",
+            "detail": format!(
+                "OS: {platform}\n请先安装 Python 3，并确认 python 或 python3 可用。\n推荐安装命令：{install_hint}\n\n尝试记录：\n{}",
+                if attempts.is_empty() { "无".into() } else { attempts.join("\n") }
+            )
+        }));
+    };
+
+    let mut install_attempts: Vec<Vec<&str>> = vec![vec!["-m", "pip", "install", "edge-tts"]];
+    if !cfg!(windows) {
+        install_attempts.push(vec!["-m", "pip", "install", "--user", "edge-tts"]);
+    }
+
+    let mut logs = Vec::new();
+    for args in install_attempts {
+        let command_text = python.display_with(&args);
+        match run_edge_tts_python_command(&python, &args) {
+            Ok(output) if output.status.success() => {
+                return Ok(json!({
+                    "success": true,
+                    "message": "edge-tts 安装完成。",
+                    "detail": format!(
+                        "OS: {platform}\nPython: {}\nPython 版本：{}\n执行命令：{}\n\n输出：\n{}",
+                        python.display_with(&[]),
+                        version,
+                        command_text,
+                        command_output_text(&output)
+                    )
+                }));
+            }
+            Ok(output) => logs.push(format!(
+                "{} -> exit {:?}\n{}",
+                command_text,
+                output.status.code(),
+                command_output_text(&output)
+            )),
+            Err(error) => logs.push(format!("{command_text} -> {error}")),
+        }
+    }
+
+    Ok(json!({
+        "success": false,
+        "message": "edge-tts 安装失败。",
+        "detail": format!(
+            "OS: {platform}\nPython: {}\nPython 版本：{}\n推荐手动命令：{}\n\n尝试记录：\n{}",
+            python.display_with(&[]),
+            version,
+            install_hint,
+            logs.join("\n\n")
+        )
+    }))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn install_missing_environment_deps() -> AppResult<Value> {
+    let edge_tts_item = edge_tts_check_item();
+    let edge_tts_ready = edge_tts_item
+        .get("status")
+        .and_then(Value::as_str)
+        .map(|status| status == "ok")
+        .unwrap_or(false);
+    if edge_tts_ready {
+        return Ok(json!({
+            "success": true,
+            "message": "可自动安装的环境依赖已就绪。",
+            "detail": "LLM Provider 需要在设置中手动配置，不会由一键安装自动修改。"
+        }));
+    }
+    install_edge_tts()
+}
+
 #[tauri::command(rename_all = "camelCase")]
 fn environment_check(store: State<'_, AppStore>) -> AppResult<Value> {
     let providers = store.providers()?;
     let has_real_provider = providers
         .iter()
         .any(|p| p.enabled && p.provider_type != "echo" && !p.base_url.trim().is_empty());
+    let edge_tts_item = edge_tts_check_item();
+    let edge_tts_ready = edge_tts_item
+        .get("status")
+        .and_then(Value::as_str)
+        .map(|status| status == "ok")
+        .unwrap_or(false);
     let items = vec![
         json!({
             "id": "rust-backend",
@@ -5016,8 +5303,9 @@ fn environment_check(store: State<'_, AppStore>) -> AppResult<Value> {
             "fixAction": null,
             "fixLabel": null
         }),
+        edge_tts_item,
     ];
-    Ok(json!({"items": items, "allPassed": has_real_provider}))
+    Ok(json!({"items": items, "allPassed": has_real_provider && edge_tts_ready}))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -5894,6 +6182,8 @@ pub fn run() {
             upload_chat_attachment,
             upload_chat_attachment_from_path,
             environment_check,
+            install_edge_tts,
+            install_missing_environment_deps,
             empty_list,
             noop,
             passthrough_value,
