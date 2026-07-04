@@ -1063,6 +1063,8 @@ pub struct AgentRunRecord {
     #[serde(default)]
     pub phase_events: Vec<AgentRunPhaseRecord>,
     #[serde(default)]
+    pub workflow_graph: Option<Value>,
+    #[serde(default)]
     pub checkpoints: Vec<AgentCheckpointRecord>,
     #[serde(default)]
     pub pending_steers: Vec<String>,
@@ -1095,6 +1097,7 @@ impl AgentRunRecord {
             error: None,
             tool_events: vec![],
             phase_events: vec![],
+            workflow_graph: None,
             checkpoints: vec![],
             pending_steers: vec![],
         }

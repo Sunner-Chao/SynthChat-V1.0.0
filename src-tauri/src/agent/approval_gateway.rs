@@ -105,11 +105,24 @@ async fn continue_agent_run_after_approval(
     let mcp_tools = available_mcp_tool_definitions(store, &agent)?;
     let native_tools =
         visible_tool_definitions_for_agent(store, &agent, ToolExecutionContext::Interactive)?;
+    let available_tools_for_validation = native_tools
+        .iter()
+        .chain(mcp_tools.iter())
+        .cloned()
+        .collect::<Vec<_>>();
     let mut observations = vec![approved_tool_observation(approval)];
     let mut assistant_text = String::new();
     let mut assistant_provider_data: Option<Value> = None;
     let mut assistant_model: Option<String> = None;
     let mut assistant_provider_id: Option<String> = None;
+
+    let workflow_driver = WorkflowDriver::new(WorkflowMode::ApprovalContinuation);
+    workflow_driver.approval_resumed(
+        store,
+        &run.run_id,
+        &approval.server_id,
+        &approval.tool_name,
+    )?;
 
     run.state = "running".into();
     run.completed_at = None;
@@ -150,6 +163,11 @@ async fn continue_agent_run_after_approval(
         )? {
             return Ok(());
         }
+        workflow_driver.planner_running(
+            store,
+            &run.run_id,
+            iteration + 1,
+        )?;
         let prompt_observations = observations_for_prompt(store, &run.run_id, &observations)?;
         let planner_prompt = agent_planner_prompt_for_agent_context_with_store(
             store,
@@ -328,20 +346,18 @@ async fn continue_agent_run_after_approval(
             &decision,
         )?;
 
-        match decision
-            .get("action")
-            .and_then(Value::as_str)
-            .unwrap_or("final")
-        {
-            "tool" => {
-                let requests = planned_tool_requests_from_decision(&decision);
-                if requests.is_empty() {
-                    observations.push(format!(
-                        "Continuation iteration {} tool error: planner requested tool action without a valid tool name",
-                        iteration + 1
-                    ));
-                    continue;
-                }
+        match workflow_driver.planner_route(
+            store,
+            &run.run_id,
+            iteration + 1,
+            &decision,
+            reply.content.trim(),
+            &available_tools_for_validation,
+        )? {
+            WorkflowPlannerRoute::ExecuteTools {
+                requests,
+                request_count,
+            } => {
                 let refund_iteration_for_execute_code_only =
                     tool_batch_is_execute_code_only(&requests);
                 for (tool_name, payload) in requests {
@@ -454,6 +470,17 @@ async fn continue_agent_run_after_approval(
                                 reason,
                                 ToolExecutionContext::Interactive,
                             )?;
+                            let approval_route = workflow_driver.executor_approval(
+                                store,
+                                &run.run_id,
+                                iteration + 1,
+                                "__internal",
+                                &tool_name,
+                            )?;
+                            debug_assert!(matches!(
+                                approval_route,
+                                WorkflowExecutorRoute::AwaitApproval { .. }
+                            ));
                             mark_run_pending_approval(store, app, &run.run_id)?;
                             append_waiting_for_approval_message(
                                 store,
@@ -696,6 +723,17 @@ async fn continue_agent_run_after_approval(
                                 reason,
                                 ToolExecutionContext::Interactive,
                             )?;
+                            let approval_route = workflow_driver.executor_approval(
+                                store,
+                                &run.run_id,
+                                iteration + 1,
+                                &definition.server_id,
+                                &definition.tool_name,
+                            )?;
+                            debug_assert!(matches!(
+                                approval_route,
+                                WorkflowExecutorRoute::AwaitApproval { .. }
+                            ));
                             mark_run_pending_approval(store, app, &run.run_id)?;
                             append_waiting_for_approval_message(
                                 store,
@@ -892,21 +930,32 @@ async fn continue_agent_run_after_approval(
                 if !assistant_text.trim().is_empty() {
                     break;
                 }
+                let executor_route = workflow_driver.executor_continue(
+                    store,
+                    &run.run_id,
+                    iteration + 1,
+                    request_count,
+                    None,
+                )?;
+                debug_assert!(matches!(
+                    executor_route,
+                    WorkflowExecutorRoute::ContinuePlanning { .. }
+                ));
                 if refund_iteration_for_execute_code_only {
                     iteration_budget.refund();
                 }
+                continue;
             }
-            _ => {
-                assistant_text = decision
-                    .get("content")
-                    .or_else(|| decision.get("answer"))
-                    .and_then(Value::as_str)
-                    .unwrap_or(reply.content.trim())
-                    .to_string();
+            WorkflowPlannerRoute::ReviewFinal { content } => {
+                assistant_text = content;
                 assistant_provider_data = reply.provider_data.clone();
                 assistant_model = reply.model.clone();
                 assistant_provider_id = reply.provider_id.clone();
                 break;
+            }
+            WorkflowPlannerRoute::Recover { observation } => {
+                observations.push(observation);
+                continue;
             }
         }
     }
@@ -981,6 +1030,17 @@ async fn continue_agent_run_after_approval(
     final_run.updated_at = now_iso();
     final_run.completed_at = Some(final_run.updated_at.clone());
     let saved_final_run = store.save_agent_run(final_run)?;
+    let reviewer_route = workflow_driver.reviewer_completed(
+        store,
+        &saved_final_run.run_id,
+        &assistant.id,
+        assistant_model.as_deref(),
+        assistant_provider_id.as_deref(),
+    )?;
+    debug_assert!(matches!(
+        reviewer_route,
+        WorkflowReviewerRoute::Completed { .. }
+    ));
     run_session_finished_hooks(
         store,
         &saved_final_run,

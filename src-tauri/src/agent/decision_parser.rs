@@ -1,6 +1,41 @@
 use serde_json::{json, Value};
 
+use super::tool_registry::resolve_mcp_tool;
+use crate::{
+    error::{AppError, AppResult},
+    models::ToolDefinition,
+};
+
 pub(super) const PROVIDER_TOOL_CALL_META_KEY: &str = "__agentProviderToolCall";
+const DECISION_ORIGIN_META_KEY: &str = "__agentDecisionOrigin";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum ToolCallOrigin {
+    ProviderNative,
+    PlannerJson,
+    HermesMarkup,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct AgentToolCall {
+    pub id: Option<String>,
+    pub name: String,
+    pub arguments: Value,
+    pub origin: ToolCallOrigin,
+    pub provider_meta: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) enum AgentDecision {
+    Final {
+        content: String,
+        raw: Value,
+    },
+    Tool {
+        calls: Vec<AgentToolCall>,
+        raw: Value,
+    },
+}
 
 pub(super) fn provider_tool_call_id(payload: &Value) -> Option<String> {
     payload
@@ -81,6 +116,81 @@ pub(super) fn parse_agent_decision(raw: &str) -> Value {
         }
     }
     json!({"action": "final", "content": trimmed})
+}
+
+pub(super) fn canonical_decision_from_value(decision: &Value) -> AgentDecision {
+    let action = decision
+        .get("action")
+        .and_then(Value::as_str)
+        .unwrap_or("final");
+    if action == "tool" {
+        return AgentDecision::Tool {
+            calls: canonical_tool_calls_from_decision(decision),
+            raw: decision.clone(),
+        };
+    }
+    let content = decision
+        .get("content")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| decision.as_str().unwrap_or(""))
+        .to_string();
+    AgentDecision::Final {
+        content,
+        raw: decision.clone(),
+    }
+}
+
+pub(super) fn canonical_tool_calls_from_decision(decision: &Value) -> Vec<AgentToolCall> {
+    planned_tool_requests_from_decision(decision)
+        .into_iter()
+        .map(|(name, arguments)| {
+            let provider_meta = arguments.get(PROVIDER_TOOL_CALL_META_KEY).cloned();
+            let id = provider_tool_call_id(&arguments);
+            let origin = tool_call_origin(decision, provider_meta.as_ref());
+            AgentToolCall {
+                id,
+                name,
+                arguments,
+                origin,
+                provider_meta,
+            }
+        })
+        .collect()
+}
+
+pub(super) fn validated_tool_requests_from_decision(
+    decision: &Value,
+    available_tools: &[ToolDefinition],
+) -> AppResult<Vec<(String, Value)>> {
+    canonical_tool_calls_from_decision(decision)
+        .into_iter()
+        .map(|call| {
+            validate_agent_tool_call(&call, available_tools)?;
+            Ok((call.name, call.arguments))
+        })
+        .collect()
+}
+
+pub(super) fn validate_agent_tool_call(
+    call: &AgentToolCall,
+    available_tools: &[ToolDefinition],
+) -> AppResult<()> {
+    let definition = resolve_mcp_tool(available_tools, &call.name)
+        .ok_or_else(|| AppError::BadRequest(format!("tool is not available: {}", call.name)))?;
+    validate_tool_call_payload(&definition, &call.arguments)
+}
+
+pub(super) fn validate_tool_call_payload(
+    definition: &ToolDefinition,
+    payload: &Value,
+) -> AppResult<()> {
+    let payload = strip_provider_tool_call_metadata_for_validation(payload);
+    validate_json_schema_subset(&definition.input_schema, &payload, "payload").map_err(|error| {
+        AppError::BadRequest(format!(
+            "tool {} payload schema validation failed: {error}",
+            definition.name
+        ))
+    })
 }
 
 fn normalize_agent_decision(value: Value) -> Value {
@@ -217,6 +327,194 @@ fn provider_tool_call_metadata(value: &Value) -> Option<Value> {
     (!metadata.is_empty()).then(|| Value::Object(metadata))
 }
 
+fn tool_call_origin(decision: &Value, provider_meta: Option<&Value>) -> ToolCallOrigin {
+    if provider_meta.is_some() {
+        return ToolCallOrigin::ProviderNative;
+    }
+    if decision_origin(decision).as_deref() == Some("hermes_markup") {
+        return ToolCallOrigin::HermesMarkup;
+    }
+    ToolCallOrigin::PlannerJson
+}
+
+fn decision_origin(decision: &Value) -> Option<String> {
+    decision
+        .get(DECISION_ORIGIN_META_KEY)
+        .or_else(|| {
+            decision
+                .get("rawDecision")
+                .and_then(|raw| raw.get(DECISION_ORIGIN_META_KEY))
+        })
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn strip_provider_tool_call_metadata_for_validation(payload: &Value) -> Value {
+    let mut payload = payload.clone();
+    if let Some(object) = payload.as_object_mut() {
+        object.remove(PROVIDER_TOOL_CALL_META_KEY);
+    }
+    payload
+}
+
+fn validate_json_schema_subset(schema: &Value, value: &Value, path: &str) -> Result<(), String> {
+    let Some(schema_object) = schema.as_object() else {
+        return Ok(());
+    };
+    if schema_object.is_empty() {
+        return Ok(());
+    }
+    if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array) {
+        if !enum_values.iter().any(|item| item == value) {
+            return Err(format!(
+                "{path} must be one of {}",
+                enum_values_preview(enum_values)
+            ));
+        }
+    }
+    if let Some(expected) = schema_object.get("type") {
+        if !schema_type_accepts_value(expected, value) {
+            return Err(format!(
+                "{path} expected {}, got {}",
+                schema_type_label(expected),
+                json_value_type(value)
+            ));
+        }
+    }
+    if schema_type_declares(schema, "object") || schema_object.contains_key("properties") {
+        validate_object_schema_subset(schema, value, path)?;
+    }
+    if schema_type_declares(schema, "array") || schema_object.contains_key("items") {
+        validate_array_schema_subset(schema, value, path)?;
+    }
+    Ok(())
+}
+
+fn validate_object_schema_subset(schema: &Value, value: &Value, path: &str) -> Result<(), String> {
+    let Some(schema_object) = schema.as_object() else {
+        return Ok(());
+    };
+    let Some(value_object) = value.as_object() else {
+        if schema_object.contains_key("required") || schema_object.contains_key("properties") {
+            return Err(format!(
+                "{path} expected object, got {}",
+                json_value_type(value)
+            ));
+        }
+        return Ok(());
+    };
+    if let Some(required) = schema_object.get("required").and_then(Value::as_array) {
+        for key in required.iter().filter_map(Value::as_str) {
+            if !value_object.contains_key(key) {
+                return Err(format!("{path}.{key} is required"));
+            }
+        }
+    }
+    if let Some(properties) = schema_object.get("properties").and_then(Value::as_object) {
+        for (key, property_schema) in properties {
+            if let Some(child) = value_object.get(key) {
+                validate_json_schema_subset(property_schema, child, &format!("{path}.{key}"))?;
+            }
+        }
+        if schema_object
+            .get("additionalProperties")
+            .and_then(Value::as_bool)
+            == Some(false)
+        {
+            for key in value_object.keys() {
+                if !properties.contains_key(key) {
+                    return Err(format!("{path}.{key} is not allowed by schema"));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_array_schema_subset(schema: &Value, value: &Value, path: &str) -> Result<(), String> {
+    let Some(schema_object) = schema.as_object() else {
+        return Ok(());
+    };
+    let Some(items) = schema_object.get("items") else {
+        return Ok(());
+    };
+    let Some(values) = value.as_array() else {
+        return Err(format!(
+            "{path} expected array, got {}",
+            json_value_type(value)
+        ));
+    };
+    for (index, item) in values.iter().enumerate() {
+        validate_json_schema_subset(items, item, &format!("{path}[{index}]"))?;
+    }
+    Ok(())
+}
+
+fn schema_type_declares(schema: &Value, expected: &str) -> bool {
+    schema
+        .get("type")
+        .map(|value| schema_type_value_contains(value, expected))
+        .unwrap_or(false)
+}
+
+fn schema_type_accepts_value(schema_type: &Value, value: &Value) -> bool {
+    match value {
+        Value::Null => schema_type_value_contains(schema_type, "null"),
+        Value::Bool(_) => schema_type_value_contains(schema_type, "boolean"),
+        Value::Number(number) => {
+            schema_type_value_contains(schema_type, "number")
+                || (schema_type_value_contains(schema_type, "integer")
+                    && (number.is_i64() || number.is_u64()))
+        }
+        Value::String(_) => schema_type_value_contains(schema_type, "string"),
+        Value::Array(_) => schema_type_value_contains(schema_type, "array"),
+        Value::Object(_) => schema_type_value_contains(schema_type, "object"),
+    }
+}
+
+fn schema_type_value_contains(schema_type: &Value, expected: &str) -> bool {
+    match schema_type {
+        Value::String(value) => value == expected,
+        Value::Array(values) => values.iter().any(|value| value.as_str() == Some(expected)),
+        _ => false,
+    }
+}
+
+fn schema_type_label(schema_type: &Value) -> String {
+    match schema_type {
+        Value::String(value) => value.clone(),
+        Value::Array(values) => values
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>()
+            .join("|"),
+        _ => "unspecified".into(),
+    }
+}
+
+fn json_value_type(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(number) if number.is_i64() || number.is_u64() => "integer",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
+fn enum_values_preview(values: &[Value]) -> String {
+    values
+        .iter()
+        .take(6)
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 pub(super) fn planned_tool_requests_from_decision(decision: &Value) -> Vec<(String, Value)> {
     if let Some(requests) = decision.get("toolRequests").and_then(Value::as_array) {
         let parsed = requests
@@ -258,6 +556,7 @@ fn parse_hermes_tool_markup(text: &str) -> Option<Value> {
         "action": "tool",
         "tool": tool_name,
         "payload": payload,
+        "__agentDecisionOrigin": "hermes_markup",
     }))
 }
 
@@ -289,6 +588,7 @@ fn parse_function_equals_tool_markup(text: &str) -> Option<Value> {
         "action": "tool",
         "tool": tool_name,
         "payload": Value::Object(object),
+        "__agentDecisionOrigin": "hermes_markup",
     }))
 }
 

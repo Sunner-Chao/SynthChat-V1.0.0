@@ -2,7 +2,10 @@ use super::browser_tools::{
     await_browser_future_interruptible, browser_cdp_success_payload,
     browser_session_create_request, wait_browser_run_interruptible,
 };
-use super::decision_parser::provider_tool_call_id;
+use super::decision_parser::{
+    canonical_decision_from_value, canonical_tool_calls_from_decision, provider_tool_call_id,
+    validated_tool_requests_from_decision, ToolCallOrigin,
+};
 use super::delegation::apply_delegation_iteration_budget;
 use super::diagnostics::{
     diagnostics_to_lsp_json, format_lsp_diagnostics_report, lsp_broken_snapshots,
@@ -12,6 +15,13 @@ use super::diagnostics::{
 };
 use super::execution::remote_terminal_command_for_run;
 use super::web_tools::xai_search_tool_definition;
+use super::workflow_graph::{
+    append_workflow_node_event, append_workflow_transition_event, push_workflow_graph_bootstrap,
+    record_workflow_planner_to_executor, resolve_workflow_executor_approval_route,
+    resolve_workflow_executor_continue_route, resolve_workflow_planner_route,
+    resolve_workflow_reviewer_completed_route, WorkflowDriver, WorkflowExecutorRoute, WorkflowMode,
+    WorkflowNodeName, WorkflowNodeStatus, WorkflowPlannerRoute, WorkflowReviewerRoute,
+};
 use super::*;
 use crate::store::{ManagedProcess, ManagedProcessNotificationState};
 use futures::{SinkExt as _, StreamExt as _};
@@ -4854,6 +4864,97 @@ fn planner_decision_preserves_provider_tool_call_metadata() {
     );
     assert_eq!(
         provider_tool_call_id(&decision["payload"]).as_deref(),
+        Some("provider_call")
+    );
+}
+
+#[test]
+fn canonical_decision_preserves_provider_tool_call_shape() {
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"id":"provider_call","name":"terminal","arguments":"{\"command\":\"pwd\"}"}]}"#,
+    );
+    let calls = canonical_tool_calls_from_decision(&decision);
+
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].id.as_deref(), Some("provider_call"));
+    assert_eq!(calls[0].name, "terminal");
+    assert_eq!(calls[0].arguments["command"], "pwd");
+    assert_eq!(calls[0].origin, ToolCallOrigin::ProviderNative);
+
+    let canonical = canonical_decision_from_value(&decision);
+    match canonical {
+        super::decision_parser::AgentDecision::Tool { calls, .. } => {
+            assert_eq!(calls[0].id.as_deref(), Some("provider_call"));
+        }
+        other => panic!("expected canonical tool decision, got {other:?}"),
+    }
+}
+
+#[test]
+fn canonical_decision_marks_hermes_markup_origin() {
+    let decision = parse_agent_decision(
+        "我先查一下。\n<thread><tool_name>terminal</tool_name><parameters>{\"command\":\"pwd\"}</parameters></thread>",
+    );
+    let calls = canonical_tool_calls_from_decision(&decision);
+
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].name, "terminal");
+    assert_eq!(calls[0].origin, ToolCallOrigin::HermesMarkup);
+}
+
+#[test]
+fn tool_call_schema_validation_rejects_missing_required_payload() {
+    let tool = ToolDefinition {
+        name: "mcp_ai_exa_exa_read_resource".into(),
+        display_name: "read_resource".into(),
+        description: "Read a resource".into(),
+        source: "mcp_utility".into(),
+        server_id: "ai.exa/exa".into(),
+        tool_name: "__mcp_read_resource".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["uri"],
+            "properties": {"uri": {"type": "string"}}
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"name":"mcp_ai_exa_exa_read_resource","arguments":"{}"}]}"#,
+    );
+
+    let error = validated_tool_requests_from_decision(&decision, &[tool])
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("payload.uri is required"));
+}
+
+#[test]
+fn tool_call_schema_validation_accepts_mcp_alias_and_provider_metadata() {
+    let tool = ToolDefinition {
+        name: "ai.exa/exa.search-docs".into(),
+        display_name: "search-docs".into(),
+        description: "Search docs".into(),
+        source: "mcp".into(),
+        server_id: "ai.exa/exa".into(),
+        tool_name: "search-docs".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {"query": {"type": "string"}},
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"id":"provider_call","name":"mcp_ai_exa_exa_search_docs","arguments":"{\"query\":\"routing\"}"}]}"#,
+    );
+
+    let requests = validated_tool_requests_from_decision(&decision, &[tool]).unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].0, "mcp_ai_exa_exa_search_docs");
+    assert_eq!(requests[0].1["query"], "routing");
+    assert_eq!(
+        provider_tool_call_id(&requests[0].1).as_deref(),
         Some("provider_call")
     );
 }
@@ -58089,6 +58190,477 @@ fn llm_failure_diagnostic_artifact_captures_failover_context() {
     assert_eq!(diagnostic["providers"][0]["apiKey"], Value::Null);
     assert!(!content.contains("sk-secret-test"));
     assert_eq!(store.tool_artifacts_for_run(&run.run_id).unwrap().len(), 1);
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_graph_bootstrap_marks_queue_and_group_room_nodes() {
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    let request = SendChatRequest {
+        conversation_id: Some("conv".into()),
+        persona_id: Some("persona".into()),
+        agent_id: None,
+        content: "hello".into(),
+        provider_data: Some(json!({
+            "source": "matrix",
+            "source_context": {
+                "room_id": "!room:example.org",
+                "thread_id": "thread-1",
+                "conversation_type": "room"
+            }
+        })),
+        queue_item_id: Some("queue-1".into()),
+    };
+
+    push_workflow_graph_bootstrap(
+        &mut run,
+        &request,
+        "matrix",
+        ToolExecutionContext::Interactive,
+        WorkflowMode::ChatTurn,
+    );
+
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["schema"], "synthgraph_workflow_v1");
+    assert_eq!(graph["currentNode"], "planner");
+    assert!(graph["transitions"].as_array().unwrap().is_empty());
+
+    let event = run.phase_events.last().unwrap();
+    assert_eq!(event.phase, "workflow_graph_initialized");
+    assert_eq!(event.detail["schema"], "synthgraph_workflow_v1");
+
+    let nodes = event.detail["nodes"].as_array().unwrap();
+    let queue = nodes.iter().find(|node| node["node"] == "queue").unwrap();
+    assert_eq!(queue["status"], "completed");
+    assert_eq!(queue["detail"]["queueItemId"], "queue-1");
+
+    let group_room = nodes
+        .iter()
+        .find(|node| node["node"] == "group_room")
+        .unwrap();
+    assert_eq!(group_room["status"], "completed");
+    assert_eq!(group_room["detail"]["roomId"], "!room:example.org");
+    assert_eq!(group_room["detail"]["threadId"], "thread-1");
+
+    let reviewer = nodes.iter().find(|node| node["node"] == "reviewer").unwrap();
+    assert_eq!(reviewer["status"], "pending");
+}
+
+#[test]
+fn workflow_planner_route_to_executor_updates_graph_snapshot() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-route-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    record_workflow_planner_to_executor(
+        &store,
+        &run.run_id,
+        2,
+        WorkflowMode::ChatTurn,
+        3,
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    assert_eq!(saved.phase_events.len(), 3);
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    let nodes = graph["nodes"].as_array().unwrap();
+    let planner = nodes.iter().find(|node| node["node"] == "planner").unwrap();
+    assert_eq!(planner["status"], "completed");
+    assert_eq!(planner["detail"]["action"], "tool");
+    assert_eq!(planner["detail"]["toolCount"], 3);
+    let executor = nodes
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["status"], "running");
+    assert_eq!(executor["detail"]["toolCount"], 3);
+    let transitions = graph["transitions"].as_array().unwrap();
+    assert_eq!(transitions.len(), 1);
+    assert_eq!(transitions[0]["from"], "planner");
+    assert_eq!(transitions[0]["to"], "executor");
+    assert_eq!(transitions[0]["reason"], "tool_calls");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_route_driver_returns_final_route_and_reviewer_snapshot() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-final-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let decision = parse_agent_decision(r#"{"action":"final","content":"done"}"#);
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        1,
+        WorkflowMode::ChatTurn,
+        &decision,
+        "fallback",
+        &[test_internal_tool("terminal")],
+    )
+    .unwrap();
+
+    assert_eq!(
+        route,
+        WorkflowPlannerRoute::ReviewFinal {
+            content: "done".into()
+        }
+    );
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "reviewer");
+    assert_eq!(graph["transitions"][0]["from"], "planner");
+    assert_eq!(graph["transitions"][0]["to"], "reviewer");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_route_driver_recovers_from_schema_error() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-recover-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let tool = ToolDefinition {
+        name: "terminal".into(),
+        display_name: "terminal".into(),
+        description: "Run terminal".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "terminal".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": {"command": {"type": "string"}}
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(r#"{"action":"tool","tool":"terminal","payload":{}}"#);
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        3,
+        WorkflowMode::ApprovalContinuation,
+        &decision,
+        "fallback",
+        &[tool],
+    )
+    .unwrap();
+
+    match route {
+        WorkflowPlannerRoute::Recover { observation } => {
+            assert!(observation.contains("Continuation iteration 3 tool schema error"));
+        }
+        other => panic!("expected recover route, got {other:?}"),
+    }
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert!(planner["detail"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("payload.command is required"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_executor_continue_route_updates_graph_snapshot() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-exec-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let route = resolve_workflow_executor_continue_route(
+        &store,
+        &run.run_id,
+        4,
+        WorkflowMode::ChatTurn,
+        2,
+        Some(false),
+    )
+    .unwrap();
+
+    assert_eq!(
+        route,
+        WorkflowExecutorRoute::ContinuePlanning {
+            tool_count: 2,
+            parallel: Some(false)
+        }
+    );
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["status"], "completed");
+    assert_eq!(executor["detail"]["toolCount"], 2);
+    assert_eq!(executor["detail"]["parallel"], false);
+    assert_eq!(graph["transitions"][0]["from"], "executor");
+    assert_eq!(graph["transitions"][0]["to"], "planner");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_executor_approval_route_updates_graph_snapshot() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-approval-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let route = resolve_workflow_executor_approval_route(
+        &store,
+        &run.run_id,
+        5,
+        "mcp.files",
+        "write_file",
+    )
+    .unwrap();
+
+    assert_eq!(
+        route,
+        WorkflowExecutorRoute::AwaitApproval {
+            server_id: "mcp.files".into(),
+            tool_name: "write_file".into()
+        }
+    );
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "approval");
+    let approval = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "approval")
+        .unwrap();
+    assert_eq!(approval["status"], "waiting");
+    assert_eq!(approval["detail"]["serverId"], "mcp.files");
+    assert_eq!(approval["detail"]["toolName"], "write_file");
+    assert_eq!(graph["transitions"][0]["from"], "executor");
+    assert_eq!(graph["transitions"][0]["to"], "approval");
+    assert_eq!(graph["transitions"][0]["reason"], "approval_required");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_reviewer_completed_route_updates_graph_snapshot() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-review-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let route = resolve_workflow_reviewer_completed_route(
+        &store,
+        &run.run_id,
+        WorkflowMode::ApprovalContinuation,
+        "msg-1",
+        Some("gpt-test"),
+        Some("provider-test"),
+    )
+    .unwrap();
+
+    assert_eq!(
+        route,
+        WorkflowReviewerRoute::Completed {
+            message_id: "msg-1".into(),
+            model: Some("gpt-test".into()),
+            provider_id: Some("provider-test".into())
+        }
+    );
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "reviewer");
+    let reviewer = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "reviewer")
+        .unwrap();
+    assert_eq!(reviewer["status"], "completed");
+    assert_eq!(reviewer["detail"]["messageId"], "msg-1");
+    assert_eq!(reviewer["detail"]["model"], "gpt-test");
+    assert_eq!(reviewer["detail"]["providerId"], "provider-test");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_driver_routes_planner_executor_and_reviewer() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-driver-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let driver = WorkflowDriver::new(WorkflowMode::ChatTurn);
+    let decision =
+        parse_agent_decision(r#"{"action":"tool","tool":"terminal","payload":{"command":"pwd"}}"#);
+    let planner_route = driver
+        .planner_route(
+            &store,
+            &run.run_id,
+            1,
+            &decision,
+            "fallback",
+            &[test_internal_tool("terminal")],
+        )
+        .unwrap();
+    match planner_route {
+        WorkflowPlannerRoute::ExecuteTools { request_count, .. } => {
+            assert_eq!(request_count, 1);
+        }
+        other => panic!("expected execute route, got {other:?}"),
+    }
+
+    let executor_route = driver
+        .executor_continue(&store, &run.run_id, 1, 1, Some(false))
+        .unwrap();
+    assert_eq!(
+        executor_route,
+        WorkflowExecutorRoute::ContinuePlanning {
+            tool_count: 1,
+            parallel: Some(false)
+        }
+    );
+
+    let reviewer_route = driver
+        .reviewer_completed(&store, &run.run_id, "msg-2", Some("model"), Some("provider"))
+        .unwrap();
+    assert_eq!(
+        reviewer_route,
+        WorkflowReviewerRoute::Completed {
+            message_id: "msg-2".into(),
+            model: Some("model".into()),
+            provider_id: Some("provider".into())
+        }
+    );
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "reviewer");
+    let reviewer = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "reviewer")
+        .unwrap();
+    assert_eq!(reviewer["status"], "completed");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_graph_persists_node_and_transition_events() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-graph-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    append_workflow_node_event(
+        &store,
+        &run.run_id,
+        WorkflowNodeName::Planner,
+        WorkflowNodeStatus::Running,
+        json!({"iteration": 1}),
+    )
+    .unwrap();
+    append_workflow_transition_event(
+        &store,
+        &run.run_id,
+        WorkflowNodeName::Planner,
+        WorkflowNodeName::Executor,
+        "tool_calls",
+        json!({"iteration": 1, "toolCount": 2}),
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    assert_eq!(saved.phase_events.len(), 2);
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["nodes"][0]["node"], "planner");
+    assert_eq!(graph["nodes"][0]["status"], "running");
+    assert_eq!(graph["transitions"].as_array().unwrap().len(), 1);
+    assert_eq!(saved.phase_events[0].phase, "workflow_node");
+    assert_eq!(saved.phase_events[0].detail["schema"], "synthgraph_workflow_v1");
+    assert_eq!(saved.phase_events[0].detail["node"], "planner");
+    assert_eq!(saved.phase_events[0].detail["status"], "running");
+    assert_eq!(saved.phase_events[1].phase, "workflow_transition");
+    assert_eq!(saved.phase_events[1].detail["from"], "planner");
+    assert_eq!(saved.phase_events[1].detail["to"], "executor");
+    assert_eq!(saved.phase_events[1].detail["reason"], "tool_calls");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn automatic_mutation_checkpoint_emits_workflow_checkpoint_event() {
+    let dir = std::env::temp_dir().join(format!("synthchat-workflow-ckpt-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    automatic_mutation_checkpoint(
+        &store,
+        &run.run_id,
+        "write_file",
+        &json!({"path": "src/main.rs"}),
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let workflow_checkpoint = saved
+        .phase_events
+        .iter()
+        .find(|event| {
+            event.phase == "workflow_node"
+                && event.detail["node"] == "checkpoint"
+                && event.detail["detail"]["kind"] == "automatic_mutation_checkpoint"
+        })
+        .unwrap();
+    assert_eq!(workflow_checkpoint.detail["status"], "completed");
+    assert_eq!(workflow_checkpoint.detail["detail"]["toolName"], "write_file");
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "checkpoint");
+    assert_eq!(graph["nodes"][0]["node"], "checkpoint");
+    assert_eq!(graph["nodes"][0]["detail"]["kind"], "automatic_mutation_checkpoint");
 
     let _ = fs::remove_dir_all(dir);
 }

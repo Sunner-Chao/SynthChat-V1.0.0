@@ -14,6 +14,7 @@ use crate::{
     store::AppStore,
 };
 
+use super::workflow_graph::append_workflow_checkpoint_event;
 use super::workspace::{resolve_workspace_path, workspace_root};
 
 pub(super) fn file_state_tool(
@@ -368,6 +369,20 @@ pub(super) fn checkpoint_tool(
     run.checkpoints.push(checkpoint.clone());
     run.updated_at = now_iso();
     store.save_agent_run(run)?;
+    let checkpoint_state = checkpoint.state.clone();
+    let checkpoint_summary = checkpoint.summary.clone();
+    let checkpoint_id = checkpoint.checkpoint_id.clone();
+    append_workflow_checkpoint_event(
+        store,
+        run_id,
+        &checkpoint_state,
+        &checkpoint_summary,
+        json!({
+            "kind": "manual_checkpoint",
+            "checkpointId": checkpoint_id,
+            "iteration": checkpoint.iteration,
+        }),
+    )?;
     Ok(serde_json::to_string_pretty(&checkpoint)?)
 }
 
@@ -397,6 +412,21 @@ pub(super) fn automatic_mutation_checkpoint(
     run.checkpoints.push(checkpoint.clone());
     run.updated_at = now_iso();
     store.save_agent_run(run)?;
+    let checkpoint_state = checkpoint.state.clone();
+    let checkpoint_summary = checkpoint.summary.clone();
+    let checkpoint_id = checkpoint.checkpoint_id.clone();
+    append_workflow_checkpoint_event(
+        store,
+        run_id,
+        &checkpoint_state,
+        &checkpoint_summary,
+        json!({
+            "kind": "automatic_mutation_checkpoint",
+            "checkpointId": checkpoint_id,
+            "iteration": checkpoint.iteration,
+            "toolName": tool_name,
+        }),
+    )?;
     Ok(Some(checkpoint))
 }
 

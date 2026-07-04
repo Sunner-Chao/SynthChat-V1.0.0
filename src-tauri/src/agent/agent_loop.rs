@@ -1286,6 +1286,8 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     }
     run.user_request = effective_request_content.clone();
     run.queue_item_id = request.queue_item_id.clone();
+    let workflow_driver = WorkflowDriver::new(WorkflowMode::ChatTurn);
+    workflow_driver.bootstrap(&mut run, &request, &request_source, tool_context);
     if silent_pet_vision {
         run.phase_events.push(AgentRunPhaseRecord {
             phase: "request_visibility".into(),
@@ -1367,6 +1369,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     let mut short_context = store.short_context(&conversation.id)?;
     let mcp_tools = available_mcp_tool_definitions(store, &agent)?;
     let native_tools = visible_tool_definitions_for_agent(store, &agent, tool_context)?;
+    let available_tools_for_validation = native_tools
+        .iter()
+        .chain(mcp_tools.iter())
+        .cloned()
+        .collect::<Vec<_>>();
     on_memory_turn_start(
         store,
         &saved_run.run_id,
@@ -1462,6 +1469,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             return Ok(vec![user]);
         }
         drain_agent_steers_into_observations(store, &mut run, &mut observations)?;
+        workflow_driver.planner_running(
+            store,
+            &saved_run.run_id,
+            iteration + 1,
+        )?;
         let prompt_observations = observations_for_prompt(store, &saved_run.run_id, &observations)?;
         let planner_prompt = agent_planner_prompt_for_agent_context_with_store(
             store,
@@ -1659,25 +1671,23 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             &reply.content,
             &decision,
         )?;
-        match decision
-            .get("action")
-            .and_then(Value::as_str)
-            .unwrap_or("final")
-        {
-            "tool" => {
+        match workflow_driver.planner_route(
+            store,
+            &saved_run.run_id,
+            iteration + 1,
+            &decision,
+            reply.content.trim(),
+            &available_tools_for_validation,
+        )? {
+            WorkflowPlannerRoute::ExecuteTools {
+                requests,
+                request_count,
+            } => {
                 desktop_stream_state.emit_provider_thinking_if_idle(
                     desktop_app,
                     &persona.id,
                     &reply.provider_data,
                 );
-                let requests = planned_tool_requests_from_decision(&decision);
-                if requests.is_empty() {
-                    observations.push(format!(
-                        "Iteration {} tool error: planner requested tool action without a valid tool name",
-                        iteration + 1
-                    ));
-                    continue;
-                }
                 let refund_iteration_for_execute_code_only =
                     tool_batch_is_execute_code_only(&requests);
                 let should_parallelize = should_parallelize_tool_batch(
@@ -1874,6 +1884,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                     if !assistant_text.trim().is_empty() {
                         break;
                     }
+                    let executor_route = workflow_driver.executor_continue(
+                        store,
+                        &saved_run.run_id,
+                        iteration + 1,
+                        request_count,
+                        Some(true),
+                    )?;
+                    debug_assert!(matches!(
+                        executor_route,
+                        WorkflowExecutorRoute::ContinuePlanning { .. }
+                    ));
                     if refund_iteration_for_execute_code_only {
                         iteration_budget.refund();
                     }
@@ -2043,6 +2064,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 reason,
                                 tool_context,
                             )?;
+                            let approval_route = workflow_driver.executor_approval(
+                                store,
+                                &saved_run.run_id,
+                                iteration + 1,
+                                "__internal",
+                                &tool_name,
+                            )?;
+                            debug_assert!(matches!(
+                                approval_route,
+                                WorkflowExecutorRoute::AwaitApproval { .. }
+                            ));
                             run.state = "pendingApproval".into();
                             run.updated_at = now_iso();
                             let saved_pending_run = store.save_agent_run(run)?;
@@ -2346,6 +2378,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 reason,
                                 tool_context,
                             )?;
+                            let approval_route = workflow_driver.executor_approval(
+                                store,
+                                &saved_run.run_id,
+                                iteration + 1,
+                                &definition.server_id,
+                                &definition.tool_name,
+                            )?;
+                            debug_assert!(matches!(
+                                approval_route,
+                                WorkflowExecutorRoute::AwaitApproval { .. }
+                            ));
                             run.state = "pendingApproval".into();
                             run.updated_at = now_iso();
                             let saved_pending_run = store.save_agent_run(run)?;
@@ -2569,17 +2612,24 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 if !assistant_text.trim().is_empty() {
                     break;
                 }
+                let executor_route = workflow_driver.executor_continue(
+                    store,
+                    &saved_run.run_id,
+                    iteration + 1,
+                    request_count,
+                    Some(false),
+                )?;
+                debug_assert!(matches!(
+                    executor_route,
+                    WorkflowExecutorRoute::ContinuePlanning { .. }
+                ));
                 if refund_iteration_for_execute_code_only {
                     iteration_budget.refund();
                 }
+                continue;
             }
-            _ => {
-                assistant_text = decision
-                    .get("content")
-                    .or_else(|| decision.get("answer"))
-                    .and_then(Value::as_str)
-                    .unwrap_or(reply.content.trim())
-                    .to_string();
+            WorkflowPlannerRoute::ReviewFinal { content } => {
+                assistant_text = content;
                 assistant_provider_data = reply.provider_data.clone();
                 desktop_stream_state.emit_provider_thinking_if_idle(
                     desktop_app,
@@ -2590,6 +2640,10 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 assistant_provider_id = reply.provider_id.clone();
                 assistant_prompt_tokens = reply.prompt_tokens;
                 break;
+            }
+            WorkflowPlannerRoute::Recover { observation } => {
+                observations.push(observation);
+                continue;
             }
         }
     }
@@ -2679,6 +2733,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     run.updated_at = now_iso();
     run.completed_at = Some(run.updated_at.clone());
     let saved_completed_run = store.save_agent_run(run)?;
+    let reviewer_route = workflow_driver.reviewer_completed(
+        store,
+        &saved_completed_run.run_id,
+        &assistant.id,
+        assistant_model.as_deref(),
+        assistant_provider_id.as_deref(),
+    )?;
+    debug_assert!(matches!(
+        reviewer_route,
+        WorkflowReviewerRoute::Completed { .. }
+    ));
     if assistant_prompt_tokens > 0 {
         if let Some(note) = maybe_post_turn_compress_with_context_engine(
             store,
@@ -3752,6 +3817,19 @@ pub(super) fn clarification_response_context_for_turn(
     run.completed_at = Some(now.clone());
     run.updated_at = now;
     store.save_agent_run(run.clone())?;
+    if let Some(checkpoint) = run.checkpoints.last() {
+        append_workflow_checkpoint_event(
+            store,
+            &run.run_id,
+            &checkpoint.state,
+            &checkpoint.summary,
+            json!({
+                "kind": "clarification_response",
+                "checkpointId": checkpoint.checkpoint_id.clone(),
+                "iteration": checkpoint.iteration,
+            }),
+        )?;
+    }
     Ok(Some(format!(
         "Continue the user's original task after a clarification exchange.\n\nOriginal request:\n{}\n\nClarification question:\n{}\n\nUser clarification response:\n{}\n\nUse this response to continue the original task. Do not ask the same clarification again unless the response is still insufficient.",
         run.user_request,
@@ -3827,6 +3905,32 @@ pub(super) fn pause_run_for_clarify_tool(
         summary: truncate_for_prompt(&text.replace('\n', " "), 500),
     });
     let saved_run = store.save_agent_run(run.clone())?;
+    if let Some(checkpoint) = run.checkpoints.last() {
+        append_workflow_transition_event(
+            store,
+            &run.run_id,
+            WorkflowNodeName::Executor,
+            WorkflowNodeName::Checkpoint,
+            "clarify_requires_user_input",
+            json!({
+                "toolName": event.tool_name,
+                "callId": event.call_id.clone(),
+                "checkpointId": checkpoint.checkpoint_id.clone(),
+            }),
+        )?;
+        append_workflow_checkpoint_event(
+            store,
+            &run.run_id,
+            &checkpoint.state,
+            &checkpoint.summary,
+            json!({
+                "kind": "clarify_pause",
+                "toolName": event.tool_name,
+                "checkpointId": checkpoint.checkpoint_id.clone(),
+                "iteration": checkpoint.iteration,
+            }),
+        )?;
+    }
     let assistant = store.append_message(ChatMessage::new(
         conversation_id.to_string(),
         "assistant",

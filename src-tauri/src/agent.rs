@@ -175,6 +175,8 @@ mod tool_policy;
 mod tool_registry;
 #[path = "agent/web_tools.rs"]
 mod web_tools;
+#[path = "agent/workflow_graph.rs"]
+mod workflow_graph;
 #[path = "agent/workspace.rs"]
 mod workspace;
 
@@ -734,6 +736,11 @@ use web_tools::{
     fetch_url_text_for_store, format_list, normalize_search_results, validate_web_url,
     web_extract_tool, web_extract_urls_from_payload, web_provider_tool, web_request_tool,
     web_search_tool, x_search_tool,
+};
+use workflow_graph::{
+    append_workflow_checkpoint_event, append_workflow_transition_event,
+    WorkflowDriver, WorkflowExecutorRoute, WorkflowMode, WorkflowNodeName, WorkflowPlannerRoute,
+    WorkflowReviewerRoute,
 };
 use workspace::{
     likely_binary, resolve_workspace_path, resolve_workspace_target_path, should_skip_dir,
