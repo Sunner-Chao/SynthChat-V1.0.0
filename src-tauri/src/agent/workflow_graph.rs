@@ -119,6 +119,39 @@ pub(super) enum WorkflowExecutorToolResolution {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct WorkflowExecutorApprovalWait {
+    identity: WorkflowExecutorToolIdentity,
+    approval_id: Option<String>,
+    reason: Option<String>,
+}
+
+impl WorkflowExecutorApprovalWait {
+    fn new(
+        identity: &WorkflowExecutorToolIdentity,
+        approval_id: Option<&str>,
+        reason: Option<&str>,
+    ) -> Self {
+        Self {
+            identity: identity.clone(),
+            approval_id: approval_id.map(str::to_string),
+            reason: reason.map(str::to_string),
+        }
+    }
+
+    pub(super) fn identity(&self) -> &WorkflowExecutorToolIdentity {
+        &self.identity
+    }
+
+    pub(super) fn approval_id(&self) -> Option<&str> {
+        self.approval_id.as_deref()
+    }
+
+    pub(super) fn reason(&self) -> Option<&str> {
+        self.reason.as_deref()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum WorkflowExecutorToolKind {
     Internal,
@@ -269,8 +302,20 @@ impl WorkflowDriver {
         run_id: &str,
         server_id: &str,
         tool_name: &str,
+        approval_id: Option<&str>,
+        status: Option<&str>,
+        reason: Option<&str>,
     ) -> AppResult<()> {
-        record_workflow_approval_resumed(store, run_id, self.mode, server_id, tool_name)
+        record_workflow_approval_resumed(
+            store,
+            run_id,
+            self.mode,
+            server_id,
+            tool_name,
+            approval_id,
+            status,
+            reason,
+        )
     }
 
     fn planner_route(
@@ -317,6 +362,16 @@ impl WorkflowDriver {
         resolve_workflow_executor_approval_route(store, run_id, iteration, server_id, tool_name)
     }
 
+    fn executor_tool_approval(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        wait: &WorkflowExecutorApprovalWait,
+    ) -> AppResult<WorkflowExecutorRoute> {
+        resolve_workflow_executor_tool_approval_route(store, run_id, iteration, self.mode, wait)
+    }
+
     fn executor_tool_resolution(
         self,
         store: &AppStore,
@@ -325,6 +380,33 @@ impl WorkflowDriver {
         resolution: &WorkflowExecutorToolResolution,
     ) -> AppResult<()> {
         record_workflow_executor_tool_resolution(store, run_id, iteration, self.mode, resolution)
+    }
+
+    fn executor_approval_policy(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        identity: &WorkflowExecutorToolIdentity,
+        reason: Option<&str>,
+    ) -> AppResult<()> {
+        record_workflow_executor_approval_policy(
+            store, run_id, iteration, self.mode, identity, reason,
+        )
+    }
+
+    fn executor_approval_policy_stage(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        identity: &WorkflowExecutorToolIdentity,
+        stage: &str,
+        reason: Option<&str>,
+    ) -> AppResult<()> {
+        record_workflow_executor_approval_policy_stage(
+            store, run_id, iteration, self.mode, identity, stage, reason,
+        )
     }
 
     fn reviewer_completed(
@@ -353,9 +435,19 @@ impl WorkflowApprovalNode {
         run_id: &str,
         server_id: &str,
         tool_name: &str,
+        approval_id: Option<&str>,
+        status: Option<&str>,
+        reason: Option<&str>,
     ) -> AppResult<()> {
-        self.driver
-            .approval_resumed(store, run_id, server_id, tool_name)
+        self.driver.approval_resumed(
+            store,
+            run_id,
+            server_id,
+            tool_name,
+            approval_id,
+            status,
+            reason,
+        )
     }
 }
 
@@ -390,6 +482,15 @@ impl WorkflowPlannerNode {
 }
 
 impl WorkflowExecutorNode {
+    pub(super) fn approval_wait(
+        self,
+        identity: &WorkflowExecutorToolIdentity,
+        approval_id: Option<&str>,
+        reason: Option<&str>,
+    ) -> WorkflowExecutorApprovalWait {
+        WorkflowExecutorApprovalWait::new(identity, approval_id, reason)
+    }
+
     pub(super) fn resolve_tool(
         self,
         requested_name: &str,
@@ -420,6 +521,31 @@ impl WorkflowExecutorNode {
     ) -> AppResult<()> {
         self.driver
             .executor_tool_resolution(store, run_id, iteration, resolution)
+    }
+
+    pub(super) fn record_approval_policy(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        identity: &WorkflowExecutorToolIdentity,
+        reason: Option<&str>,
+    ) -> AppResult<()> {
+        self.driver
+            .executor_approval_policy(store, run_id, iteration, identity, reason)
+    }
+
+    pub(super) fn record_approval_policy_stage(
+        self,
+        store: &AppStore,
+        run_id: &str,
+        iteration: u32,
+        identity: &WorkflowExecutorToolIdentity,
+        stage: &str,
+        reason: Option<&str>,
+    ) -> AppResult<()> {
+        self.driver
+            .executor_approval_policy_stage(store, run_id, iteration, identity, stage, reason)
     }
 
     pub(super) fn internal_tool(self, tool_name: &str) -> WorkflowExecutorToolIdentity {
@@ -464,15 +590,10 @@ impl WorkflowExecutorNode {
         store: &AppStore,
         run_id: &str,
         iteration: u32,
-        identity: &WorkflowExecutorToolIdentity,
+        wait: &WorkflowExecutorApprovalWait,
     ) -> AppResult<WorkflowExecutorRoute> {
-        self.await_approval(
-            store,
-            run_id,
-            iteration,
-            identity.server_id(),
-            identity.tool_name(),
-        )
+        self.driver
+            .executor_tool_approval(store, run_id, iteration, wait)
     }
 }
 
@@ -654,6 +775,14 @@ pub(super) fn record_workflow_pending_approval(
         "serverId": server_id,
         "toolName": tool_name,
     });
+    append_workflow_pending_approval_detail(store, run_id, detail)
+}
+
+fn append_workflow_pending_approval_detail(
+    store: &AppStore,
+    run_id: &str,
+    detail: Value,
+) -> AppResult<()> {
     append_workflow_transition_event(
         store,
         run_id,
@@ -671,16 +800,46 @@ pub(super) fn record_workflow_pending_approval(
     )
 }
 
+pub(super) fn record_workflow_pending_tool_approval(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    wait: &WorkflowExecutorApprovalWait,
+) -> AppResult<()> {
+    let mut detail = workflow_turn_detail(mode, Some(iteration));
+    append_workflow_tool_identity_detail(&mut detail, wait.identity());
+    if let Some(approval_id) = wait.approval_id() {
+        detail.insert("approvalId".into(), json!(approval_id));
+    }
+    if let Some(reason) = wait.reason() {
+        detail.insert("reason".into(), json!(reason));
+    }
+    append_workflow_pending_approval_detail(store, run_id, Value::Object(detail))
+}
+
 pub(super) fn record_workflow_approval_resumed(
     store: &AppStore,
     run_id: &str,
     mode: WorkflowMode,
     server_id: &str,
     tool_name: &str,
+    approval_id: Option<&str>,
+    status: Option<&str>,
+    reason: Option<&str>,
 ) -> AppResult<()> {
     let mut detail = workflow_turn_detail(mode, None);
     detail.insert("serverId".into(), json!(server_id));
     detail.insert("toolName".into(), json!(tool_name));
+    if let Some(approval_id) = approval_id {
+        detail.insert("approvalId".into(), json!(approval_id));
+    }
+    if let Some(status) = status {
+        detail.insert("status".into(), json!(status));
+    }
+    if let Some(reason) = reason {
+        detail.insert("reason".into(), json!(reason));
+    }
     append_workflow_node_event(
         store,
         run_id,
@@ -843,6 +1002,50 @@ pub(super) fn record_workflow_executor_tool_resolution(
     )
 }
 
+pub(super) fn record_workflow_executor_approval_policy(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    identity: &WorkflowExecutorToolIdentity,
+    reason: Option<&str>,
+) -> AppResult<()> {
+    record_workflow_executor_approval_policy_stage(
+        store,
+        run_id,
+        iteration,
+        mode,
+        identity,
+        "approval_policy",
+        reason,
+    )
+}
+
+pub(super) fn record_workflow_executor_approval_policy_stage(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    identity: &WorkflowExecutorToolIdentity,
+    stage: &str,
+    reason: Option<&str>,
+) -> AppResult<()> {
+    let mut detail = workflow_turn_detail(mode, Some(iteration));
+    detail.insert("stage".into(), json!(stage));
+    detail.insert("requiresApproval".into(), json!(reason.is_some()));
+    if let Some(reason) = reason {
+        detail.insert("reason".into(), json!(reason));
+    }
+    append_workflow_tool_identity_detail(&mut detail, identity);
+    append_workflow_node_event(
+        store,
+        run_id,
+        WorkflowNodeName::Executor,
+        WorkflowNodeStatus::Running,
+        Value::Object(detail),
+    )
+}
+
 pub(super) fn record_workflow_planner_to_reviewer(
     store: &AppStore,
     run_id: &str,
@@ -990,6 +1193,20 @@ pub(super) fn resolve_workflow_executor_approval_route(
     Ok(WorkflowExecutorRoute::AwaitApproval {
         server_id: server_id.to_string(),
         tool_name: tool_name.to_string(),
+    })
+}
+
+pub(super) fn resolve_workflow_executor_tool_approval_route(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    wait: &WorkflowExecutorApprovalWait,
+) -> AppResult<WorkflowExecutorRoute> {
+    record_workflow_pending_tool_approval(store, run_id, iteration, mode, wait)?;
+    Ok(WorkflowExecutorRoute::AwaitApproval {
+        server_id: wait.identity().server_id().to_string(),
+        tool_name: wait.identity().tool_name().to_string(),
     })
 }
 

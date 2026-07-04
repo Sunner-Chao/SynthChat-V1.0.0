@@ -58475,6 +58475,103 @@ fn workflow_executor_approval_route_updates_graph_snapshot() {
 }
 
 #[test]
+fn workflow_executor_node_records_typed_approval_wait_detail() {
+    let dir =
+        std::env::temp_dir().join(format!("synthchat-workflow-approval-wait-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let executor = WorkflowDriver::new(WorkflowMode::ChatTurn).executor();
+    let identity = executor.mcp_tool("mcp_files_write", "mcp.files", "write_file");
+    let wait = executor.approval_wait(
+        &identity,
+        Some("approval-123"),
+        Some("工具调用会写入文件"),
+    );
+    let route = executor
+        .await_tool_approval(&store, &run.run_id, 6, &wait)
+        .unwrap();
+    assert_eq!(
+        route,
+        WorkflowExecutorRoute::AwaitApproval {
+            server_id: "mcp.files".into(),
+            tool_name: "write_file".into()
+        }
+    );
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "approval");
+    let approval = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "approval")
+        .unwrap();
+    assert_eq!(approval["status"], "waiting");
+    assert_eq!(approval["detail"]["mode"], "chat_turn");
+    assert_eq!(approval["detail"]["iteration"], 6);
+    assert_eq!(approval["detail"]["approvalId"], "approval-123");
+    assert_eq!(approval["detail"]["reason"], "工具调用会写入文件");
+    assert_eq!(approval["detail"]["requestedName"], "mcp_files_write");
+    assert_eq!(approval["detail"]["serverId"], "mcp.files");
+    assert_eq!(approval["detail"]["toolName"], "write_file");
+    assert_eq!(approval["detail"]["toolKind"], "mcp");
+    assert_eq!(approval["detail"]["sourceLabel"], "mcp.files:write_file");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_approval_node_records_resume_detail() {
+    let dir =
+        std::env::temp_dir().join(format!("synthchat-workflow-approval-resume-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "pendingApproval".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let approval = WorkflowDriver::new(WorkflowMode::ApprovalContinuation).approval();
+    approval
+        .resumed(
+            &store,
+            &run.run_id,
+            "mcp.files",
+            "write_file",
+            Some("approval-123"),
+            Some("approved"),
+            Some("工具调用会写入文件"),
+        )
+        .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    let approval_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "approval")
+        .unwrap();
+    assert_eq!(approval_node["status"], "completed");
+    assert_eq!(approval_node["detail"]["mode"], "approval_continuation");
+    assert_eq!(approval_node["detail"]["approvalId"], "approval-123");
+    assert_eq!(approval_node["detail"]["status"], "approved");
+    assert_eq!(approval_node["detail"]["reason"], "工具调用会写入文件");
+    assert_eq!(approval_node["detail"]["serverId"], "mcp.files");
+    assert_eq!(approval_node["detail"]["toolName"], "write_file");
+    assert_eq!(graph["transitions"][0]["from"], "approval");
+    assert_eq!(graph["transitions"][0]["to"], "planner");
+    assert_eq!(graph["transitions"][0]["reason"], "approval_resumed");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
 fn workflow_reviewer_completed_route_updates_graph_snapshot() {
     let dir = std::env::temp_dir().join(format!("synthchat-workflow-review-{}", new_id("test")));
     let path = dir.join("state.json");
@@ -58708,6 +58805,127 @@ fn workflow_executor_records_tool_resolution_detail() {
     assert_eq!(executor_node["detail"]["resolution"], "unavailable");
     assert_eq!(executor_node["detail"]["available"], false);
     assert_eq!(executor_node["detail"]["requestedName"], "missing_tool");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn executor_core_resolves_records_and_routes_approval_waits() {
+    let dir = std::env::temp_dir().join(format!("synthchat-executor-core-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let executor_core = ExecutorCore::new(WorkflowDriver::new(WorkflowMode::ChatTurn).executor());
+    let mcp_tool = ToolDefinition {
+        name: "browser.snapshot".into(),
+        display_name: "Snapshot".into(),
+        description: "Take a browser snapshot".into(),
+        source: "mcp".into(),
+        server_id: "browser".into(),
+        tool_name: "snapshot".into(),
+        input_schema: json!({"type": "object"}),
+        requires_approval: true,
+    };
+    let resolution = executor_core
+        .resolve_tool(&store, &run.run_id, 2, "mcp_browser_snapshot", &[mcp_tool])
+        .unwrap();
+    let identity = match resolution {
+        WorkflowExecutorToolResolution::Mcp { identity, .. } => identity,
+        other => panic!("expected mcp resolution, got {other:?}"),
+    };
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let executor_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor_node["status"], "running");
+    assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+    assert_eq!(executor_node["detail"]["sourceLabel"], "browser:snapshot");
+
+    executor_core
+        .record_approval_policy_stage(
+            &store,
+            &run.run_id,
+            2,
+            &identity,
+            "base_policy",
+            Some("needs review"),
+        )
+        .unwrap();
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let executor_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor_node["status"], "running");
+    assert_eq!(executor_node["detail"]["stage"], "base_policy");
+    assert_eq!(executor_node["detail"]["requiresApproval"], true);
+    assert_eq!(executor_node["detail"]["reason"], "needs review");
+    assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+
+    executor_core
+        .record_approval_policy(&store, &run.run_id, 2, &identity, Some("needs review"))
+        .unwrap();
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let executor_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor_node["status"], "running");
+    assert_eq!(executor_node["detail"]["stage"], "approval_policy");
+    assert_eq!(executor_node["detail"]["requiresApproval"], true);
+    assert_eq!(executor_node["detail"]["reason"], "needs review");
+    assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+
+    let approval = ToolApprovalRequest {
+        id: "approval-abc".into(),
+        created_at: now_iso(),
+        updated_at: now_iso(),
+        status: "pending".into(),
+        conversation_id: Some("conv".into()),
+        persona_id: Some("persona".into()),
+        agent_id: Some("agent".into()),
+        run_id: Some(run.run_id.clone()),
+        server_id: "browser".into(),
+        tool_name: "snapshot".into(),
+        payload: json!({}),
+        reason: "needs review".into(),
+        result: None,
+        error: None,
+    };
+    let route = executor_core
+        .await_approval_request(&store, &run.run_id, 3, &identity, &approval)
+        .unwrap();
+    assert_eq!(
+        route,
+        WorkflowExecutorRoute::AwaitApproval {
+            server_id: "browser".into(),
+            tool_name: "snapshot".into()
+        }
+    );
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let approval_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "approval")
+        .unwrap();
+    assert_eq!(approval_node["status"], "waiting");
+    assert_eq!(approval_node["detail"]["approvalId"], "approval-abc");
+    assert_eq!(approval_node["detail"]["reason"], "needs review");
 
     let _ = fs::remove_dir_all(dir);
 }

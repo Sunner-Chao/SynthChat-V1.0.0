@@ -110,6 +110,8 @@ mod delegation_synthchat;
 mod diagnostics;
 #[path = "agent/env_probe.rs"]
 mod env_probe;
+#[path = "agent/executor_core.rs"]
+mod executor_core;
 #[path = "agent/execution.rs"]
 mod execution;
 pub(crate) use execution::decode_terminal_output;
@@ -257,6 +259,7 @@ use diagnostics::{
     workspace_diagnostics_tool,
 };
 use env_probe::env_probe_tool;
+use executor_core::{ExecutorApprovalRequestContext, ExecutorCore};
 use execution::{
     execute_code_tool, process_tool, reattach_detached_process_watchers,
     sensitive_env_names_to_remove, terminal_tool, tool_env_passthrough,

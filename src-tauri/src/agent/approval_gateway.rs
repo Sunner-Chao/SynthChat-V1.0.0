@@ -119,13 +119,16 @@ async fn continue_agent_run_after_approval(
     let workflow_driver = WorkflowDriver::new(WorkflowMode::ApprovalContinuation);
     let workflow_approval = workflow_driver.approval();
     let workflow_planner = workflow_driver.planner();
-    let workflow_executor = workflow_driver.executor();
+    let executor_core = ExecutorCore::new(workflow_driver.executor());
     let workflow_reviewer = workflow_driver.reviewer();
     workflow_approval.resumed(
         store,
         &run.run_id,
         &approval.server_id,
         &approval.tool_name,
+        Some(approval.id.as_str()),
+        Some(approval.status.as_str()),
+        Some(approval.reason.as_str()),
     )?;
 
     run.state = "running".into();
@@ -391,13 +394,13 @@ async fn continue_agent_run_after_approval(
                             break;
                         }
                     }
-                    let tool_resolution = workflow_executor.resolve_tool(&tool_name, &mcp_tools);
                     let run_id_for_resolution = run.run_id.clone();
-                    workflow_executor.record_tool_resolution(
+                    let tool_resolution = executor_core.resolve_tool(
                         store,
                         &run_id_for_resolution,
                         iteration + 1,
-                        &tool_resolution,
+                        &tool_name,
+                        &mcp_tools,
                     )?;
                     run = store.agent_run(&run_id_for_resolution)?;
                     match tool_resolution {
@@ -430,6 +433,14 @@ async fn continue_agent_run_after_approval(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            "base_policy",
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_smart_approval_mode(
                             store,
                             &run.run_id,
@@ -462,34 +473,30 @@ async fn continue_agent_run_after_approval(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy(
+                            store,
+                            &run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            approval_reason.as_deref(),
+                        )?;
                         if let Some(reason) = approval_reason {
-                            run_pre_approval_request_hooks(
+                            let approval_request = executor_core.request_approval(
                                 store,
-                                &run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                &payload,
-                                &reason,
-                            )
-                            .await;
-                            append_tool_approval_request(
-                                store,
-                                &run.conversation_id,
-                                &persona.id,
-                                &agent.id,
-                                &run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                payload,
-                                reason,
-                                ToolExecutionContext::Interactive,
-                            )?;
-                            let approval_route = workflow_executor.await_tool_approval(
-                                store,
-                                &run.run_id,
+                                ExecutorApprovalRequestContext {
+                                    conversation_id: &run.conversation_id,
+                                    persona_id: &persona.id,
+                                    agent_id: &agent.id,
+                                    run_id: &run.run_id,
+                                    tool_context: ToolExecutionContext::Interactive,
+                                },
                                 iteration + 1,
                                 &tool_identity,
-                            )?;
+                                payload,
+                                reason,
+                            )
+                            .await?;
+                            let approval_route = approval_request.route;
                             debug_assert!(matches!(
                                 approval_route,
                                 WorkflowExecutorRoute::AwaitApproval { .. }
@@ -503,12 +510,11 @@ async fn continue_agent_run_after_approval(
                             )?;
                             return Ok(());
                         }
-                        record_tool_started_for_run(
+                        executor_core.record_tool_started(
                             store,
                             app,
                             &run.run_id,
-                            tool_identity.server_id(),
-                            tool_identity.tool_name(),
+                            &tool_identity,
                             &payload,
                             iteration + 1,
                         )?;
@@ -686,6 +692,14 @@ async fn continue_agent_run_after_approval(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            "base_policy",
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_smart_approval_mode(
                             store,
                             &run.run_id,
@@ -718,34 +732,30 @@ async fn continue_agent_run_after_approval(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy(
+                            store,
+                            &run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            approval_reason.as_deref(),
+                        )?;
                         if let Some(reason) = approval_reason {
-                            run_pre_approval_request_hooks(
+                            let approval_request = executor_core.request_approval(
                                 store,
-                                &run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                &payload,
-                                &reason,
-                            )
-                            .await;
-                            append_tool_approval_request(
-                                store,
-                                &run.conversation_id,
-                                &persona.id,
-                                &agent.id,
-                                &run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                payload,
-                                reason,
-                                ToolExecutionContext::Interactive,
-                            )?;
-                            let approval_route = workflow_executor.await_tool_approval(
-                                store,
-                                &run.run_id,
+                                ExecutorApprovalRequestContext {
+                                    conversation_id: &run.conversation_id,
+                                    persona_id: &persona.id,
+                                    agent_id: &agent.id,
+                                    run_id: &run.run_id,
+                                    tool_context: ToolExecutionContext::Interactive,
+                                },
                                 iteration + 1,
                                 &tool_identity,
-                            )?;
+                                payload,
+                                reason,
+                            )
+                            .await?;
+                            let approval_route = approval_request.route;
                             debug_assert!(matches!(
                                 approval_route,
                                 WorkflowExecutorRoute::AwaitApproval { .. }
@@ -759,12 +769,11 @@ async fn continue_agent_run_after_approval(
                             )?;
                             return Ok(());
                         }
-                        record_tool_started_for_run(
+                        executor_core.record_tool_started(
                             store,
                             app,
                             &run.run_id,
-                            tool_identity.server_id(),
-                            tool_identity.tool_name(),
+                            &tool_identity,
                             &payload,
                             iteration + 1,
                         )?;
@@ -947,7 +956,7 @@ async fn continue_agent_run_after_approval(
                 if !assistant_text.trim().is_empty() {
                     break;
                 }
-                let executor_route = workflow_executor.continue_planning(
+                let executor_route = executor_core.continue_planning(
                     store,
                     &run.run_id,
                     iteration + 1,

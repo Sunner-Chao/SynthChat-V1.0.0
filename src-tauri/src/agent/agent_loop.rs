@@ -1288,7 +1288,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     run.queue_item_id = request.queue_item_id.clone();
     let workflow_driver = WorkflowDriver::new(WorkflowMode::ChatTurn);
     let workflow_planner = workflow_driver.planner();
-    let workflow_executor = workflow_driver.executor();
+    let executor_core = ExecutorCore::new(workflow_driver.executor());
     let workflow_reviewer = workflow_driver.reviewer();
     workflow_driver.bootstrap(&mut run, &request, &request_source, tool_context);
     if silent_pet_vision {
@@ -1887,7 +1887,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                     if !assistant_text.trim().is_empty() {
                         break;
                     }
-                    let executor_route = workflow_executor.continue_planning(
+                    let executor_route = executor_core.continue_planning(
                         store,
                         &saved_run.run_id,
                         iteration + 1,
@@ -1930,12 +1930,12 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             break;
                         }
                     }
-                    let tool_resolution = workflow_executor.resolve_tool(&tool_name, &mcp_tools);
-                    workflow_executor.record_tool_resolution(
+                    let tool_resolution = executor_core.resolve_tool(
                         store,
                         &saved_run.run_id,
                         iteration + 1,
-                        &tool_resolution,
+                        &tool_name,
+                        &mcp_tools,
                     )?;
                     run = store.agent_run(&saved_run.run_id)?;
                     match tool_resolution {
@@ -1968,6 +1968,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            "base_policy",
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_scheduled_approval_mode(
                             store,
                             tool_context,
@@ -2054,34 +2062,31 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            approval_reason.as_deref(),
+                        )?;
                         if let Some(reason) = approval_reason {
-                            run_pre_approval_request_hooks(
+                            let approval_request = executor_core.request_approval(
                                 store,
-                                &saved_run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                &payload,
-                                &reason,
-                            )
-                            .await;
-                            let approval = append_tool_approval_request(
-                                store,
-                                &conversation.id,
-                                &persona.id,
-                                &agent.id,
-                                &saved_run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                payload,
-                                reason,
-                                tool_context,
-                            )?;
-                            let approval_route = workflow_executor.await_tool_approval(
-                                store,
-                                &saved_run.run_id,
+                                ExecutorApprovalRequestContext {
+                                    conversation_id: &conversation.id,
+                                    persona_id: &persona.id,
+                                    agent_id: &agent.id,
+                                    run_id: &saved_run.run_id,
+                                    tool_context,
+                                },
                                 iteration + 1,
                                 &tool_identity,
-                            )?;
+                                payload,
+                                reason,
+                            )
+                            .await?;
+                            let approval_route = approval_request.route;
+                            let approval = approval_request.approval;
                             debug_assert!(matches!(
                                 approval_route,
                                 WorkflowExecutorRoute::AwaitApproval { .. }
@@ -2107,12 +2112,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             let assistant = store.append_message(assistant_message)?;
                             return Ok(vec![user, assistant]);
                         }
-                        record_tool_started_for_run(
+                        executor_core.record_tool_started(
                             store,
                             desktop_app,
                             &saved_run.run_id,
-                            tool_identity.server_id(),
-                            tool_identity.tool_name(),
+                            &tool_identity,
                             &payload,
                             iteration + 1,
                         )?;
@@ -2286,6 +2290,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy_stage(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            "base_policy",
+                            approval_reason.as_deref(),
+                        )?;
                         let approval_reason = match apply_scheduled_approval_mode(
                             store,
                             tool_context,
@@ -2372,34 +2384,31 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
+                        executor_core.record_approval_policy(
+                            store,
+                            &saved_run.run_id,
+                            iteration + 1,
+                            &tool_identity,
+                            approval_reason.as_deref(),
+                        )?;
                         if let Some(reason) = approval_reason {
-                            run_pre_approval_request_hooks(
+                            let approval_request = executor_core.request_approval(
                                 store,
-                                &saved_run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                &payload,
-                                &reason,
-                            )
-                            .await;
-                            let approval = append_tool_approval_request(
-                                store,
-                                &conversation.id,
-                                &persona.id,
-                                &agent.id,
-                                &saved_run.run_id,
-                                tool_identity.server_id(),
-                                tool_identity.tool_name(),
-                                payload,
-                                reason,
-                                tool_context,
-                            )?;
-                            let approval_route = workflow_executor.await_tool_approval(
-                                store,
-                                &saved_run.run_id,
+                                ExecutorApprovalRequestContext {
+                                    conversation_id: &conversation.id,
+                                    persona_id: &persona.id,
+                                    agent_id: &agent.id,
+                                    run_id: &saved_run.run_id,
+                                    tool_context,
+                                },
                                 iteration + 1,
                                 &tool_identity,
-                            )?;
+                                payload,
+                                reason,
+                            )
+                            .await?;
+                            let approval_route = approval_request.route;
+                            let approval = approval_request.approval;
                             debug_assert!(matches!(
                                 approval_route,
                                 WorkflowExecutorRoute::AwaitApproval { .. }
@@ -2425,12 +2434,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             let assistant = store.append_message(assistant_message)?;
                             return Ok(vec![user, assistant]);
                         }
-                        record_tool_started_for_run(
+                        executor_core.record_tool_started(
                             store,
                             desktop_app,
                             &saved_run.run_id,
-                            tool_identity.server_id(),
-                            tool_identity.tool_name(),
+                            &tool_identity,
                             &payload,
                             iteration + 1,
                         )?;
@@ -2629,7 +2637,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 if !assistant_text.trim().is_empty() {
                     break;
                 }
-                let executor_route = workflow_executor.continue_planning(
+                let executor_route = executor_core.continue_planning(
                     store,
                     &saved_run.run_id,
                     iteration + 1,
