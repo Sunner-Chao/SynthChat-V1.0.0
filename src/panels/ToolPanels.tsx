@@ -11,7 +11,26 @@ function listen<T>(event: string, handler: (event: { payload: T }) => void): Pro
 import { api } from "../lib/api";
 import { filterSkillsByQuery } from "../lib/skillSearch";
 import { useAppStore } from "../lib/store";
-import type { AgentControlCommand, AgentDefinition, AgentQueuedRequest, AgentRunRecord, AgentTodoItem, CapabilityAdapter, EnhancedSkillSummary, ManagedProcessSnapshot, MarketplaceSkill, MemoryStatus, ModelCatalogEntry, PlannerTraceRecord, PluginAuxiliaryTaskSummary, PluginSummary, ScheduledAgentJob, ScheduledJobOutputRecord, SkillAuditLogEntry, SkillBundle, SkillInstallRecord, SkillTap, SkillTapStatus, SkillUpdateCheck, StateSnapshotManifest, ToolApprovalRequest, ToolArtifactRecord, ToolDefinition, ToolRouterTraceRecord, ToolTraceEntry, WorkspaceSnapshotManifest, Worldbook } from "../lib/types";
+import {
+  WORKFLOW_NODE_ORDER,
+  WORKFLOW_STATUS_ORDER,
+  agentRunWorkflowGraph,
+  workflowGraphCurrentNodeValue,
+  workflowGraphCurrentStatusValue,
+  workflowGraphLastEventSequenceValue,
+  workflowGraphRequestSourceValue,
+  workflowGraphToolContextValue,
+  workflowGraphUpdatedAtValue,
+  workflowGraphRuntimeContractValue,
+  workflowNodeDisplayLabel,
+  workflowNodeRoleLabel,
+  workflowStatusDisplayLabel,
+  toolCallProtocolContractValue,
+  workflowTransitionSequenceValue,
+  workflowTransitionUpdatedAtValue,
+  workflowTransitionReasonLabel
+} from "../lib/types";
+import type { AgentControlCommand, AgentDefinition, AgentQueuedRequest, AgentRunRecord, AgentRuntimeContracts, AgentTodoItem, CapabilityAdapter, EnhancedSkillSummary, ManagedProcessSnapshot, MarketplaceSkill, MemoryStatus, ModelCatalogEntry, PlannerTraceRecord, PluginAuxiliaryTaskSummary, PluginSummary, ScheduledAgentJob, ScheduledJobOutputRecord, SkillAuditLogEntry, SkillBundle, SkillInstallRecord, SkillTap, SkillTapStatus, SkillUpdateCheck, StateSnapshotManifest, ToolApprovalRequest, ToolArtifactRecord, ToolCallProtocolContract, ToolDefinition, ToolRouterTraceRecord, ToolTraceEntry, WorkflowGraph, WorkflowGraphNode, WorkflowGraphRuntimeContract, WorkflowGraphTransition, WorkspaceSnapshotManifest, Worldbook } from "../lib/types";
 
 type SkillUrlPreset = {
   id: string;
@@ -597,6 +616,172 @@ function objectDetail(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
+function compactStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean)
+    : [];
+}
+
+function workflowOriginLabel(value: string) {
+  if (value === "provider_native") return "provider native";
+  if (value === "planner_json") return "planner JSON";
+  if (value === "hermes_markup") return "Hermes markup";
+  return value.replace(/_/g, " ");
+}
+
+function workflowToolCallSummary(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .map((item) => {
+          const call = objectDetail(item);
+          if (!call) return "";
+          const name = typeof call.name === "string" ? call.name : "";
+          const origin = typeof call.origin === "string" ? workflowOriginLabel(call.origin) : "";
+          const id = typeof call.id === "string" ? call.id : "";
+          return [name, origin, id].filter(Boolean).join(":");
+        })
+        .filter(Boolean)
+    : [];
+}
+
+function workflowDetailScalar(value: unknown) {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return String(value);
+  return "";
+}
+
+function workflowDetailField(detail: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const text = workflowDetailScalar(detail[key]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function workflowDetailCount(value: unknown) {
+  if (Array.isArray(value)) return String(value.length);
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+function workflowDetailCountField(detail: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const text = workflowDetailCount(detail[key]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function workflowDetailSummary(value: unknown, maxLength = 220) {
+  const detail = objectDetail(value);
+  if (!detail) return compactDetail(value, maxLength);
+  const tools = compactStringList(detail.tools);
+  const origins = compactStringList(detail.toolOrigins ?? detail.tool_origins).map(workflowOriginLabel);
+  const callIds = compactStringList(detail.toolCallIds ?? detail.tool_call_ids);
+  const toolCalls = workflowToolCallSummary(detail.toolCalls ?? detail.tool_calls);
+  const protocol = workflowDetailField(detail, "toolProtocol", "tool_protocol");
+  const scalarPart = (label: string, ...keys: string[]) => {
+    const text = workflowDetailField(detail, ...keys);
+    return text ? `${label}=${text}` : "";
+  };
+  const countPart = (label: string, ...keys: string[]) => {
+    const text = workflowDetailCountField(detail, ...keys);
+    return text ? `${label}=${text}` : "";
+  };
+  const nestedPart = (label: string, ...keys: string[]) => {
+    for (const key of keys) {
+      const nested = objectDetail(detail[key]);
+      if (nested) {
+        const text = workflowDetailSummary(nested, 120);
+        if (text) return `${label}=${text}`;
+      }
+    }
+    return "";
+  };
+  const parts = [
+    scalarPart("queueLifecycle", "queueLifecycle", "queue_lifecycle"),
+    scalarPart("queueStatus", "queueStatus", "queue_status"),
+    scalarPart("admission", "admission"),
+    scalarPart("requestSource", "requestSource", "request_source"),
+    scalarPart("toolContext", "toolContext", "tool_context"),
+    scalarPart("queueItemId", "queueItemId", "queue_item_id"),
+    scalarPart("approvalId", "approvalId", "approval_id"),
+    scalarPart("status", "status"),
+    scalarPart("serverId", "serverId", "server_id"),
+    scalarPart("toolName", "toolName", "tool_name"),
+    scalarPart("requestedName", "requestedName", "requested_name"),
+    scalarPart("toolKind", "toolKind", "tool_kind"),
+    scalarPart("sourceLabel", "sourceLabel", "source_label"),
+    scalarPart("definitionName", "definitionName", "definition_name"),
+    scalarPart("requiresApproval", "requiresApproval", "requires_approval"),
+    scalarPart("directBridge", "directBridge", "direct_bridge"),
+    scalarPart("approvedToolCallReplay", "approvedToolCallReplay", "approved_tool_call_replay"),
+    scalarPart("bridgeStatus", "bridgeStatus", "bridge_status"),
+    scalarPart("bridgeRejectionReason", "bridgeRejectionReason", "bridge_rejection_reason"),
+    scalarPart("bridgeStage", "bridgeStage", "bridge_stage"),
+    nestedPart("lastBridgeTarget", "lastBridgeTarget", "last_bridge_target"),
+    scalarPart("checkpointId", "checkpointId", "checkpoint_id"),
+    scalarPart("checkpointScope", "checkpointScope", "checkpoint_scope"),
+    scalarPart("checkpointState", "checkpointState", "checkpoint_state"),
+    scalarPart("checkpointIteration", "checkpointIteration", "checkpoint_iteration"),
+    scalarPart("kind", "kind"),
+    scalarPart("state", "state"),
+    scalarPart("previousState", "previousState", "previous_state"),
+    scalarPart("runState", "runState", "run_state"),
+    scalarPart("preserveCurrent", "preserveCurrent", "preserve_current"),
+    scalarPart("mutationKind", "mutationKind", "mutation_kind"),
+    scalarPart("targetSummary", "targetSummary", "target_summary"),
+    scalarPart("checkpointSummary", "checkpointSummary", "checkpoint_summary"),
+    scalarPart("source", "source"),
+    scalarPart("conversationKind", "conversationKind", "conversation_kind"),
+    scalarPart("roomId", "roomId", "room_id"),
+    scalarPart("channelId", "channelId", "channel_id"),
+    scalarPart("chatId", "chatId", "chat_id"),
+    scalarPart("threadId", "threadId", "thread_id"),
+    scalarPart("groupId", "groupId", "group_id"),
+    scalarPart("phase", "phase"),
+    scalarPart("strategy", "strategy"),
+    scalarPart("batch", "batch"),
+    countPart("requestedChildren", "requestedChildren", "requested_children"),
+    countPart("existingChildren", "existingChildren", "existing_children"),
+    countPart("completedChildren", "completedChildren", "completed_children"),
+    countPart("failedChildren", "failedChildren", "failed_children"),
+    countPart("abortedChildren", "abortedChildren", "aborted_children"),
+    countPart("unknownChildren", "unknownChildren", "unknown_children"),
+    countPart("children", "children"),
+    countPart("results", "results"),
+    scalarPart("parentDepth", "parentDepth", "parent_depth"),
+    scalarPart("childDepth", "childDepth", "child_depth"),
+    scalarPart("maxSubagents", "maxSubagents", "max_subagents"),
+    scalarPart("maxSubagentDepth", "maxSubagentDepth", "max_subagent_depth"),
+    scalarPart("maxConcurrentChildren", "maxConcurrentChildren", "max_concurrent_children"),
+    scalarPart("ok", "ok"),
+    scalarPart("orchestratorEnabled", "orchestratorEnabled", "orchestrator_enabled"),
+    scalarPart("subagentAutoApprove", "subagentAutoApprove", "subagent_auto_approve"),
+    scalarPart("inheritMcpToolsets", "inheritMcpToolsets", "inherit_mcp_toolsets"),
+    scalarPart("action", "action"),
+    countPart("toolCount", "toolCount", "tool_count"),
+    tools.length ? `tools=${tools.join(", ")}` : "",
+    origins.length ? `origins=${origins.join(", ")}` : "",
+    callIds.length ? `callIds=${callIds.join(", ")}` : "",
+    toolCalls.length ? `toolCalls=${toolCalls.join(", ")}` : "",
+    protocol ? `protocol=${protocol}` : "",
+    scalarPart("stage", "stage"),
+    scalarPart("resolution", "resolution"),
+    scalarPart("messageId", "messageId", "message_id"),
+    scalarPart("providerId", "providerId", "provider_id"),
+    scalarPart("summary", "summary"),
+    scalarPart("errorKind", "errorKind", "error_kind"),
+    scalarPart("reason", "reason"),
+    scalarPart("timeoutSeconds", "timeoutSeconds", "timeout_seconds"),
+    scalarPart("error", "error")
+  ].filter(Boolean).join(" · ");
+  return parts ? compactDetail(parts, maxLength) : compactDetail(value, maxLength);
+}
+
 function llmFailoverSummary(value: unknown) {
   const detail = objectDetail(value);
   if (!detail) return compactDetail(value);
@@ -645,6 +830,9 @@ function latestRunSignal(run: AgentRunRecord) {
   const latestPhase = run.phaseEvents?.[run.phaseEvents.length - 1];
   if (latestPhase?.phase === "llm_failover") return llmFailoverSummary(latestPhase.detail);
   if (latestPhase?.phase === "subagent_failed") return subagentFailureSummary(latestPhase.detail);
+  if (latestPhase?.phase?.startsWith("workflow_")) {
+    return `${latestPhase.phase}${latestPhase.detail ? `: ${workflowDetailSummary(latestPhase.detail, 120)}` : ""}`;
+  }
   if (latestPhase) return `${latestPhase.phase}${latestPhase.detail ? `: ${compactDetail(latestPhase.detail, 120)}` : ""}`;
   const latestCheckpoint = run.checkpoints?.[run.checkpoints.length - 1];
   if (latestCheckpoint) return latestCheckpoint.summary;
@@ -656,6 +844,93 @@ function latestRunActivity(run: AgentRunRecord) {
   const desc = run.lastActivityDesc?.trim();
   const time = at ? new Date(at).toLocaleString() : "未知时间";
   return desc ? `${desc} · ${time}` : `updated · ${time}`;
+}
+
+function workflowStatusClass(status?: string | null) {
+  if (status === "failed" || status === "canceled") return "disabled";
+  if (status === "completed" || status === "skipped") return "enabled";
+  return "warning";
+}
+
+function workflowNodes(graph?: WorkflowGraph | null): WorkflowGraphNode[] {
+  const nodes = graph?.nodes ?? [];
+  return nodes.slice().sort((left, right) => {
+    const leftRank = WORKFLOW_NODE_ORDER.indexOf(String(left.node));
+    const rightRank = WORKFLOW_NODE_ORDER.indexOf(String(right.node));
+    return (leftRank < 0 ? 99 : leftRank) - (rightRank < 0 ? 99 : rightRank);
+  });
+}
+
+function workflowCurrentNode(graph?: WorkflowGraph | null): WorkflowGraphNode | null {
+  const current = workflowGraphCurrentNodeValue(graph);
+  if (!current) return null;
+  return workflowNodes(graph).find((node) => node.node === current) ?? null;
+}
+
+function workflowStatusSummary(graph?: WorkflowGraph | null) {
+  const counts = new Map<string, number>();
+  for (const node of graph?.nodes ?? []) {
+    counts.set(node.status, (counts.get(node.status) ?? 0) + 1);
+  }
+  return WORKFLOW_STATUS_ORDER
+    .map((status) => {
+      const count = counts.get(status) ?? 0;
+      return count > 0 ? `${workflowStatusDisplayLabel(status)} ${count}` : "";
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function workflowGraphToolOriginsSummary(graph?: WorkflowGraph | null) {
+  const origins = new Set<string>();
+  const collect = (detailValue: unknown) => {
+    const detail = objectDetail(detailValue);
+    if (!detail) return;
+    for (const origin of compactStringList(detail.toolOrigins ?? detail.tool_origins)) {
+      origins.add(workflowOriginLabel(origin));
+    }
+  };
+  for (const node of graph?.nodes ?? []) collect(node.detail);
+  for (const transition of graph?.transitions ?? []) collect(transition.detail);
+  return Array.from(origins).join(", ");
+}
+
+function workflowGraphSummary(graph?: WorkflowGraph | null) {
+  if (!graph) return "workflow graph 未捕获";
+  const current = workflowCurrentNode(graph);
+  const currentNode = workflowGraphCurrentNodeValue(graph);
+  const currentText = workflowNodeDisplayLabel(currentNode);
+  const currentStatus = workflowGraphCurrentStatusValue(graph, currentNode) ?? current?.status ?? null;
+  const statusText = currentStatus ? ` (${workflowStatusDisplayLabel(currentStatus)})` : "";
+  const lastEventSequence = workflowGraphLastEventSequenceValue(graph);
+  const requestSource = workflowGraphRequestSourceValue(graph);
+  const toolContext = workflowGraphToolContextValue(graph);
+  const toolOrigins = workflowGraphToolOriginsSummary(graph);
+  const sequenceText = typeof lastEventSequence === "number" ? ` · seq ${lastEventSequence}` : "";
+  const sourceText = requestSource ? ` · source ${requestSource}` : "";
+  const contextText = toolContext ? ` · context ${toolContext}` : "";
+  const originsText = toolOrigins ? ` · origins ${toolOrigins}` : "";
+  return `current ${currentText}${statusText}${sequenceText}${sourceText}${contextText}${originsText}`;
+}
+
+function recentWorkflowTransitions(graph?: WorkflowGraph | null, limit = 4): WorkflowGraphTransition[] {
+  return (graph?.transitions ?? [])
+    .slice()
+    .sort((left, right) => (workflowTransitionSequenceValue(left) ?? 0) - (workflowTransitionSequenceValue(right) ?? 0))
+    .slice(-limit)
+    .reverse();
+}
+
+function workflowTransitionTitle(transition: WorkflowGraphTransition) {
+  return `${workflowNodeDisplayLabel(transition.from)} -> ${workflowNodeDisplayLabel(transition.to)}`;
+}
+
+function workflowTransitionDetail(transition: WorkflowGraphTransition) {
+  const detail = workflowDetailSummary(transition.detail, 140);
+  const source = transition.topologyEdgeSource ?? transition.topology_edge_source ?? "";
+  const known = transition.topologyEdgeKnown ?? transition.topology_edge_known;
+  const topology = source || known === false ? ` · topology:${source || "unknown"}` : "";
+  return `${workflowTransitionReasonLabel(transition.reason)}${topology}${detail ? `: ${detail}` : ""}`;
 }
 
 const AGENT_TOOLSETS = [
@@ -698,6 +973,14 @@ type PlatformAdapterState = {
   gateway_platform?: string;
   capabilityMatrix?: Record<string, boolean>;
   capability_matrix?: Record<string, boolean>;
+  workflowGraphRuntimeContract?: WorkflowGraphRuntimeContract | null;
+  workflow_graph_runtime_contract?: WorkflowGraphRuntimeContract | null;
+  toolCallProtocolContract?: ToolCallProtocolContract | null;
+  tool_call_protocol_contract?: ToolCallProtocolContract | null;
+  agentRuntimeContracts?: AgentRuntimeContracts | null;
+  agent_runtime_contracts?: AgentRuntimeContracts | null;
+  runtimeContracts?: AgentRuntimeContracts | null;
+  runtime_contracts?: AgentRuntimeContracts | null;
 };
 
 function platformAdapterMode(adapter?: PlatformAdapterState | null) {
@@ -709,14 +992,46 @@ function platformAdapterMode(adapter?: PlatformAdapterState | null) {
 
 function platformAdapterCapabilityText(adapter?: PlatformAdapterState | null) {
   const matrix = adapter?.capabilityMatrix ?? adapter?.capability_matrix;
-  if (!matrix) return "capabilities=n/a";
-  const caps = ["send", "receive", "lifecycle", "attachments"]
-    .map((key) => `${key}:${matrix[key] ? "yes" : "no"}`);
+  const caps = matrix
+    ? ["send", "receive", "lifecycle", "attachments"].map((key) => `${key}:${matrix[key] ? "yes" : "no"}`)
+    : ["capabilities=n/a"];
   const boundary = [
     adapter?.messagingGateway || adapter?.messaging_gateway ? "gateway" : "",
     adapter?.externalDaemon || adapter?.external_daemon ? "external-daemon" : "",
+    workflowGraphRuntimeContractValue(adapter) ? "workflow-contract" : "",
+    toolCallProtocolContractValue(adapter) ? "tool-call-contract" : "",
   ].filter(Boolean);
   return [...caps, ...boundary].join(" · ");
+}
+
+function platformAdapterWorkflowContractText(adapter?: PlatformAdapterState | null) {
+  const contract = workflowGraphRuntimeContractValue(adapter);
+  const merge = contract?.clientMergeContract ?? contract?.client_merge_contract;
+  const stateMachine = contract?.stateMachine ?? contract?.state_machine;
+  if (!merge && !stateMachine) return "";
+  const nodeDrivers = stateMachine?.nodeDrivers ? Object.keys(stateMachine.nodeDrivers).length : 0;
+  return [
+    stateMachine?.driver ? `state=${compactDetail(stateMachine.driver, 64)}` : "",
+    nodeDrivers ? `nodes=${nodeDrivers}` : "",
+    merge?.frontendStore ? `merge=${compactDetail(merge.frontendStore, 72)}` : "",
+    merge?.detailAliasNormalizer ? "detail aliases normalized" : "",
+    merge?.snapshotStrategy ? `snapshot=${compactDetail(merge.snapshotStrategy, 120)}` : ""
+  ].filter(Boolean).join(" · ");
+}
+
+function platformAdapterToolCallContractText(adapter?: PlatformAdapterState | null) {
+  const contract = toolCallProtocolContractValue(adapter);
+  if (!contract) return "";
+  const origins = contract.acceptedOrigins?.length ? contract.acceptedOrigins.join(",") : "";
+  const canonicalStages = contract.canonicalizationPipeline?.length ?? 0;
+  const validationStages = contract.validationPipeline?.length ?? 0;
+  const validator = contract.validation?.sharedSchemaValidator;
+  return [
+    origins ? `origins=${origins}` : "",
+    canonicalStages ? `canonical=${canonicalStages} stages` : "",
+    validationStages ? `validation=${validationStages} stages` : "",
+    validator ? `schema=${compactDetail(validator, 48)}` : ""
+  ].filter(Boolean).join(" · ");
 }
 
 function managedProcessId(process: ManagedProcessSnapshot) {
@@ -1857,6 +2172,12 @@ export function McpPanel() {
                     {platformAdapterMode(mattermostAdapterState)} · {mattermostAdapterState?.transport ?? "websocket"} · received {mattermostAdapterState?.receivedCount ?? 0} · triggered {mattermostAdapterState?.triggeredCount ?? 0}
                   </small>
                   <small>{platformAdapterCapabilityText(mattermostAdapterState)}</small>
+                  {platformAdapterWorkflowContractText(mattermostAdapterState) ? (
+                    <small>{platformAdapterWorkflowContractText(mattermostAdapterState)}</small>
+                  ) : null}
+                  {platformAdapterToolCallContractText(mattermostAdapterState) ? (
+                    <small>{platformAdapterToolCallContractText(mattermostAdapterState)}</small>
+                  ) : null}
                   <code>
                     updatedAt={mattermostAdapterState?.updatedAt ?? "n/a"}
                   </code>
@@ -1887,6 +2208,12 @@ export function McpPanel() {
                       {platformAdapterMode(adapter)} · {adapter.transport ?? "unknown"}
                     </small>
                     <small>{platformAdapterCapabilityText(adapter)}</small>
+                    {platformAdapterWorkflowContractText(adapter) ? (
+                      <small>{platformAdapterWorkflowContractText(adapter)}</small>
+                    ) : null}
+                    {platformAdapterToolCallContractText(adapter) ? (
+                      <small>{platformAdapterToolCallContractText(adapter)}</small>
+                    ) : null}
                     <code>
                       configured={adapter.configured ? "true" : "false"} · enabled={adapter.enabled ? "true" : "false"}
                     </code>
@@ -2563,6 +2890,10 @@ export function McpPanel() {
                   const expanded = expandedDiagnosticRunId === run.runId;
                   const latestCheckpoint = run.checkpoints?.[run.checkpoints.length - 1];
                   const runArtifacts = artifactsByRun[run.runId] ?? [];
+                  const workflowGraph = agentRunWorkflowGraph(run);
+                  const graphNodes = workflowNodes(workflowGraph);
+                  const currentWorkflowNode = workflowCurrentNode(workflowGraph);
+                  const graphTransitions = recentWorkflowTransitions(workflowGraph);
                   return (
                     <div className="adapter-row trace-row" key={`diagnostic-${run.runId}`} style={{ flexDirection: "column", alignItems: "stretch" }}>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -2572,8 +2903,9 @@ export function McpPanel() {
                           <small>{latestRunSignal(run)}</small>
                           <small>最近活动：{latestRunActivity(run)}</small>
                           <small>
-                            phases {run.phaseEvents?.length ?? 0} · tools {run.toolEvents?.length ?? 0} · checkpoints {run.checkpoints?.length ?? 0}
+                            phases {run.phaseEvents?.length ?? 0} · tools {run.toolEvents?.length ?? 0} · checkpoints {run.checkpoints?.length ?? 0} · workflow {graphNodes.length || "none"}
                           </small>
+                          {workflowGraph ? <small>workflow：{workflowGraphSummary(workflowGraph)}</small> : null}
                           <code>{new Date(run.updatedAt).toLocaleString()} · {run.conversationId}</code>
                         </div>
                         <div className="inline-actions">
@@ -2609,12 +2941,56 @@ export function McpPanel() {
                               </div>
                             </div>
                           ) : null}
+                          {workflowGraph ? (
+                            <>
+                              <div className="adapter-row trace-row">
+                                <span className={`status-badge ${workflowStatusClass(currentWorkflowNode?.status)}`}>workflow</span>
+                                <div className="adapter-info">
+                                  <strong>{workflowGraphSummary(workflowGraph)}</strong>
+                                  <small>{workflowStatusSummary(workflowGraph) || "暂无节点状态"}</small>
+                                  <code>{workflowGraph.schema ?? "workflow"} · {workflowGraph.mode ?? "unknown"}{workflowGraphUpdatedAtValue(workflowGraph) ? ` · ${new Date(workflowGraphUpdatedAtValue(workflowGraph)!).toLocaleString()}` : ""}</code>
+                                </div>
+                              </div>
+                              {graphNodes.length > 0 ? (
+                                <div className="adapter-row trace-row">
+                                  <span className="status-badge enabled">nodes</span>
+                                  <div className="adapter-info">
+                                    <strong>显式状态节点</strong>
+                                    <div className="plugin-tools">
+                                      {graphNodes.map((node) => (
+                                        <span className="tool-tag" key={`${run.runId}-workflow-node-${node.node}`} title={workflowDetailSummary(node.detail, 180)}>
+                                          {workflowNodeDisplayLabel(node.node)}: {workflowStatusDisplayLabel(node.status)}{` · ${node.role ?? workflowNodeRoleLabel(node.node)}`}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : null}
+                              {graphTransitions.map((transition, index) => (
+                                <div className="adapter-row trace-row" key={`${run.runId}-workflow-transition-${workflowTransitionSequenceValue(transition) ?? index}`}>
+                                  <span className="status-badge warning">edge</span>
+                                  <div className="adapter-info">
+                                    <strong>{workflowTransitionTitle(transition)}</strong>
+                                    <small>{workflowTransitionDetail(transition)}</small>
+                                    <code>{workflowTransitionSequenceValue(transition) ?? "-"}{workflowTransitionUpdatedAtValue(transition) ? ` · ${new Date(workflowTransitionUpdatedAtValue(transition)!).toLocaleString()}` : ""}</code>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          ) : null}
                           {(run.phaseEvents ?? []).slice(-5).reverse().map((phase, index) => {
                             const isFailover = phase.phase === "llm_failover";
                             const isSubagentFailure = phase.phase === "subagent_failed";
                             const badge = isFailover ? "fallback" : isSubagentFailure ? "subagent" : phase.phase;
                             const title = isFailover ? "LLM provider fallback" : isSubagentFailure ? "Subagent failure" : new Date(phase.updatedAt).toLocaleString();
-                            const detail = isFailover ? llmFailoverSummary(phase.detail) : isSubagentFailure ? subagentFailureSummary(phase.detail) : compactDetail(phase.detail) || "无详情";
+                            const isWorkflowPhase = phase.phase.startsWith("workflow_");
+                            const detail = isFailover
+                              ? llmFailoverSummary(phase.detail)
+                              : isSubagentFailure
+                                ? subagentFailureSummary(phase.detail)
+                                : isWorkflowPhase
+                                  ? workflowDetailSummary(phase.detail) || "无详情"
+                                  : compactDetail(phase.detail) || "无详情";
                             return (
                               <div className="adapter-row trace-row" key={`${run.runId}-phase-${phase.updatedAt}-${index}`}>
                                 <span className={`status-badge ${isFailover || isSubagentFailure ? "disabled" : "warning"}`}>{badge}</span>

@@ -1,3 +1,5 @@
+#![recursion_limit = "512"]
+
 mod agent;
 mod error;
 mod hermes_auth;
@@ -2894,6 +2896,7 @@ fn cancel_agent_queue_item(
 ) -> AppResult<models::AgentQueuedRequest> {
     store.reload_from_disk()?;
     let item = store.cancel_agent_queue_item(&id)?;
+    agent::record_agent_queue_workflow_terminal(&store, &item)?;
     agent::emit_agent_queue_event(
         Some(&app),
         "canceled",

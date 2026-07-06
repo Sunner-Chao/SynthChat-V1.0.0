@@ -23,15 +23,19 @@ use crate::{
 };
 
 use super::{
-    append_parent_phase_event, append_tool_approval_request, available_mcp_tool_definitions,
+    append_parent_phase_event, available_mcp_tool_definitions,
     decision_parser::PROVIDER_TOOL_CALL_META_KEY, delegation_request::DelegateTaskRequest,
     disk_cleanup_post_tool_call_hook, disk_cleanup_session_end_hook, emit_agent_run_record,
-    execute_recovery_internal_tool, execute_recovery_mcp_tool, is_internal_tool, kanban_block_tool,
-    kanban_comment_tool, kanban_complete_tool, kanban_create_tool, kanban_decompose_tool,
-    kanban_heartbeat_tool, kanban_link_tool, kanban_list_tool, kanban_show_tool,
-    kanban_specify_tool, kanban_unblock_tool, langfuse_record_hook, record_tool_event_for_run,
-    record_tool_started_for_run, redact_sensitive_text, resolve_mcp_tool, tool_approval_reason,
-    truncate_for_prompt, ToolExecutionContext,
+    executor_core::{
+        ExecutorApprovalRequestContext, ExecutorCore, ExecutorInternalToolExecutionContext,
+    },
+    is_internal_tool, kanban_block_tool, kanban_comment_tool, kanban_complete_tool,
+    kanban_create_tool, kanban_decompose_tool, kanban_heartbeat_tool, kanban_link_tool,
+    kanban_list_tool, kanban_show_tool, kanban_specify_tool, kanban_unblock_tool,
+    langfuse_record_hook, redact_sensitive_text, resolve_mcp_tool, tool_approval_reason,
+    truncate_for_prompt,
+    workflow_graph::{workflow_mode_for_run, WorkflowDriver, WorkflowMode},
+    ToolExecutionContext,
 };
 
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
@@ -2645,27 +2649,62 @@ async fn resolve_python_plugin_bridge_result(
                     tool_name,
                     payload.clone(),
                     reason,
-                );
+                )
+                .await;
             }
-            let (text, event) = Box::pin(execute_recovery_internal_tool(
+            let run = store.agent_run(context.run_id)?;
+            let (workflow_mode, iteration) = python_plugin_bridge_workflow_state(&run);
+            let workflow_executor = WorkflowDriver::new(workflow_mode).executor();
+            let executor_core = ExecutorCore::new(workflow_executor);
+            let identity = workflow_executor.internal_tool(tool_name);
+            executor_core.start_tool_execution(
                 store,
-                context.agent,
-                context.conversation_id,
+                context.app,
                 context.run_id,
+                &identity,
+                &payload,
+                iteration,
+            )?;
+            match Box::pin(executor_core.execute_internal_tool(
+                store,
+                ExecutorInternalToolExecutionContext {
+                    agent: context.agent,
+                    conversation_id: context.conversation_id,
+                    run_id: context.run_id,
+                    tool_context: context.tool_context,
+                    app: context.app,
+                    approved_tool_call_replay: false,
+                },
                 tool_name,
                 payload.clone(),
-                context.tool_context,
-                context.app,
             ))
-            .await?;
-            record_tool_event_for_run(
-                store,
-                context.app,
-                context.conversation_id,
-                context.run_id,
-                event,
-            )?;
-            return Ok(Value::String(text));
+            .await
+            {
+                Ok((text, event)) => {
+                    executor_core.record_tool_event(
+                        store,
+                        context.app,
+                        context.conversation_id,
+                        context.run_id,
+                        event,
+                    )?;
+                    return Ok(Value::String(text));
+                }
+                Err(error) => {
+                    executor_core.record_tool_failed_with_iteration(
+                        store,
+                        context.app,
+                        context.conversation_id,
+                        context.run_id,
+                        Some(iteration),
+                        tool_name,
+                        &[],
+                        &payload,
+                        &error,
+                    )?;
+                    return Err(error);
+                }
+            }
         }
         let tools = available_mcp_tool_definitions(store, context.agent)?;
         if let Some(definition) = resolve_mcp_tool(&tools, tool_name) {
@@ -2688,24 +2727,57 @@ async fn resolve_python_plugin_bridge_result(
                     &definition.tool_name,
                     payload.clone(),
                     reason,
-                );
+                )
+                .await;
             }
-            let (text, event) = Box::pin(execute_recovery_mcp_tool(
+            let run = store.agent_run(context.run_id)?;
+            let (workflow_mode, iteration) = python_plugin_bridge_workflow_state(&run);
+            let workflow_executor = WorkflowDriver::new(workflow_mode).executor();
+            let executor_core = ExecutorCore::new(workflow_executor);
+            let identity =
+                workflow_executor.mcp_tool(tool_name, &definition.server_id, &definition.tool_name);
+            executor_core.start_tool_execution(
+                store,
+                context.app,
+                context.run_id,
+                &identity,
+                &payload,
+                iteration,
+            )?;
+            match Box::pin(executor_core.execute_mcp_tool(
                 store,
                 context.run_id,
                 &definition,
                 payload.clone(),
                 Some(context),
             ))
-            .await?;
-            record_tool_event_for_run(
-                store,
-                context.app,
-                context.conversation_id,
-                context.run_id,
-                event,
-            )?;
-            return Ok(Value::String(text));
+            .await
+            {
+                Ok((text, event)) => {
+                    executor_core.record_tool_event(
+                        store,
+                        context.app,
+                        context.conversation_id,
+                        context.run_id,
+                        event,
+                    )?;
+                    return Ok(Value::String(text));
+                }
+                Err(error) => {
+                    executor_core.record_tool_failed_with_iteration(
+                        store,
+                        context.app,
+                        context.conversation_id,
+                        context.run_id,
+                        Some(iteration),
+                        tool_name,
+                        &tools,
+                        &payload,
+                        &error,
+                    )?;
+                    return Err(error);
+                }
+            }
         }
     }
     let result = match tool_name {
@@ -2729,7 +2801,7 @@ async fn resolve_python_plugin_bridge_result(
     Ok(Value::String(result))
 }
 
-fn request_python_plugin_bridge_approval(
+async fn request_python_plugin_bridge_approval(
     store: &AppStore,
     context: &PythonPluginBridgeContext<'_>,
     server_id: &str,
@@ -2739,27 +2811,39 @@ fn request_python_plugin_bridge_approval(
 ) -> AppResult<Value> {
     let run = store.agent_run(context.run_id)?;
     let approval_payload = python_plugin_bridge_approval_payload(payload);
-    record_tool_started_for_run(
+    let (workflow_mode, iteration) = python_plugin_bridge_workflow_state(&run);
+    let workflow_executor = WorkflowDriver::new(workflow_mode).executor();
+    let executor_core = ExecutorCore::new(workflow_executor);
+    let identity = if server_id == "__internal" {
+        workflow_executor.internal_tool(tool_name)
+    } else {
+        workflow_executor.mcp_tool(tool_name, server_id, tool_name)
+    };
+    executor_core.start_tool_execution(
         store,
         context.app,
         context.run_id,
-        server_id,
-        tool_name,
+        &identity,
         &approval_payload,
-        0,
+        iteration,
     )?;
-    let approval = append_tool_approval_request(
-        store,
-        context.conversation_id,
-        &run.persona_id,
-        &run.agent_id,
-        context.run_id,
-        server_id,
-        tool_name,
-        approval_payload,
-        reason,
-        context.tool_context,
-    )?;
+    let outcome = executor_core
+        .request_approval(
+            store,
+            ExecutorApprovalRequestContext {
+                conversation_id: context.conversation_id,
+                persona_id: &run.persona_id,
+                agent_id: &run.agent_id,
+                run_id: context.run_id,
+                tool_context: context.tool_context,
+            },
+            iteration,
+            &identity,
+            approval_payload,
+            reason,
+        )
+        .await?;
+    let approval = outcome.approval;
     let mut updated_run = store.agent_run(context.run_id)?;
     updated_run.state = "pendingApproval".into();
     updated_run.updated_at = crate::models::now_iso();
@@ -2778,6 +2862,35 @@ fn request_python_plugin_bridge_approval(
         "python plugin bridge tool requires approval: {} · {}",
         approval.server_id, approval.tool_name
     )))
+}
+
+fn python_plugin_bridge_workflow_state(run: &AgentRunRecord) -> (WorkflowMode, u32) {
+    let iteration = run
+        .workflow_graph
+        .as_ref()
+        .and_then(python_plugin_bridge_workflow_iteration)
+        .unwrap_or(1);
+    (workflow_mode_for_run(run), iteration)
+}
+
+fn python_plugin_bridge_workflow_iteration(graph: &Value) -> Option<u32> {
+    for collection_key in ["transitions", "nodes"] {
+        let Some(items) = graph.get(collection_key).and_then(Value::as_array) else {
+            continue;
+        };
+        for item in items.iter().rev() {
+            let Some(iteration) = item
+                .get("detail")
+                .and_then(|detail| detail.get("iteration"))
+                .and_then(Value::as_u64)
+                .filter(|iteration| *iteration <= u32::MAX as u64)
+            else {
+                continue;
+            };
+            return Some(iteration as u32);
+        }
+    }
+    None
 }
 
 fn python_plugin_bridge_approval_payload(mut payload: Value) -> Value {

@@ -45,7 +45,55 @@ import { displayTextForMessage, renderTextForMessage, speechTextForMessage } fro
 import { resolvePersonaAgentBinding, resolvePersonaBoundAgent } from "../lib/personaAgentBinding";
 import { PET_THINKING_STATE_EVENT, publishPetThinkingState, type PetThinkingState } from "../lib/petContext";
 import { useAppStore } from "../lib/store";
-import type { AgentControlCommand, AgentDefinition, AgentRunPhase, AgentRunRecord, AgentRuntimeEvent, ChatAttachment, ChatMessage, EmojiGroup, LlmProvider, ManagedProcessEvent, ModelCatalogEntry, ToolEvent, ToolEventEnvelope } from "../lib/types";
+import {
+  WORKFLOW_RUNTIME_KIND_PREFIX,
+  WORKFLOW_RUNTIME_KIND_SNAPSHOT,
+  WORKFLOW_RUNTIME_KIND_TRANSITION,
+  WORKFLOW_RUNTIME_NODE_KIND_PREFIX,
+  WORKFLOW_RUNTIME_SOURCE,
+  agentRunWorkflowGraph,
+  workflowGraphCurrentNodeValue,
+  workflowGraphCurrentStatusValue,
+  workflowGraphLastEventSequenceValue,
+  workflowGraphRequestSourceValue,
+  workflowGraphToolContextValue,
+  workflowNodeDisplayLabel,
+  workflowNodeRoleLabel,
+  workflowRuntimeSummaryCurrentNodeValue,
+  workflowRuntimeSummaryCurrentStatusValue,
+  workflowRuntimeSummaryNodeCountValue,
+  workflowRuntimeSummaryRequestSourceValue,
+  workflowRuntimeSummaryToolContextValue,
+  workflowRuntimeSummaryToolOriginsValue,
+  workflowRuntimeSummaryTransitionCountValue,
+  workflowRuntimePayloadEventSequenceValue,
+  workflowStatusDisplayLabel,
+  workflowSnapshotRuntimeGraphValue,
+  workflowSnapshotRuntimeSummaryValue,
+  workflowTransitionSequenceValue,
+  workflowTransitionReasonLabel
+} from "../lib/types";
+import type {
+  AgentControlCommand,
+  AgentDefinition,
+  AgentRunPhase,
+  AgentRunRecord,
+  AgentRuntimeEvent,
+  ChatAttachment,
+  ChatMessage,
+  EmojiGroup,
+  LlmProvider,
+  ManagedProcessEvent,
+  ModelCatalogEntry,
+  ToolEvent,
+  ToolEventEnvelope,
+  WorkflowGraph,
+  WorkflowGraphTransition,
+  WorkflowNodeRuntimePayload,
+  WorkflowRuntimeSummary,
+  WorkflowSnapshotRuntimePayload,
+  WorkflowTransitionRuntimePayload
+} from "../lib/types";
 import { Avatar } from "../components/common";
 
 type ComposerAttachment = ChatAttachment & {
@@ -429,6 +477,377 @@ function shortRuntimeId(value?: string | null) {
   return `${prefix}-${text.slice(-8)}`;
 }
 
+function runtimePayloadRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function workflowToolOriginSummaryText(origins: string[]) {
+  return origins
+    .map((origin) => {
+      if (origin === "provider_native") return "provider native";
+      if (origin === "planner_json") return "planner JSON";
+      if (origin === "hermes_markup") return "Hermes markup";
+      return origin.replace(/_/g, " ");
+    })
+    .join(", ");
+}
+
+function workflowSummaryText(summary?: WorkflowRuntimeSummary | null) {
+  if (!summary) return "";
+  const current = workflowNodeDisplayLabel(workflowRuntimeSummaryCurrentNodeValue(summary));
+  const currentStatus = workflowRuntimeSummaryCurrentStatusValue(summary);
+  const status = currentStatus ? ` (${workflowStatusDisplayLabel(currentStatus)})` : "";
+  const nodeCount = workflowRuntimeSummaryNodeCountValue(summary);
+  const transitionCount = workflowRuntimeSummaryTransitionCountValue(summary);
+  const requestSource = workflowRuntimeSummaryRequestSourceValue(summary);
+  const toolContext = workflowRuntimeSummaryToolContextValue(summary);
+  const toolOrigins = workflowToolOriginSummaryText(workflowRuntimeSummaryToolOriginsValue(summary));
+  const counts = [
+    typeof nodeCount === "number" ? `${nodeCount} nodes` : "",
+    typeof transitionCount === "number" ? `${transitionCount} edges` : "",
+    requestSource ? `source ${requestSource}` : "",
+    toolContext ? `context ${toolContext}` : "",
+    toolOrigins ? `origins ${toolOrigins}` : ""
+  ].filter(Boolean).join(" · ");
+  return [`current ${current}${status}`, counts].filter(Boolean).join(" · ");
+}
+
+function workflowGraphSnapshotText(graph?: WorkflowGraph | null) {
+  if (!graph) return "";
+  const currentNode = workflowGraphCurrentNodeValue(graph);
+  const currentStatus = workflowGraphCurrentStatusValue(graph, currentNode);
+  const lastEventSequence = workflowGraphLastEventSequenceValue(graph);
+  const requestSource = workflowGraphRequestSourceValue(graph);
+  const toolContext = workflowGraphToolContextValue(graph);
+  const current = workflowNodeDisplayLabel(currentNode);
+  const status = currentStatus ? ` (${workflowStatusDisplayLabel(currentStatus)})` : "";
+  const counts = [
+    `${graph.nodes?.length ?? 0} nodes`,
+    `${graph.transitions?.length ?? 0} edges`,
+    typeof lastEventSequence === "number" ? `seq ${lastEventSequence}` : "",
+    requestSource ? `source ${requestSource}` : "",
+    toolContext ? `context ${toolContext}` : ""
+  ].filter(Boolean).join(" · ");
+  return [`current ${current}${status}`, counts].filter(Boolean).join(" · ");
+}
+
+function recentWorkflowGraphTransitions(graph?: WorkflowGraph | null): WorkflowGraphTransition[] {
+  return (graph?.transitions ?? [])
+    .slice()
+    .sort((left, right) => (workflowTransitionSequenceValue(left) ?? 0) - (workflowTransitionSequenceValue(right) ?? 0))
+    .slice(-3)
+    .reverse();
+}
+
+const WORKFLOW_DETAIL_VALUE_LABELS: Record<string, Record<string, string>> = {
+  queueLifecycle: {
+    dequeued_for_run: "dequeued for run",
+    not_applicable: "not applicable",
+    turn_completed: "turn completed",
+    turn_failed: "turn failed",
+    canceled: "canceled"
+  },
+  queueStatus: {
+    claimed: "claimed",
+    not_queued: "not queued",
+    completed: "completed",
+    failed: "failed",
+    canceled: "canceled"
+  },
+  admission: {
+    queued_turn: "queued turn",
+    direct_turn: "direct turn"
+  },
+  kind: {
+    resume_checkpoint: "resume checkpoint"
+  },
+  state: {
+    resume_started: "resume started",
+    resumed: "resumed",
+    resume_failed: "resume failed"
+  },
+  errorKind: {
+    context_compression: "context compression",
+    iteration_budget_exhausted: "iteration budget exhausted",
+    llm_error: "LLM error",
+    llm_recovery_exhausted: "LLM recovery exhausted",
+    no_final_answer: "no final answer",
+    provider_turn_aborted: "provider turn aborted",
+    tool_approval_required: "tool approval required",
+    tool_schema_validation: "tool schema validation",
+    tool_unavailable: "tool unavailable",
+    tool_request: "tool request"
+  },
+  toolProtocol: {
+    canonical_tool_call_v1: "canonical tool call v1"
+  },
+  toolOrigins: {
+    provider_native: "provider native",
+    planner_json: "planner JSON",
+    hermes_markup: "Hermes markup"
+  },
+  bridgeStatus: {
+    dispatch_ready: "dispatch ready",
+    approval_required: "approval required",
+    context_blocked: "context blocked",
+    unavailable: "unavailable"
+  }
+};
+
+const WORKFLOW_DETAIL_ALIASES: Record<string, string[]> = {
+  requestSource: ["request_source"],
+  toolContext: ["tool_context"],
+  queueItemId: ["queue_item_id"],
+  queueStatus: ["queue_status"],
+  queueLifecycle: ["queue_lifecycle"],
+  preserveCurrent: ["preserve_current"],
+  conversationKind: ["conversation_kind"],
+  roomId: ["room_id"],
+  channelId: ["channel_id"],
+  chatId: ["chat_id"],
+  threadId: ["thread_id"],
+  groupId: ["group_id"],
+  approvalId: ["approval_id"],
+  checkpointId: ["checkpoint_id"],
+  checkpointScope: ["checkpoint_scope"],
+  checkpointState: ["checkpoint_state"],
+  checkpointSummary: ["checkpoint_summary"],
+  checkpointIteration: ["checkpoint_iteration"],
+  previousState: ["previous_state"],
+  runState: ["run_state"],
+  mutationKind: ["mutation_kind"],
+  targetSummary: ["target_summary"],
+  toolCount: ["tool_count"],
+  toolProtocol: ["tool_protocol"],
+  toolOrigins: ["tool_origins"],
+  toolCallIds: ["tool_call_ids"],
+  toolCalls: ["tool_calls"],
+  providerNative: ["provider_native"],
+  requestedName: ["requested_name"],
+  serverId: ["server_id"],
+  toolName: ["tool_name"],
+  toolKind: ["tool_kind"],
+  sourceLabel: ["source_label"],
+  definitionName: ["definition_name"],
+  requiresApproval: ["requires_approval"],
+  directBridge: ["direct_bridge"],
+  approvedToolCallReplay: ["approved_tool_call_replay"],
+  bridgeStatus: ["bridge_status"],
+  bridgeRejectionReason: ["bridge_rejection_reason"],
+  bridgeStage: ["bridge_stage"],
+  lastBridgeTarget: ["last_bridge_target"],
+  messageId: ["message_id"],
+  providerId: ["provider_id"],
+  errorKind: ["error_kind"],
+  timeoutSeconds: ["timeout_seconds"],
+  requestedChildren: ["requested_children"],
+  existingChildren: ["existing_children"],
+  parentDepth: ["parent_depth"],
+  childDepth: ["child_depth"],
+  maxSubagents: ["max_subagents"],
+  maxSubagentDepth: ["max_subagent_depth"],
+  maxConcurrentChildren: ["max_concurrent_children"],
+  orchestratorEnabled: ["orchestrator_enabled"],
+  subagentAutoApprove: ["subagent_auto_approve"],
+  inheritMcpToolsets: ["inherit_mcp_toolsets"],
+  completedChildren: ["completed_children"],
+  failedChildren: ["failed_children"],
+  abortedChildren: ["aborted_children"],
+  unknownChildren: ["unknown_children"],
+  childIndex: ["child_index"],
+  taskPreview: ["task_preview"],
+  canDelegate: ["can_delegate"],
+  maxIterations: ["max_iterations"],
+  acpCommand: ["acp_command"],
+  acpSessionMode: ["acp_session_mode"],
+  childRunId: ["child_run_id"],
+  childConversationId: ["child_conversation_id"],
+  resultPreview: ["result_preview"],
+  errorPreview: ["error_preview"],
+  hasDiagnosticArtifact: ["has_diagnostic_artifact"]
+};
+
+function workflowDetailRecordValue(record: Record<string, unknown>, key: string) {
+  const keys = [key, ...(WORKFLOW_DETAIL_ALIASES[key] ?? [])];
+  for (const candidate of keys) {
+    if (record[candidate] !== undefined && record[candidate] !== null) return record[candidate];
+  }
+  return undefined;
+}
+
+function workflowDetailValueText(key: string, value: unknown) {
+  if (typeof value === "string" && WORKFLOW_DETAIL_VALUE_LABELS[key]?.[value]) {
+    return WORKFLOW_DETAIL_VALUE_LABELS[key][value];
+  }
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+          return workflowDetailValueText(key, item);
+        }
+        const record = runtimePayloadRecord(item);
+        if (!record) return "";
+        const name = typeof record.name === "string" ? record.name : "";
+        const origin = workflowDetailValueText("toolOrigins", record.origin);
+        const id = typeof record.id === "string" ? record.id : "";
+        return [name, origin, id].filter(Boolean).join(":");
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+  const record = runtimePayloadRecord(value);
+  if (record) {
+    return [
+      workflowDetailValueText("requestedName", workflowDetailRecordValue(record, "requestedName")),
+      workflowDetailValueText("toolKind", workflowDetailRecordValue(record, "toolKind")),
+      workflowDetailValueText("bridgeStatus", workflowDetailRecordValue(record, "bridgeStatus")),
+      workflowDetailValueText("serverId", workflowDetailRecordValue(record, "serverId")),
+      workflowDetailValueText("toolName", workflowDetailRecordValue(record, "toolName"))
+    ].filter(Boolean).join(":");
+  }
+  return "";
+}
+
+function workflowRuntimeDetailText(detail: unknown) {
+  const record = runtimePayloadRecord(detail);
+  if (!record) return "";
+  const keys = [
+    "queueLifecycle",
+    "queueStatus",
+    "queueItemId",
+    "admission",
+    "requestSource",
+    "toolContext",
+    "approvalId",
+    "status",
+    "serverId",
+    "toolName",
+    "requestedName",
+    "toolKind",
+    "sourceLabel",
+    "definitionName",
+    "directBridge",
+    "approvedToolCallReplay",
+    "bridgeStatus",
+    "bridgeRejectionReason",
+    "bridgeStage",
+    "lastBridgeTarget",
+    "checkpointId",
+    "checkpointScope",
+    "checkpointState",
+    "checkpointIteration",
+    "checkpointSummary",
+    "previousState",
+    "runState",
+    "preserveCurrent",
+    "mutationKind",
+    "targetSummary",
+    "kind",
+    "state",
+    "phase",
+    "source",
+    "conversationKind",
+    "roomId",
+    "channelId",
+    "chatId",
+    "threadId",
+    "groupId",
+    "strategy",
+    "batch",
+    "action",
+    "toolCount",
+    "tools",
+    "toolProtocol",
+    "toolOrigins",
+    "toolCallIds",
+    "toolCalls",
+    "stage",
+    "resolution",
+    "requiresApproval",
+    "messageId",
+    "requestedChildren",
+    "existingChildren",
+    "completedChildren",
+    "failedChildren",
+    "abortedChildren",
+    "unknownChildren",
+    "parentDepth",
+    "childDepth",
+    "maxSubagents",
+    "maxSubagentDepth",
+    "maxConcurrentChildren",
+    "ok",
+    "orchestratorEnabled",
+    "subagentAutoApprove",
+    "inheritMcpToolsets",
+    "summary",
+    "aborted",
+    "errorKind",
+    "reason",
+    "timeoutSeconds",
+    "error"
+  ];
+  return keys
+    .map((key) => {
+      const text = workflowDetailValueText(key, workflowDetailRecordValue(record, key));
+      return text ? `${key}=${text.length > 80 ? `${text.slice(0, 80)}...` : text}` : "";
+    })
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(" · ");
+}
+
+function workflowRuntimeEventText(event: AgentRuntimeEvent) {
+  if (event.source !== WORKFLOW_RUNTIME_SOURCE && !event.kind.startsWith(WORKFLOW_RUNTIME_KIND_PREFIX)) return "";
+  const payload = runtimePayloadRecord(event.payload);
+  if (event.kind === WORKFLOW_RUNTIME_KIND_SNAPSHOT) {
+    const snapshot = (payload ?? {}) as WorkflowSnapshotRuntimePayload;
+    const summary = workflowSnapshotRuntimeSummaryValue(snapshot);
+    const graph = workflowSnapshotRuntimeGraphValue(snapshot);
+    return ["workflow snapshot", workflowSummaryText(summary) || workflowGraphSnapshotText(graph)].filter(Boolean).join(" · ");
+  }
+  if (event.kind.startsWith(WORKFLOW_RUNTIME_NODE_KIND_PREFIX)) {
+    const nodePayload = (payload ?? {}) as WorkflowNodeRuntimePayload;
+    const node = typeof nodePayload.node === "string" ? nodePayload.node : "";
+    const role = typeof nodePayload.role === "string" ? nodePayload.role : workflowNodeRoleLabel(node);
+    const status = typeof nodePayload.status === "string" ? nodePayload.status : event.status;
+    const eventSequence = workflowRuntimePayloadEventSequenceValue(nodePayload);
+    const sequence = typeof eventSequence === "number" ? `seq ${eventSequence}` : "";
+    const detail = workflowRuntimeDetailText(nodePayload.detail);
+    return ["workflow node", workflowNodeDisplayLabel(node), role, workflowStatusDisplayLabel(status), detail, sequence].filter(Boolean).join(" · ");
+  }
+  if (event.kind === WORKFLOW_RUNTIME_KIND_TRANSITION) {
+    const transition = (payload ?? {}) as WorkflowTransitionRuntimePayload;
+    const from = typeof transition.from === "string" ? transition.from : null;
+    const to = typeof transition.to === "string" ? transition.to : null;
+    const reason = workflowTransitionReasonLabel(
+      typeof transition.reason === "string" ? transition.reason : event.status
+    );
+    const eventSequence = workflowRuntimePayloadEventSequenceValue(transition);
+    const sequence = typeof eventSequence === "number" ? `seq ${eventSequence}` : "";
+    const detail = workflowRuntimeDetailText(transition.detail);
+    const topologySource = typeof transition.topologyEdgeSource === "string"
+      ? transition.topologyEdgeSource
+      : typeof transition.topology_edge_source === "string"
+        ? transition.topology_edge_source
+        : "";
+    const topologyKnown = typeof transition.topologyEdgeKnown === "boolean"
+      ? transition.topologyEdgeKnown
+      : typeof transition.topology_edge_known === "boolean"
+        ? transition.topology_edge_known
+        : null;
+    const topology = topologySource || topologyKnown === false
+      ? `topology ${topologySource || "unknown"}`
+      : "";
+    return ["workflow edge", `${workflowNodeDisplayLabel(from)} -> ${workflowNodeDisplayLabel(to)}`, reason, topology, detail, sequence].filter(Boolean).join(" · ");
+  }
+  return "";
+}
+
 function subagentTitle(run: AgentRunRecord) {
   const index = typeof run.subagentIndex === "number" ? `#${run.subagentIndex}` : "";
   const role = run.subagentRole?.trim() || "subagent";
@@ -463,6 +882,8 @@ function runtimeEventTime(event: AgentRuntimeEvent) {
 }
 
 function runtimeEventText(event: AgentRuntimeEvent) {
+  const workflowText = workflowRuntimeEventText(event);
+  if (workflowText) return workflowText;
   const runId = event.runId ?? event.run_id;
   const queueItemId = event.queueItemId ?? event.queue_item_id;
   const taskId = event.taskId ?? event.task_id;
@@ -1376,6 +1797,7 @@ export const ChatExperience = memo(function ChatExperience() {
     () => agentRuns.find((run) => run.conversationId === activeConversationId && !run.parentRunId),
     [activeConversationId, agentRuns]
   );
+  const activeWorkflowGraph = agentRunWorkflowGraph(activeRun) ?? agentRunWorkflowGraph(storedRun);
   const runStates = useMemo(() => {
     const states = new Map<string, string>();
     for (const run of agentRuns) states.set(run.runId, run.state);
@@ -2883,6 +3305,31 @@ export const ChatExperience = memo(function ChatExperience() {
                       </div>
                     </div>
                   </div>
+                  {activeWorkflowGraph ? (
+                    <div className="claw-tl-node claw-tl-node--phase">
+                      <div className="claw-tl-dot"><Layers size={14} /></div>
+                      <div className="claw-tl-content">
+                        <div className="claw-tl-head">
+                          <span className="claw-tl-title">Workflow Graph</span>
+                          <small>{workflowGraphSnapshotText(activeWorkflowGraph)}</small>
+                        </div>
+                        <div className="claw-acp-updates">
+                          {(activeWorkflowGraph.nodes ?? []).map((node) => (
+                            <span className="claw-acp-update" key={`workflow-node-${node.node}`}>
+                              {workflowNodeDisplayLabel(node.node)} · {workflowStatusDisplayLabel(node.status)} · {node.role ?? workflowNodeRoleLabel(node.node)}
+                            </span>
+                          ))}
+                          {recentWorkflowGraphTransitions(activeWorkflowGraph).map((transition, index) => (
+                            <span className="claw-acp-update" key={`workflow-edge-${workflowTransitionSequenceValue(transition) ?? index}`}>
+                              {workflowNodeDisplayLabel(transition.from)}{" -> "}{workflowNodeDisplayLabel(transition.to)} · {workflowTransitionReasonLabel(transition.reason)}
+                              {(transition.topologyEdgeSource ?? transition.topology_edge_source) ? ` · ${transition.topologyEdgeSource ?? transition.topology_edge_source}` : ""}
+                              {((transition.topologyEdgeKnown ?? transition.topology_edge_known) === false) ? " · unknown edge" : ""}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   {runtimeEvents.length > 0 ? (
                     <div className="claw-tl-node claw-tl-node--phase">
                       <div className="claw-tl-dot"><Network size={14} /></div>

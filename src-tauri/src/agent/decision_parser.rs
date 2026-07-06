@@ -1,19 +1,35 @@
 use serde_json::{json, Value};
+use std::fmt;
 
-use super::tool_registry::resolve_mcp_tool;
+use super::{tool_policy::is_risky_tool_call, tool_registry::resolve_mcp_tool};
 use crate::{
     error::{AppError, AppResult},
+    llm::{
+        provider_tool_call_id_from_payload, PROVIDER_TOOL_CALL_EXTRA_CONTENT_KEY,
+        PROVIDER_TOOL_CALL_ID_KEYS,
+    },
     models::ToolDefinition,
 };
 
-pub(super) const PROVIDER_TOOL_CALL_META_KEY: &str = "__agentProviderToolCall";
-const DECISION_ORIGIN_META_KEY: &str = "__agentDecisionOrigin";
+pub(super) use crate::llm::PROVIDER_TOOL_CALL_META_KEY;
+pub(super) const DECISION_ORIGIN_META_KEY: &str = "__agentDecisionOrigin";
+pub(super) const APPROVED_TOOL_CALL_REPLAY_KEY: &str = "__agentApprovedToolCall";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum ToolCallOrigin {
     ProviderNative,
     PlannerJson,
     HermesMarkup,
+}
+
+impl ToolCallOrigin {
+    pub(super) fn as_str(&self) -> &'static str {
+        match self {
+            Self::ProviderNative => "provider_native",
+            Self::PlannerJson => "planner_json",
+            Self::HermesMarkup => "hermes_markup",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,20 +53,58 @@ pub(super) enum AgentDecision {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ToolCallValidationErrorKind {
+    ToolUnavailable,
+    SchemaValidation,
+    ApprovalRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ToolCallValidationError {
+    kind: ToolCallValidationErrorKind,
+    message: String,
+}
+
+impl ToolCallValidationError {
+    fn tool_unavailable(message: String) -> Self {
+        Self {
+            kind: ToolCallValidationErrorKind::ToolUnavailable,
+            message,
+        }
+    }
+
+    fn schema_validation(message: String) -> Self {
+        Self {
+            kind: ToolCallValidationErrorKind::SchemaValidation,
+            message,
+        }
+    }
+
+    fn approval_required(message: String) -> Self {
+        Self {
+            kind: ToolCallValidationErrorKind::ApprovalRequired,
+            message,
+        }
+    }
+
+    pub(super) fn kind(&self) -> ToolCallValidationErrorKind {
+        self.kind
+    }
+
+    pub(super) fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+impl fmt::Display for ToolCallValidationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
 pub(super) fn provider_tool_call_id(payload: &Value) -> Option<String> {
-    payload
-        .get(PROVIDER_TOOL_CALL_META_KEY)
-        .and_then(|metadata| {
-            metadata
-                .get("id")
-                .or_else(|| metadata.get("call_id"))
-                .or_else(|| metadata.get("tool_call_id"))
-                .or_else(|| metadata.get("toolCallId"))
-        })
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
+    provider_tool_call_id_from_payload(payload)
 }
 
 pub(super) fn summarize_planner_step(decision: &Value) -> String {
@@ -162,11 +216,31 @@ pub(super) fn validated_tool_requests_from_decision(
     decision: &Value,
     available_tools: &[ToolDefinition],
 ) -> AppResult<Vec<(String, Value)>> {
+    validated_tool_requests_from_decision_with_error(decision, available_tools)
+        .map_err(|error| AppError::BadRequest(error.to_string()))
+}
+
+pub(super) fn validated_tool_requests_from_decision_with_error(
+    decision: &Value,
+    available_tools: &[ToolDefinition],
+) -> Result<Vec<(String, Value)>, ToolCallValidationError> {
+    validated_tool_calls_from_decision_with_error(decision, available_tools).map(|calls| {
+        calls
+            .into_iter()
+            .map(|call| (call.name, call.arguments))
+            .collect()
+    })
+}
+
+pub(super) fn validated_tool_calls_from_decision_with_error(
+    decision: &Value,
+    available_tools: &[ToolDefinition],
+) -> Result<Vec<AgentToolCall>, ToolCallValidationError> {
     canonical_tool_calls_from_decision(decision)
         .into_iter()
         .map(|call| {
-            validate_agent_tool_call(&call, available_tools)?;
-            Ok((call.name, call.arguments))
+            validate_agent_tool_call_with_error(&call, available_tools)?;
+            Ok(call)
         })
         .collect()
 }
@@ -175,16 +249,92 @@ pub(super) fn validate_agent_tool_call(
     call: &AgentToolCall,
     available_tools: &[ToolDefinition],
 ) -> AppResult<()> {
-    let definition = resolve_mcp_tool(available_tools, &call.name)
-        .ok_or_else(|| AppError::BadRequest(format!("tool is not available: {}", call.name)))?;
-    validate_tool_call_payload(&definition, &call.arguments)
+    validate_agent_tool_call_with_error(call, available_tools)
+        .map_err(|error| AppError::BadRequest(error.to_string()))
+}
+
+pub(super) fn validate_agent_tool_call_with_error(
+    call: &AgentToolCall,
+    available_tools: &[ToolDefinition],
+) -> Result<(), ToolCallValidationError> {
+    let context = tool_call_validation_context(call);
+    let definition = resolve_planner_tool_definition(available_tools, &call.name).ok_or_else(|| {
+        ToolCallValidationError::tool_unavailable(format!(
+            "{context} tool is not available: {}",
+            call.name
+        ))
+    })?;
+    validate_tool_call_payload(&definition, &call.arguments).map_err(|error| {
+        ToolCallValidationError::schema_validation(format!(
+            "{context} failed schema validation: {error}"
+        ))
+    })?;
+    validate_tool_call_bridge_target(call, available_tools, &context)
+}
+
+fn resolve_planner_tool_definition(
+    available_tools: &[ToolDefinition],
+    requested_name: &str,
+) -> Option<ToolDefinition> {
+    resolve_mcp_tool(available_tools, requested_name)
+}
+
+fn validate_tool_call_bridge_target(
+    call: &AgentToolCall,
+    available_tools: &[ToolDefinition],
+    context: &str,
+) -> Result<(), ToolCallValidationError> {
+    if call.name != "tool_call" {
+        return Ok(());
+    }
+    let bridge_payload = strip_provider_tool_call_metadata(call.arguments.clone());
+    let (target_name, target_payload) = resolve_tool_call_payload(&bridge_payload).map_err(|error| {
+        ToolCallValidationError::schema_validation(format!(
+            "{context} bridge target is invalid: {error}"
+        ))
+    })?;
+    let definition = resolve_planner_tool_definition(available_tools, &target_name).ok_or_else(|| {
+        ToolCallValidationError::tool_unavailable(format!(
+            "{context} target tool is not available: {target_name}"
+        ))
+    })?;
+    if definition.requires_approval {
+        return Err(ToolCallValidationError::approval_required(format!(
+            "{context} target tool requires approval: {target_name}. Call the target tool directly so the normal executor approval route can handle it."
+        )));
+    }
+    validate_tool_call_payload(&definition, &target_payload).map_err(|error| {
+        ToolCallValidationError::schema_validation(format!(
+            "{context} target tool {target_name} failed schema validation: {error}"
+        ))
+    })?;
+    if definition.source == "internal" && is_risky_tool_call(&definition.tool_name, &target_payload)
+    {
+        return Err(ToolCallValidationError::approval_required(format!(
+            "{context} target tool requires approval: {target_name}. Call the target tool directly so the normal executor approval route can handle it."
+        )));
+    }
+    Ok(())
+}
+
+fn tool_call_validation_context(call: &AgentToolCall) -> String {
+    match call.id.as_deref() {
+        Some(id) => format!("{} tool call {id} ({})", call.origin.as_str(), call.name),
+        None => format!("{} tool call ({})", call.origin.as_str(), call.name),
+    }
 }
 
 pub(super) fn validate_tool_call_payload(
     definition: &ToolDefinition,
     payload: &Value,
 ) -> AppResult<()> {
-    let payload = strip_provider_tool_call_metadata_for_validation(payload);
+    let payload = strip_provider_tool_call_metadata(payload.clone());
+    if !payload.is_object() {
+        return Err(AppError::BadRequest(format!(
+            "tool {} payload schema validation failed: payload must be a JSON object",
+            definition.name
+        )));
+    }
     validate_json_schema_subset(&definition.input_schema, &payload, "payload").map_err(|error| {
         AppError::BadRequest(format!(
             "tool {} payload schema validation failed: {error}",
@@ -211,7 +361,15 @@ fn normalize_agent_decision(value: Value) -> Value {
         .unwrap_or(false);
     let has_explicit_tool_key = object.get("tool").is_some()
         || object.get("toolName").is_some()
-        || object.get("tool_name").is_some();
+        || object.get("tool_name").is_some()
+        || object
+            .get("function")
+            .or_else(|| object.get("function_call"))
+            .and_then(Value::as_object)
+            .and_then(|function| function.get("name"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|name| !name.is_empty());
     let has_tool_array = object.get("toolCalls").and_then(Value::as_array).is_some()
         || object.get("tool_calls").and_then(Value::as_array).is_some()
         || object.get("tools").and_then(Value::as_array).is_some()
@@ -222,7 +380,8 @@ fn normalize_agent_decision(value: Value) -> Value {
             .is_some();
     let action_requests_tool = matches!(
         action.as_str(),
-        "tool" | "use_tool" | "call_tool" | "tools" | "tool_call"
+        "tool" | "use_tool" | "call_tool" | "tools" | "tool_call" | "function_call"
+            | "function_calls"
     );
 
     if action_requests_tool || use_tool || has_explicit_tool_key || has_tool_array {
@@ -281,6 +440,7 @@ fn planned_tool_requests(value: &Value) -> Vec<(String, Value)> {
 
     let function_value = value
         .get("function")
+        .or_else(|| value.get("function_call"))
         .filter(|function| function.is_object());
     let Some(tool) = value
         .get("tool")
@@ -290,6 +450,7 @@ fn planned_tool_requests(value: &Value) -> Vec<(String, Value)> {
         .or_else(|| {
             value
                 .get("function")
+                .or_else(|| value.get("function_call"))
                 .filter(|function| function.is_string())
         })
         .or_else(|| function_value.and_then(|function| function.get("name")))
@@ -319,7 +480,11 @@ fn planned_tool_requests(value: &Value) -> Vec<(String, Value)> {
 
 fn provider_tool_call_metadata(value: &Value) -> Option<Value> {
     let mut metadata = serde_json::Map::new();
-    for key in ["id", "call_id", "response_item_id", "extra_content"] {
+    for key in PROVIDER_TOOL_CALL_ID_KEYS
+        .iter()
+        .copied()
+        .chain(std::iter::once(PROVIDER_TOOL_CALL_EXTRA_CONTENT_KEY))
+    {
         if let Some(item) = value.get(key).filter(|item| !item.is_null()) {
             metadata.insert(key.into(), item.clone());
         }
@@ -351,12 +516,45 @@ fn decision_origin(decision: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-fn strip_provider_tool_call_metadata_for_validation(payload: &Value) -> Value {
-    let mut payload = payload.clone();
+pub(super) fn strip_provider_tool_call_metadata(mut payload: Value) -> Value {
     if let Some(object) = payload.as_object_mut() {
         object.remove(PROVIDER_TOOL_CALL_META_KEY);
     }
     payload
+}
+
+pub(super) fn resolve_tool_call_payload(payload: &Value) -> AppResult<(String, Value)> {
+    let name = payload
+        .get("name")
+        .or_else(|| payload.get("tool"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::BadRequest("tool_call requires payload.name".into()))?;
+    if matches!(name, "tool_search" | "tool_describe" | "tool_call") {
+        return Err(AppError::BadRequest(format!(
+            "tool_call cannot invoke bridge tool '{name}'"
+        )));
+    }
+    let arguments = payload
+        .get("arguments")
+        .or_else(|| payload.get("args"))
+        .or_else(|| payload.get("payload"))
+        .or_else(|| payload.get("input"))
+        .or_else(|| payload.get("parameters"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let arguments = if let Some(raw) = arguments.as_str() {
+        parse_tool_arguments_json(raw, name)
+    } else {
+        arguments
+    };
+    if !arguments.is_object() {
+        return Err(AppError::BadRequest(
+            "tool_call arguments must be a JSON object".into(),
+        ));
+    }
+    Ok((name.to_string(), arguments))
 }
 
 fn validate_json_schema_subset(schema: &Value, value: &Value, path: &str) -> Result<(), String> {
@@ -366,6 +564,7 @@ fn validate_json_schema_subset(schema: &Value, value: &Value, path: &str) -> Res
     if schema_object.is_empty() {
         return Ok(());
     }
+    validate_schema_combinators(schema_object, value, path)?;
     if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array) {
         if !enum_values.iter().any(|item| item == value) {
             return Err(format!(
@@ -383,13 +582,86 @@ fn validate_json_schema_subset(schema: &Value, value: &Value, path: &str) -> Res
             ));
         }
     }
-    if schema_type_declares(schema, "object") || schema_object.contains_key("properties") {
+    if schema_type_declares(schema, "object")
+        || schema_object.contains_key("properties")
+        || schema_object.contains_key("required")
+        || schema_object.contains_key("additionalProperties")
+    {
         validate_object_schema_subset(schema, value, path)?;
     }
     if schema_type_declares(schema, "array") || schema_object.contains_key("items") {
         validate_array_schema_subset(schema, value, path)?;
     }
     Ok(())
+}
+
+fn validate_schema_combinators(
+    schema_object: &serde_json::Map<String, Value>,
+    value: &Value,
+    path: &str,
+) -> Result<(), String> {
+    if let Some(schemas) = schema_object.get("allOf").and_then(Value::as_array) {
+        for (index, schema) in schemas.iter().enumerate() {
+            validate_json_schema_subset(schema, value, path)
+                .map_err(|error| format!("{path} allOf[{index}] failed: {error}"))?;
+        }
+    }
+    if let Some(schemas) = schema_object.get("anyOf").and_then(Value::as_array) {
+        validate_any_of_schema_subset(schemas, value, path)?;
+    }
+    if let Some(schemas) = schema_object.get("oneOf").and_then(Value::as_array) {
+        validate_one_of_schema_subset(schemas, value, path)?;
+    }
+    Ok(())
+}
+
+fn validate_any_of_schema_subset(
+    schemas: &[Value],
+    value: &Value,
+    path: &str,
+) -> Result<(), String> {
+    if schemas.is_empty() {
+        return Err(format!("{path} anyOf must include at least one schema"));
+    }
+    let mut errors = Vec::new();
+    for schema in schemas {
+        match validate_json_schema_subset(schema, value, path) {
+            Ok(()) => return Ok(()),
+            Err(error) => errors.push(error),
+        }
+    }
+    Err(format!(
+        "{path} must match at least one anyOf schema ({})",
+        schema_error_preview(&errors)
+    ))
+}
+
+fn validate_one_of_schema_subset(
+    schemas: &[Value],
+    value: &Value,
+    path: &str,
+) -> Result<(), String> {
+    if schemas.is_empty() {
+        return Err(format!("{path} oneOf must include at least one schema"));
+    }
+    let mut matches = 0usize;
+    let mut errors = Vec::new();
+    for schema in schemas {
+        match validate_json_schema_subset(schema, value, path) {
+            Ok(()) => matches += 1,
+            Err(error) => errors.push(error),
+        }
+    }
+    match matches {
+        1 => Ok(()),
+        0 => Err(format!(
+            "{path} must match exactly one oneOf schema ({})",
+            schema_error_preview(&errors)
+        )),
+        _ => Err(format!(
+            "{path} must match exactly one oneOf schema, matched {matches}"
+        )),
+    }
 }
 
 fn validate_object_schema_subset(schema: &Value, value: &Value, path: &str) -> Result<(), String> {
@@ -412,23 +684,38 @@ fn validate_object_schema_subset(schema: &Value, value: &Value, path: &str) -> R
             }
         }
     }
-    if let Some(properties) = schema_object.get("properties").and_then(Value::as_object) {
+    let properties = schema_object.get("properties").and_then(Value::as_object);
+    if let Some(properties) = properties {
         for (key, property_schema) in properties {
             if let Some(child) = value_object.get(key) {
                 validate_json_schema_subset(property_schema, child, &format!("{path}.{key}"))?;
             }
         }
-        if schema_object
-            .get("additionalProperties")
-            .and_then(Value::as_bool)
-            == Some(false)
-        {
+    }
+    match schema_object.get("additionalProperties") {
+        Some(Value::Bool(false)) => {
             for key in value_object.keys() {
-                if !properties.contains_key(key) {
-                    return Err(format!("{path}.{key} is not allowed by schema"));
+                if properties
+                    .map(|properties| properties.contains_key(key))
+                    .unwrap_or(false)
+                {
+                    continue;
                 }
+                return Err(format!("{path}.{key} is not allowed by schema"));
             }
         }
+        Some(additional_schema) if additional_schema.is_object() => {
+            for (key, child) in value_object {
+                if properties
+                    .map(|properties| properties.contains_key(key))
+                    .unwrap_or(false)
+                {
+                    continue;
+                }
+                validate_json_schema_subset(additional_schema, child, &format!("{path}.{key}"))?;
+            }
+        }
+        _ => {}
     }
     Ok(())
 }
@@ -515,6 +802,15 @@ fn enum_values_preview(values: &[Value]) -> String {
         .join(", ")
 }
 
+fn schema_error_preview(errors: &[String]) -> String {
+    errors
+        .iter()
+        .take(3)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 pub(super) fn planned_tool_requests_from_decision(decision: &Value) -> Vec<(String, Value)> {
     if let Some(requests) = decision.get("toolRequests").and_then(Value::as_array) {
         let parsed = requests
@@ -552,12 +848,7 @@ fn parse_hermes_tool_markup(text: &str) -> Option<Value> {
     } else {
         parse_tool_arguments_json(&parameters, &tool_name)
     };
-    Some(json!({
-        "action": "tool",
-        "tool": tool_name,
-        "payload": payload,
-        "__agentDecisionOrigin": "hermes_markup",
-    }))
+    Some(hermes_tool_decision(tool_name, payload))
 }
 
 fn parse_function_equals_tool_markup(text: &str) -> Option<Value> {
@@ -584,12 +875,19 @@ fn parse_function_equals_tool_markup(text: &str) -> Option<Value> {
     for (name, value) in extract_parameter_tags(body) {
         object.insert(name, Value::String(value));
     }
-    Some(json!({
+    Some(hermes_tool_decision(tool_name, Value::Object(object)))
+}
+
+fn hermes_tool_decision(tool_name: String, payload: Value) -> Value {
+    let mut decision = json!({
         "action": "tool",
         "tool": tool_name,
-        "payload": Value::Object(object),
-        "__agentDecisionOrigin": "hermes_markup",
-    }))
+        "payload": payload,
+    });
+    if let Some(object) = decision.as_object_mut() {
+        object.insert(DECISION_ORIGIN_META_KEY.into(), json!("hermes_markup"));
+    }
+    decision
 }
 
 fn extract_parameter_tags(text: &str) -> Vec<(String, String)> {

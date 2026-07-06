@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { emit, emitTo } from "@tauri-apps/api/event";
 import { api } from "./api";
+import {
+  WORKFLOW_GRAPH_SCHEMA,
+  WORKFLOW_PHASE_INITIALIZED,
+  WORKFLOW_PHASE_NODE,
+  WORKFLOW_PHASE_TRANSITION,
+  agentRunWorkflowGraph,
+  workflowNodeRoleLabel
+} from "./types";
 import type {
   AgentDefinition,
   AgentQueuedRequest,
@@ -34,6 +42,9 @@ import type {
   SkillBundle,
   ThemeConfig,
   ToolEvent,
+  WorkflowGraph,
+  WorkflowGraphNode,
+  WorkflowGraphTransition,
   SkillSummary,
   VideoProvider,
   VisionProvider,
@@ -588,6 +599,357 @@ function mergeRunPhases(previous: AgentRunEvent | undefined, event: AgentRunEven
   }
   phases.push(next);
   return phases.slice(-24);
+}
+
+function workflowRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function workflowString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function workflowSequence(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function workflowBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function workflowAliasString(record: Record<string, unknown>, camelCase: string, snakeCase: string): string | null {
+  return workflowString(record[camelCase]) ?? workflowString(record[snakeCase]);
+}
+
+function workflowAliasBoolean(record: Record<string, unknown>, camelCase: string, snakeCase: string): boolean | null {
+  return workflowBoolean(record[camelCase]) ?? workflowBoolean(record[snakeCase]);
+}
+
+function workflowAliasSequence(record: Record<string, unknown>, camelCase: string, snakeCase: string): number | null {
+  return workflowSequence(record[camelCase]) ?? workflowSequence(record[snakeCase]);
+}
+
+function workflowEventSequence(record: Record<string, unknown>): number | null {
+  return workflowAliasSequence(record, "eventSequence", "event_sequence");
+}
+
+const WORKFLOW_DETAIL_ALIAS_PAIRS: readonly [string, string][] = [
+  ["requestSource", "request_source"],
+  ["toolContext", "tool_context"],
+  ["queueItemId", "queue_item_id"],
+  ["queueStatus", "queue_status"],
+  ["queueLifecycle", "queue_lifecycle"],
+  ["preserveCurrent", "preserve_current"],
+  ["conversationKind", "conversation_kind"],
+  ["roomId", "room_id"],
+  ["channelId", "channel_id"],
+  ["chatId", "chat_id"],
+  ["threadId", "thread_id"],
+  ["groupId", "group_id"],
+  ["approvalId", "approval_id"],
+  ["checkpointId", "checkpoint_id"],
+  ["checkpointScope", "checkpoint_scope"],
+  ["checkpointState", "checkpoint_state"],
+  ["checkpointSummary", "checkpoint_summary"],
+  ["checkpointIteration", "checkpoint_iteration"],
+  ["previousState", "previous_state"],
+  ["runState", "run_state"],
+  ["mutationKind", "mutation_kind"],
+  ["targetSummary", "target_summary"],
+  ["toolCount", "tool_count"],
+  ["toolProtocol", "tool_protocol"],
+  ["toolOrigins", "tool_origins"],
+  ["toolCallIds", "tool_call_ids"],
+  ["toolCalls", "tool_calls"],
+  ["providerNative", "provider_native"],
+  ["requestedName", "requested_name"],
+  ["serverId", "server_id"],
+  ["toolName", "tool_name"],
+  ["toolKind", "tool_kind"],
+  ["sourceLabel", "source_label"],
+  ["definitionName", "definition_name"],
+  ["requiresApproval", "requires_approval"],
+  ["directBridge", "direct_bridge"],
+  ["approvedToolCallReplay", "approved_tool_call_replay"],
+  ["bridgeStatus", "bridge_status"],
+  ["bridgeRejectionReason", "bridge_rejection_reason"],
+  ["bridgeStage", "bridge_stage"],
+  ["lastBridgeTarget", "last_bridge_target"],
+  ["messageId", "message_id"],
+  ["providerId", "provider_id"],
+  ["errorKind", "error_kind"],
+  ["timeoutSeconds", "timeout_seconds"],
+  ["requestedChildren", "requested_children"],
+  ["existingChildren", "existing_children"],
+  ["parentDepth", "parent_depth"],
+  ["childDepth", "child_depth"],
+  ["maxSubagents", "max_subagents"],
+  ["maxSubagentDepth", "max_subagent_depth"],
+  ["maxConcurrentChildren", "max_concurrent_children"],
+  ["orchestratorEnabled", "orchestrator_enabled"],
+  ["subagentAutoApprove", "subagent_auto_approve"],
+  ["inheritMcpToolsets", "inherit_mcp_toolsets"],
+  ["completedChildren", "completed_children"],
+  ["failedChildren", "failed_children"],
+  ["abortedChildren", "aborted_children"],
+  ["unknownChildren", "unknown_children"],
+  ["childIndex", "child_index"],
+  ["taskPreview", "task_preview"],
+  ["canDelegate", "can_delegate"],
+  ["maxIterations", "max_iterations"],
+  ["acpCommand", "acp_command"],
+  ["acpSessionMode", "acp_session_mode"],
+  ["childRunId", "child_run_id"],
+  ["childConversationId", "child_conversation_id"],
+  ["resultPreview", "result_preview"],
+  ["errorPreview", "error_preview"],
+  ["hasDiagnosticArtifact", "has_diagnostic_artifact"]
+];
+
+function normalizeWorkflowDetailAliasPair(record: Record<string, unknown>, camelCase: string, snakeCase: string) {
+  const camelValue = record[camelCase];
+  const snakeValue = record[snakeCase];
+  const value = camelValue !== undefined && camelValue !== null
+    ? camelValue
+    : snakeValue !== undefined && snakeValue !== null
+      ? snakeValue
+      : undefined;
+  if (value === undefined) return;
+  if (record[camelCase] === undefined || record[camelCase] === null) record[camelCase] = value;
+  if (record[snakeCase] === undefined || record[snakeCase] === null) record[snakeCase] = value;
+}
+
+function normalizeWorkflowDetailAliases(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeWorkflowDetailAliases(item));
+  }
+  const record = workflowRecord(value);
+  if (!record) return value;
+  const normalized: Record<string, unknown> = { ...record };
+  for (const [key, child] of Object.entries(normalized)) {
+    if (child && typeof child === "object") {
+      normalized[key] = normalizeWorkflowDetailAliases(child);
+    }
+  }
+  for (const [camelCase, snakeCase] of WORKFLOW_DETAIL_ALIAS_PAIRS) {
+    normalizeWorkflowDetailAliasPair(normalized, camelCase, snakeCase);
+  }
+  return normalized;
+}
+
+function cloneWorkflowNodes(nodes: WorkflowGraph["nodes"]): WorkflowGraphNode[] {
+  return (nodes ?? []).map((node) => {
+    const record = node as unknown as Record<string, unknown>;
+    const normalizedNode = workflowString(record.node) ?? String(node.node);
+    const eventSequence = workflowAliasSequence(record, "eventSequence", "event_sequence") ?? node.eventSequence ?? null;
+    const updatedAt = workflowAliasString(record, "updatedAt", "updated_at") ?? node.updatedAt ?? null;
+    return {
+      ...node,
+      node: normalizedNode,
+      role: workflowString(record.role) ?? workflowNodeRoleLabel(normalizedNode),
+      status: workflowString(record.status) ?? node.status,
+      detail: normalizeWorkflowDetailAliases(record.detail ?? node.detail),
+      eventSequence,
+      event_sequence: eventSequence,
+      updatedAt,
+      updated_at: updatedAt
+    };
+  });
+}
+
+function cloneWorkflowTransitions(transitions: WorkflowGraph["transitions"]): WorkflowGraphTransition[] {
+  return (transitions ?? []).map((transition) => {
+    const record = transition as unknown as Record<string, unknown>;
+    const eventSequence = workflowAliasSequence(record, "eventSequence", "event_sequence") ?? transition.eventSequence ?? null;
+    const updatedAt = workflowAliasString(record, "updatedAt", "updated_at") ?? transition.updatedAt ?? null;
+    const topologyEdgeKnown = workflowAliasBoolean(record, "topologyEdgeKnown", "topology_edge_known") ?? transition.topologyEdgeKnown ?? null;
+    const topologyReasonKnown = workflowAliasBoolean(record, "topologyReasonKnown", "topology_reason_known") ?? transition.topologyReasonKnown ?? null;
+    const topologyEdgeSource = workflowAliasString(record, "topologyEdgeSource", "topology_edge_source") ?? transition.topologyEdgeSource ?? null;
+    const topologyEdgeLabel = workflowAliasString(record, "topologyEdgeLabel", "topology_edge_label") ?? transition.topologyEdgeLabel ?? null;
+    return {
+      ...transition,
+      from: workflowString(record.from) ?? transition.from ?? null,
+      to: workflowString(record.to) ?? transition.to ?? null,
+      reason: workflowString(record.reason) ?? transition.reason ?? null,
+      topologyEdgeKnown,
+      topology_edge_known: topologyEdgeKnown,
+      topologyReasonKnown,
+      topology_reason_known: topologyReasonKnown,
+      topologyEdgeSource,
+      topology_edge_source: topologyEdgeSource,
+      topologyEdgeLabel,
+      topology_edge_label: topologyEdgeLabel,
+      detail: normalizeWorkflowDetailAliases(record.detail ?? transition.detail),
+      eventSequence,
+      event_sequence: eventSequence,
+      updatedAt,
+      updated_at: updatedAt
+    };
+  });
+}
+
+function cloneWorkflowGraph(graph: WorkflowGraph): WorkflowGraph {
+  const record = graph as unknown as Record<string, unknown>;
+  const nodes = cloneWorkflowNodes(graph.nodes);
+  const currentNode = workflowAliasString(record, "currentNode", "current_node") ?? graph.currentNode ?? null;
+  const currentStatus = graph.currentStatus
+    ?? workflowAliasString(record, "currentStatus", "current_status")
+    ?? nodes.find((node) => node.node === currentNode)?.status
+    ?? null;
+  const requestSource = workflowAliasString(record, "requestSource", "request_source") ?? graph.requestSource;
+  const toolContext = workflowAliasString(record, "toolContext", "tool_context") ?? graph.toolContext;
+  const lastEventSequence = workflowAliasSequence(record, "lastEventSequence", "last_event_sequence") ?? graph.lastEventSequence ?? null;
+  const updatedAt = workflowAliasString(record, "updatedAt", "updated_at") ?? graph.updatedAt ?? null;
+  return {
+    ...graph,
+    requestSource,
+    request_source: requestSource,
+    toolContext,
+    tool_context: toolContext,
+    currentNode,
+    current_node: currentNode,
+    currentStatus,
+    current_status: currentStatus,
+    lastEventSequence,
+    last_event_sequence: lastEventSequence,
+    updatedAt,
+    updated_at: updatedAt,
+    nodes,
+    transitions: cloneWorkflowTransitions(graph.transitions)
+  };
+}
+
+function initializedWorkflowGraph(detail: unknown): WorkflowGraph | null {
+  const graph = workflowRecord(detail);
+  if (!graph) return null;
+  return cloneWorkflowGraph(graph as WorkflowGraph);
+}
+
+function ensureWorkflowGraph(previous: WorkflowGraph | null | undefined, updatedAt: string): WorkflowGraph {
+  if (previous) {
+    const graph = cloneWorkflowGraph(previous);
+    return {
+      ...graph,
+      updatedAt,
+      updated_at: updatedAt
+    };
+  }
+  return {
+    schema: WORKFLOW_GRAPH_SCHEMA,
+    mode: "recovered",
+    nodes: [],
+    transitions: [],
+    currentNode: null,
+    current_node: null,
+    currentStatus: null,
+    current_status: null,
+    lastEventSequence: 0,
+    last_event_sequence: 0,
+    updatedAt,
+    updated_at: updatedAt
+  };
+}
+
+function workflowNodeUpdateSetsCurrent(graph: WorkflowGraph, node: string, status: string, detail?: unknown): boolean {
+  const detailRecord = workflowRecord(detail);
+  if (detailRecord) {
+    const preserveCurrent = detailRecord.preserveCurrent ?? detailRecord.preserve_current;
+    if (preserveCurrent === true) return false;
+  }
+  if (status !== "skipped") return true;
+  if (node === "reviewer") return true;
+  return graph.currentNode === node;
+}
+
+function applyWorkflowGraphEvent(
+  previous: WorkflowGraph | null | undefined,
+  phase: string | null | undefined,
+  detail: unknown,
+  updatedAt: string
+): WorkflowGraph | null {
+  if (phase === WORKFLOW_PHASE_INITIALIZED) {
+    return initializedWorkflowGraph(detail);
+  }
+  if (phase !== WORKFLOW_PHASE_NODE && phase !== WORKFLOW_PHASE_TRANSITION) {
+    return previous ?? null;
+  }
+  const event = workflowRecord(detail);
+  if (!event) return previous ?? null;
+  const graph = ensureWorkflowGraph(previous, updatedAt);
+  const eventSequence = workflowEventSequence(event);
+  graph.lastEventSequence = eventSequence ?? graph.lastEventSequence ?? null;
+  graph.last_event_sequence = graph.lastEventSequence;
+  graph.updatedAt = updatedAt;
+  graph.updated_at = updatedAt;
+
+  if (phase === WORKFLOW_PHASE_NODE) {
+    const node = workflowString(event.node);
+    const status = workflowString(event.status);
+    if (!node || !status) return graph;
+    const nextNode: WorkflowGraphNode = {
+      node,
+      role: workflowString(event.role) ?? workflowNodeRoleLabel(node),
+      status,
+      detail: normalizeWorkflowDetailAliases(event.detail ?? {}),
+      eventSequence,
+      event_sequence: eventSequence,
+      updatedAt,
+      updated_at: updatedAt
+    };
+    const nodes = cloneWorkflowNodes(graph.nodes);
+    const existingIndex = nodes.findIndex((item) => item.node === node);
+    if (existingIndex >= 0) {
+      nodes[existingIndex] = nextNode;
+    } else {
+      nodes.push(nextNode);
+    }
+    graph.nodes = nodes;
+    if (workflowNodeUpdateSetsCurrent(graph, node, status, nextNode.detail)) {
+      graph.currentNode = node;
+      graph.current_node = node;
+      graph.currentStatus = status;
+      graph.current_status = status;
+    }
+    return graph;
+  }
+
+  const transition: WorkflowGraphTransition = {
+    from: workflowString(event.from),
+    to: workflowString(event.to),
+    reason: workflowString(event.reason),
+    topologyEdgeKnown: workflowAliasBoolean(event, "topologyEdgeKnown", "topology_edge_known"),
+    topology_edge_known: workflowAliasBoolean(event, "topologyEdgeKnown", "topology_edge_known"),
+    topologyReasonKnown: workflowAliasBoolean(event, "topologyReasonKnown", "topology_reason_known"),
+    topology_reason_known: workflowAliasBoolean(event, "topologyReasonKnown", "topology_reason_known"),
+    topologyEdgeSource: workflowAliasString(event, "topologyEdgeSource", "topology_edge_source"),
+    topology_edge_source: workflowAliasString(event, "topologyEdgeSource", "topology_edge_source"),
+    topologyEdgeLabel: workflowAliasString(event, "topologyEdgeLabel", "topology_edge_label"),
+    topology_edge_label: workflowAliasString(event, "topologyEdgeLabel", "topology_edge_label"),
+    detail: normalizeWorkflowDetailAliases(event.detail ?? {}),
+    eventSequence,
+    event_sequence: eventSequence,
+    updatedAt,
+    updated_at: updatedAt
+  };
+  graph.transitions = [...cloneWorkflowTransitions(graph.transitions), transition];
+  if (transition.to) {
+    graph.currentNode = transition.to;
+    graph.current_node = transition.to;
+    graph.currentStatus = graph.nodes?.find((node) => node.node === transition.to)?.status ?? null;
+    graph.current_status = graph.currentStatus;
+  }
+  return graph;
+}
+
+function mergeWorkflowGraphFromRunEvent(
+  previous: WorkflowGraph | null | undefined,
+  event: AgentRunEvent
+): WorkflowGraph | null {
+  const snapshot = initializedWorkflowGraph(event.workflowGraph ?? event.workflow_graph);
+  if (snapshot) return snapshot;
+  return applyWorkflowGraphEvent(previous, event.phase, event.detail, event.updatedAt) ?? previous ?? null;
 }
 
 interface AppState {
@@ -1715,13 +2077,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         delete activeAgentRuns[event.runId];
       } else {
         const prevRun = state.activeAgentRuns[event.runId];
+        const workflowGraph = mergeWorkflowGraphFromRunEvent(agentRunWorkflowGraph(prevRun), event);
         activeAgentRuns[event.runId] = {
           ...event,
           accumulatedToolEvents: mergeToolRunEvents(prevRun, event),
-          accumulatedPhases: mergeRunPhases(prevRun, event)
+          accumulatedPhases: mergeRunPhases(prevRun, event),
+          workflowGraph,
+          workflow_graph: workflowGraph
         };
       }
       const existingIndex = state.agentRuns.findIndex((run) => run.runId === event.runId);
+      const fallbackWorkflowGraph = mergeWorkflowGraphFromRunEvent(null, event);
       const fallbackRun: AgentRunRecord = {
         runId: event.runId,
         conversationId: event.conversationId,
@@ -1746,11 +2112,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         error: event.error ?? null,
         toolEvents: mergeToolEventList([], event.toolEvent),
         phaseEvents: event.phase ? [{ phase: event.phase, detail: event.detail ?? null, updatedAt: event.updatedAt }] : [],
-        checkpoints: []
+        checkpoints: [],
+        workflowGraph: fallbackWorkflowGraph,
+        workflow_graph: fallbackWorkflowGraph
       };
       const agentRuns = existingIndex >= 0
-        ? state.agentRuns.map((run, index) => index === existingIndex
-          ? {
+        ? state.agentRuns.map((run, index) => {
+          if (index !== existingIndex) return run;
+          const workflowGraph = mergeWorkflowGraphFromRunEvent(agentRunWorkflowGraph(run), event);
+          return {
             ...run,
             parentRunId: event.parentRunId ?? run.parentRunId ?? null,
             subagentIndex: event.subagentIndex ?? run.subagentIndex ?? null,
@@ -1770,9 +2140,11 @@ export const useAppStore = create<AppState>((set, get) => ({
             toolEvents: mergeToolEventList(run.toolEvents, event.toolEvent),
             phaseEvents: event.phase
               ? [...(run.phaseEvents ?? []), { phase: event.phase, detail: event.detail ?? null, updatedAt: event.updatedAt }].slice(-200)
-              : run.phaseEvents
-          }
-          : run)
+              : run.phaseEvents,
+            workflowGraph,
+            workflow_graph: workflowGraph
+          };
+        })
         : [fallbackRun, ...state.agentRuns];
       const agentQueue = event.queueItemId
         ? state.agentQueue.map((item) => item.id === event.queueItemId

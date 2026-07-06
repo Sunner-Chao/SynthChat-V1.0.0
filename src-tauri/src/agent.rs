@@ -179,6 +179,8 @@ mod tool_registry;
 mod web_tools;
 #[path = "agent/workflow_graph.rs"]
 mod workflow_graph;
+#[path = "agent/workflow_runtime_contract.rs"]
+mod workflow_runtime_contract;
 #[path = "agent/workspace.rs"]
 mod workspace;
 
@@ -241,7 +243,7 @@ use dashboard_auth::dashboard_auth_tool;
 use dashboard_plugins::{dashboard_plugins_tool, kanban_dashboard_runtime_events};
 use decision_parser::{
     parse_agent_decision, planned_tool_requests_from_decision, planner_decision_error,
-    summarize_planner_step,
+    resolve_tool_call_payload, summarize_planner_step,
 };
 use delegation::{
     acp_list_sessions_for_store, acp_mcp_servers_for_agent, acp_path_within_cwd,
@@ -259,7 +261,10 @@ use diagnostics::{
     workspace_diagnostics_tool,
 };
 use env_probe::env_probe_tool;
-use executor_core::{ExecutorApprovalRequestContext, ExecutorCore};
+use executor_core::{
+    ExecutorApprovalPolicyContext, ExecutorApprovalRequestContext, ExecutorCore,
+    ExecutorInternalToolExecutionContext,
+};
 use execution::{
     execute_code_tool, process_tool, reattach_detached_process_watchers,
     sensitive_env_names_to_remove, terminal_tool, tool_env_passthrough,
@@ -319,6 +324,7 @@ pub use run_management::{
     list_agent_run_artifacts, rerun_agent_run, resume_agent_run,
     spawn_background_chat_turn_for_job,
 };
+pub(crate) use run_management::record_agent_queue_workflow_terminal;
 pub(crate) use runtime_events::emit_pet_assistant_event;
 use runtime_events::{
     append_planner_trace, emit_agent_run_record, push_tool_event_record, record_tool_event_for_run,
@@ -335,7 +341,11 @@ pub(crate) fn agent_runtime_events(
         .get("action")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("kanban-runtime-events");
-    kanban_dashboard_runtime_events(store, payload, action)
+    let mut events = kanban_dashboard_runtime_events(store, payload, action)?;
+    if let Some(object) = events.as_object_mut() {
+        workflow_runtime_contract::insert_agent_runtime_contract_aliases(object);
+    }
+    Ok(events)
 }
 
 pub(crate) async fn dispatch_kanban_and_drain_agent_queue(
@@ -731,8 +741,8 @@ use tool_registry::{
     available_mcp_tool_definitions, credential_pool_tool, execute_recovery_mcp_tool,
     internal_tool_availability, internal_tool_available, internal_tool_prompt_lines,
     mcp_result_to_tool_event, render_internal_tool_prompt_block, render_mcp_tool_definitions,
-    resolve_mcp_tool, resolve_tool_call_payload, tool_describe_tool, tool_search_tool,
-    truncate_for_prompt, visible_tool_definitions_for_agent, InternalToolAvailability,
+    resolve_mcp_tool, tool_describe_tool, tool_search_tool, truncate_for_prompt,
+    visible_tool_definitions_for_agent, InternalToolAvailability,
 };
 use web_tools::{
     build_browser_snapshot, build_x_search_query, extract_images, extract_readable_web_text,
@@ -741,10 +751,8 @@ use web_tools::{
     web_search_tool, x_search_tool,
 };
 use workflow_graph::{
-    append_workflow_checkpoint_event, append_workflow_transition_event,
-    WorkflowDriver, WorkflowExecutorApprovalPolicyStage, WorkflowExecutorRoute,
-    WorkflowExecutorToolResolution, WorkflowMode, WorkflowNodeName, WorkflowPlannerRoute,
-    WorkflowReviewerRoute,
+    workflow_mode_for_run, WorkflowDriver, WorkflowExecutorRoute, WorkflowExecutorToolResolution,
+    WorkflowMode, WorkflowPlannerErrorKind, WorkflowPlannerRoute, WorkflowReviewerRoute,
 };
 use workspace::{
     likely_binary, resolve_workspace_path, resolve_workspace_target_path, should_skip_dir,
@@ -1009,18 +1017,112 @@ pub(crate) async fn synthchat_tools_mcp_call(
     ];
     let conversation_id = new_id("mcp-conv");
     let run_id = new_id("mcp-run");
-    let (text, _event) = execute_recovery_internal_tool(
-        store,
-        &agent,
-        &conversation_id,
-        &run_id,
-        tool_name,
-        arguments,
+    let workflow_mode = workflow_graph::WorkflowMode::ChatTurn;
+    let tool_names = vec![tool_name.to_string()];
+    let request = SendChatRequest {
+        conversation_id: Some(conversation_id.clone()),
+        persona_id: Some(agent.id.clone()),
+        agent_id: Some(agent.id.clone()),
+        content: format!("synthchat-tools MCP call: {tool_name}"),
+        provider_data: Some(json!({
+            "source": "synthchat_tools_mcp",
+            "toolName": tool_name,
+        })),
+        queue_item_id: None,
+    };
+    let mut run = AgentRunRecord::new(conversation_id.clone(), agent.id.clone(), agent.id.clone());
+    run.run_id = run_id.clone();
+    run.state = "running".into();
+    run.user_request = request.content.clone();
+    run.last_activity_desc = Some(format!("synthchat-tools MCP call: {tool_name}"));
+    workflow_graph::WorkflowDriver::new(workflow_mode).bootstrap(
+        &mut run,
+        &request,
+        "synthchat_tools_mcp",
         ToolExecutionContext::Interactive,
-        None,
-    )
-    .await?;
-    Ok(text)
+    );
+    store.save_agent_run(run)?;
+    workflow_graph::record_workflow_planner_to_executor(
+        store,
+        &run_id,
+        1,
+        workflow_mode,
+        1,
+        &tool_names,
+        &[],
+    )?;
+    let executor_core =
+        ExecutorCore::new(workflow_graph::WorkflowDriver::new(workflow_mode).executor());
+    let identity = workflow_graph::WorkflowDriver::new(workflow_mode)
+        .executor()
+        .internal_tool(tool_name);
+    executor_core.start_tool_execution(store, None, &run_id, &identity, &arguments, 1)?;
+    let execution_arguments = arguments.clone();
+    let result = executor_core
+        .execute_internal_tool(
+            store,
+            ExecutorInternalToolExecutionContext {
+                agent: &agent,
+                conversation_id: &conversation_id,
+                run_id: &run_id,
+                tool_context: ToolExecutionContext::Interactive,
+                app: None,
+                approved_tool_call_replay: false,
+            },
+            tool_name,
+            execution_arguments,
+        )
+        .await;
+    match result {
+        Ok((text, event)) => {
+            executor_core.record_tool_event(store, None, &conversation_id, &run_id, event)?;
+            let _ = executor_core.continue_planning(store, &run_id, 1, 1, Some(false))?;
+            workflow_graph::record_workflow_planner_to_reviewer(
+                store,
+                &run_id,
+                2,
+                workflow_mode,
+            )?;
+            workflow_graph::record_workflow_reviewer_skipped(
+                store,
+                &run_id,
+                workflow_mode,
+                &run_id,
+                "synthchat_tools_mcp_result_returned",
+                None,
+                None,
+            )?;
+            let now = now_iso();
+            let mut run = store.agent_run(&run_id)?;
+            run.updated_at = now.clone();
+            run.completed_at = Some(now);
+            run.state = "completed".into();
+            run.error = None;
+            store.save_agent_run(run)?;
+            Ok(text)
+        }
+        Err(error) => {
+            executor_core.record_tool_failed_with_iteration(
+                store,
+                None,
+                &conversation_id,
+                &run_id,
+                Some(1),
+                tool_name,
+                &[],
+                &arguments,
+                &error,
+            )?;
+            let now = now_iso();
+            let mut run = store.agent_run(&run_id)?;
+            run.updated_at = now.clone();
+            run.completed_at = Some(now);
+            run.state = "failed".into();
+            run.error = Some(error.to_string());
+            store.save_agent_run(run)?;
+            Err(error)
+        }
+    }
 }
 
 fn normalize_synthchat_tools_mcp_arguments(tool_name: &str, arguments: Value) -> AppResult<Value> {

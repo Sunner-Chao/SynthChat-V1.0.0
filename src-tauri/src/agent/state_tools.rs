@@ -14,7 +14,7 @@ use crate::{
     store::AppStore,
 };
 
-use super::workflow_graph::append_workflow_checkpoint_event;
+use super::workflow_graph::{workflow_mode_for_run, WorkflowDriver};
 use super::workspace::{resolve_workspace_path, workspace_root};
 
 pub(super) fn file_state_tool(
@@ -366,23 +366,26 @@ pub(super) fn checkpoint_tool(
         event_refs: payload_string_array(payload, "eventRefs", "event_refs"),
         summary,
     };
+    let workflow_mode = workflow_mode_for_run(&run);
     run.checkpoints.push(checkpoint.clone());
     run.updated_at = now_iso();
     store.save_agent_run(run)?;
     let checkpoint_state = checkpoint.state.clone();
     let checkpoint_summary = checkpoint.summary.clone();
     let checkpoint_id = checkpoint.checkpoint_id.clone();
-    append_workflow_checkpoint_event(
-        store,
-        run_id,
-        &checkpoint_state,
-        &checkpoint_summary,
-        json!({
-            "kind": "manual_checkpoint",
-            "checkpointId": checkpoint_id,
-            "iteration": checkpoint.iteration,
-        }),
-    )?;
+    WorkflowDriver::new(workflow_mode)
+        .checkpoint()
+        .completed(
+            store,
+            run_id,
+            &checkpoint_state,
+            &checkpoint_summary,
+            json!({
+                "kind": "manual_checkpoint",
+                "checkpointId": checkpoint_id,
+                "iteration": checkpoint.iteration,
+            }),
+        )?;
     Ok(serde_json::to_string_pretty(&checkpoint)?)
 }
 
@@ -407,27 +410,30 @@ pub(super) fn automatic_mutation_checkpoint(
         event_refs: vec![],
         summary: format!("Automatic checkpoint before {tool_name}: {target_summary}"),
     };
+    let workflow_mode = workflow_mode_for_run(&run);
     run.checkpoints.push(checkpoint.clone());
     run.updated_at = now_iso();
     store.save_agent_run(run)?;
     let checkpoint_state = checkpoint.state.clone();
     let checkpoint_summary = checkpoint.summary.clone();
     let checkpoint_id = checkpoint.checkpoint_id.clone();
-    append_workflow_checkpoint_event(
-        store,
-        run_id,
-        &checkpoint_state,
-        &checkpoint_summary,
-        json!({
-            "kind": "automatic_mutation_checkpoint",
-            "checkpointScope": "pre_mutation",
-            "checkpointId": checkpoint_id,
-            "iteration": checkpoint.iteration,
-            "mutationKind": "file",
-            "targetSummary": target_summary,
-            "toolName": tool_name,
-        }),
-    )?;
+    WorkflowDriver::new(workflow_mode)
+        .checkpoint()
+        .completed(
+            store,
+            run_id,
+            &checkpoint_state,
+            &checkpoint_summary,
+            json!({
+                "kind": "automatic_mutation_checkpoint",
+                "checkpointScope": "pre_mutation",
+                "checkpointId": checkpoint_id,
+                "iteration": checkpoint.iteration,
+                "mutationKind": "file",
+                "targetSummary": target_summary,
+                "toolName": tool_name,
+            }),
+        )?;
     Ok(Some(checkpoint))
 }
 

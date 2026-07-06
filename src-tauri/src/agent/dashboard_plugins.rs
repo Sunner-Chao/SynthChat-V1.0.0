@@ -10,7 +10,10 @@ use serde_json::{json, Value};
 
 use crate::{
     error::{AppError, AppResult},
-    models::{new_id, now_iso, AgentRunRecord, ChatMessage, Conversation, Persona, ToolTraceEntry},
+    models::{
+        new_id, now_iso, AgentRunRecord, ChatMessage, Conversation, Persona, SendChatRequest,
+        ToolTraceEntry,
+    },
     store::{AppStore, ManagedProcess, ManagedProcessNotificationState},
 };
 
@@ -18,6 +21,20 @@ use super::{
     kanban_bulk_update_tool, kanban_comment_tool, kanban_create_tool, kanban_decompose_tool,
     kanban_delete_tool, kanban_link_tool, kanban_specify_tool, kanban_unlink_tool,
     kanban_update_tool,
+    workflow_graph::{
+        insert_workflow_graph_run_response_aliases, workflow_graph_node_runtime_payload,
+        workflow_graph_run_response_values, workflow_graph_runtime_summary,
+        workflow_graph_runtime_timestamp, workflow_graph_snapshot_runtime_payload,
+        workflow_graph_transition_runtime_payload, WorkflowDriver, WorkflowMode,
+        WORKFLOW_RUNTIME_KIND_SNAPSHOT, WORKFLOW_RUNTIME_KIND_TRANSITION,
+        WORKFLOW_RUNTIME_NODE_KIND_PREFIX, WORKFLOW_RUNTIME_SOURCE,
+    },
+    workflow_runtime_contract::{
+        agent_runtime_contracts, insert_agent_runtime_contract_aliases,
+        kanban_runtime_event_sources_value, tool_call_protocol_contract,
+        workflow_graph_runtime_contract,
+    },
+    ToolExecutionContext,
 };
 
 const ACHIEVEMENT_COUNT: u64 = 60;
@@ -588,6 +605,15 @@ pub(super) fn dashboard_plugins_snapshot(store: &AppStore, plugins: Vec<Value>) 
                 "boundary": "The example dashboard plugin smoke endpoint is adapted natively with the Hermes hello payload; it is retained as dashboard plugin-host/API auth coverage evidence, not as an agent model tool."
             }
         },
+        "agentRuntimeContracts": {
+            "workflowGraph": workflow_graph_runtime_contract(),
+            "workflow_graph": workflow_graph_runtime_contract(),
+            "toolCallProtocol": tool_call_protocol_contract(),
+            "tool_call_protocol": tool_call_protocol_contract()
+        },
+        "agent_runtime_contracts": agent_runtime_contracts(),
+        "runtimeContracts": agent_runtime_contracts(),
+        "runtime_contracts": agent_runtime_contracts(),
         "kanbanDashboard": {
             "plugin": "kanban",
             "manifest": {
@@ -609,7 +635,15 @@ pub(super) fn dashboard_plugins_snapshot(store: &AppStore, plugins: Vec<Value>) 
             ],
             "nativeDashboardReadActions": ["kanban-board", "kanban-stats", "kanban-assignees", "kanban-task"],
             "nativeEventStreamActions": ["kanban-events", "kanban-events-checkpoint", "kanban-runtime-events", "kanban-runtime-checkpoint"],
-            "nativeRuntimeEventSources": ["agent_queue", "agent_runs", "agent_run.phase_events", "agent_run.tool_events", "managed_processes", "task.events"],
+            "nativeRuntimeEventSources": kanban_runtime_event_sources_value(),
+            "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+            "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+            "toolCallProtocolContract": tool_call_protocol_contract(),
+            "tool_call_protocol_contract": tool_call_protocol_contract(),
+            "agentRuntimeContracts": agent_runtime_contracts(),
+            "agent_runtime_contracts": agent_runtime_contracts(),
+            "runtimeContracts": agent_runtime_contracts(),
+            "runtime_contracts": agent_runtime_contracts(),
             "nativeDashboardWriteActions": ["kanban-create", "kanban-update", "kanban-delete", "kanban-comment", "kanban-link", "kanban-unlink", "kanban-bulk"],
             "nativeWorkerVisibilityActions": ["kanban-diagnostics", "kanban-workers-active", "kanban-run", "kanban-run-inspect", "kanban-run-terminate", "kanban-task-log", "kanban-attachments", "kanban-dispatch", "kanban-reclaim", "kanban-reassign"],
             "nativeAttachmentActions": ["kanban-attachments", "kanban-attachment-add", "kanban-attachment-read", "kanban-attachment-delete"],
@@ -642,7 +676,7 @@ pub(super) fn dashboard_plugins_snapshot(store: &AppStore, plugins: Vec<Value>) 
                 "configKey": "kanban.dispatch_in_gateway",
                 "deprecatedStandaloneService": "plugins/kanban/systemd/hermes-kanban-dispatcher.service",
                 "standaloneCommand": "hermes kanban daemon --force --interval 60 --pidfile %t/hermes-kanban-dispatcher.pid",
-                "boundary": "Hermes dashboard can dispatch, inspect, reclaim, terminate, and stream DB-backed workers through the FastAPI dashboard host. SynthChat adapts the agent-facing kanban task tools, slash command flow, board/stats/assignee/task dashboard payloads, task mutations, AppStore-backed task event cursor polling plus native API WebSocket /api/plugins/kanban/events, merged queue/run/tool/process runtime cursor polling, desktop file-backed task attachments, ManagedProcess-backed worker visibility/termination, and recovery reclaim/reassign actions natively; the remaining boundary is the full embedded FastAPI dashboard host/tab runtime rather than the Kanban event WebSocket itself."
+                "boundary": "Hermes dashboard can dispatch, inspect, reclaim, terminate, and stream DB-backed workers through the FastAPI dashboard host. SynthChat adapts the agent-facing kanban task tools, slash command flow, board/stats/assignee/task dashboard payloads, task mutations, AppStore-backed task event cursor polling plus native API WebSocket /api/plugins/kanban/events, merged queue/run/workflow-graph/tool/process runtime cursor polling, desktop file-backed task attachments, ManagedProcess-backed worker visibility/termination, and recovery reclaim/reassign actions natively; the remaining boundary is the full embedded FastAPI dashboard host/tab runtime rather than the Kanban event WebSocket itself."
             }
         }
     })
@@ -1890,6 +1924,8 @@ pub(super) fn kanban_dashboard_runtime_events(
         {
             continue;
         }
+        let workflow_graph = run.workflow_graph.clone();
+        let workflow_summary = workflow_graph_runtime_summary(workflow_graph.as_ref());
         flattened.push((
             run.updated_at.clone(),
             next_runtime_event_order(&mut order),
@@ -1906,12 +1942,17 @@ pub(super) fn kanban_dashboard_runtime_events(
                     "lastActivityAt": run.last_activity_at,
                     "lastActivityDesc": run.last_activity_desc,
                     "completedAt": run.completed_at,
-                    "error": run.error
+                    "error": run.error,
+                    "workflowGraph": workflow_graph.clone(),
+                    "workflow_graph": workflow_graph,
+                    "workflowSummary": workflow_summary.clone(),
+                    "workflow_summary": workflow_summary
                 },
                 "created_at": run.updated_at,
                 "source": "agent_runs"
             }),
         ));
+        append_workflow_runtime_events(&mut flattened, &mut order, &run);
         for phase in run.phase_events {
             flattened.push((
                 phase.updated_at.clone(),
@@ -2089,7 +2130,7 @@ pub(super) fn kanban_dashboard_runtime_events(
         cursor = last;
     }
     let count = events.len();
-    Ok(json!({
+    let mut response = json!({
         "schema": "hermes_kanban_runtime_events_desktop_v1",
         "status": "ok",
         "action": action,
@@ -2107,15 +2148,99 @@ pub(super) fn kanban_dashboard_runtime_events(
         "pollIntervalMs": 300,
         "websocketEmbedded": false,
         "nativeRuntimeEventBridge": true,
-        "sources": ["agent_queue", "agent_runs", "agent_run.phase_events", "agent_run.tool_events", "managed_processes", "task.events"],
-        "boundary": "Hermes dashboard streams Kanban, worker, and tool transitions over a hosted websocket. SynthChat now exposes the same transition model as a desktop-native cursor stream by merging queue items, AgentRun phase/tool events, ManagedProcess snapshots, and Kanban task events, with native API bridges for Kanban events and runtime-events SSE. The remaining boundary is the full embedded dashboard host for arbitrary plugin websocket handlers."
-    }))
+        "sources": kanban_runtime_event_sources_value(),
+        "boundary": "Hermes dashboard streams Kanban, worker, and tool transitions over a hosted websocket. SynthChat now exposes the same transition model as a desktop-native cursor stream by merging queue items, AgentRun workflow graph snapshots/nodes/transitions, phase/tool events, ManagedProcess snapshots, and Kanban task events, with native API bridges for Kanban events and runtime-events SSE. The remaining boundary is the full embedded dashboard host for arbitrary plugin websocket handlers."
+    });
+    if let Some(object) = response.as_object_mut() {
+        insert_agent_runtime_contract_aliases(object);
+    }
+    Ok(response)
 }
 
 fn next_runtime_event_order(order: &mut usize) -> usize {
     let current = *order;
     *order = order.saturating_add(1);
     current
+}
+
+fn append_workflow_runtime_events(
+    flattened: &mut Vec<(String, usize, Value)>,
+    order: &mut usize,
+    run: &AgentRunRecord,
+) {
+    let Some(graph) = run.workflow_graph.as_ref() else {
+        return;
+    };
+    let summary = workflow_graph_runtime_summary(Some(graph));
+    let graph_created_at = workflow_graph_runtime_timestamp(graph, graph, &run.updated_at);
+    flattened.push((
+        graph_created_at.clone(),
+        next_runtime_event_order(order),
+        json!({
+            "kind": WORKFLOW_RUNTIME_KIND_SNAPSHOT,
+            "run_id": run.run_id.clone(),
+            "queue_item_id": run.queue_item_id.clone(),
+            "conversation_id": run.conversation_id.clone(),
+            "status": run.state.clone(),
+            "payload": workflow_graph_snapshot_runtime_payload(graph),
+            "created_at": graph_created_at,
+            "source": WORKFLOW_RUNTIME_SOURCE
+        }),
+    ));
+
+    for node in graph
+        .get("nodes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let status = node
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        let created_at = workflow_graph_runtime_timestamp(node, graph, &run.updated_at);
+        flattened.push((
+            created_at.clone(),
+            next_runtime_event_order(order),
+            json!({
+                "kind": format!("{WORKFLOW_RUNTIME_NODE_KIND_PREFIX}{status}"),
+                "run_id": run.run_id.clone(),
+                "queue_item_id": run.queue_item_id.clone(),
+                "conversation_id": run.conversation_id.clone(),
+                "status": status,
+                "payload": workflow_graph_node_runtime_payload(node, &summary),
+                "created_at": created_at,
+                "source": WORKFLOW_RUNTIME_SOURCE
+            }),
+        ));
+    }
+
+    for transition in graph
+        .get("transitions")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let reason = transition
+            .get("reason")
+            .and_then(Value::as_str)
+            .unwrap_or("transition");
+        let created_at = workflow_graph_runtime_timestamp(transition, graph, &run.updated_at);
+        flattened.push((
+            created_at.clone(),
+            next_runtime_event_order(order),
+            json!({
+                "kind": WORKFLOW_RUNTIME_KIND_TRANSITION,
+                "run_id": run.run_id.clone(),
+                "queue_item_id": run.queue_item_id.clone(),
+                "conversation_id": run.conversation_id.clone(),
+                "status": reason,
+                "payload": workflow_graph_transition_runtime_payload(transition, &summary),
+                "created_at": created_at,
+                "source": WORKFLOW_RUNTIME_SOURCE
+            }),
+        ));
+    }
 }
 
 fn kanban_dashboard_write_response(action: &str, result: String) -> AppResult<Value> {
@@ -2504,17 +2629,38 @@ fn kanban_dashboard_run(store: &AppStore, run_id: &str) -> AppResult<Value> {
         return Ok(kanban_not_found_payload("kanban-run", "run", run_id));
     }
     if let Some(process) = kanban_managed_process_by_run(store, run_id)? {
+        let mut run_payload = kanban_run_from_process(&process);
+        let mut workflow_graph = Value::Null;
+        let mut workflow_summary = Value::Null;
+        if let Ok(agent_run) = store.agent_run(run_id) {
+            let values = workflow_graph_run_response_values(agent_run.workflow_graph.as_ref());
+            workflow_graph = values.0;
+            workflow_summary = values.1;
+            if let Some(object) = run_payload.as_object_mut() {
+                object.insert("queue_item_id".into(), json!(agent_run.queue_item_id));
+                insert_workflow_graph_run_response_aliases(
+                    object,
+                    agent_run.workflow_graph.as_ref(),
+                );
+            }
+        }
         return Ok(json!({
             "schema": "hermes_kanban_dashboard_desktop_v1",
             "status": "ok",
             "action": "kanban-run",
-            "run": kanban_run_from_process(&process),
+            "run": run_payload,
             "managed_process": process,
+            "workflow_graph": workflow_graph.clone(),
+            "workflowGraph": workflow_graph,
+            "workflow_summary": workflow_summary.clone(),
+            "workflowSummary": workflow_summary,
             "source": "SynthChat ManagedProcess registry",
             "nativeWorkerVisibility": true
         }));
     }
     if let Ok(run) = store.agent_run(run_id) {
+        let (workflow_graph, workflow_summary) =
+            workflow_graph_run_response_values(run.workflow_graph.as_ref());
         return Ok(json!({
             "schema": "hermes_kanban_dashboard_desktop_v1",
             "status": "ok",
@@ -2524,11 +2670,20 @@ fn kanban_dashboard_run(store: &AppStore, run_id: &str) -> AppResult<Value> {
                 "task_id": Value::Null,
                 "status": run.state,
                 "profile": run.persona_id,
+                "queue_item_id": run.queue_item_id,
                 "started_at": run.started_at,
                 "ended_at": run.completed_at,
                 "summary": run.last_activity_desc.or(run.error),
+                "workflow_graph": workflow_graph.clone(),
+                "workflowGraph": workflow_graph.clone(),
+                "workflow_summary": workflow_summary.clone(),
+                "workflowSummary": workflow_summary.clone(),
                 "worker_pid": Value::Null
             },
+            "workflow_summary": workflow_summary.clone(),
+            "workflowSummary": workflow_summary.clone(),
+            "workflow_graph": workflow_graph.clone(),
+            "workflowGraph": workflow_graph,
             "source": "SynthChat agent_runs",
             "nativeWorkerVisibility": true
         }));
@@ -2539,6 +2694,30 @@ fn kanban_dashboard_run(store: &AppStore, run_id: &str) -> AppResult<Value> {
 fn kanban_dashboard_run_inspect(store: &AppStore, run_id: &str) -> AppResult<Value> {
     if let Some(process) = kanban_managed_process_by_run(store, run_id)? {
         let alive = process.get("status").and_then(Value::as_str) == Some("running");
+        let mut workflow_graph = Value::Null;
+        let mut workflow_summary = Value::Null;
+        let mut run_payload = Value::Null;
+        if let Ok(agent_run) = store.agent_run(run_id) {
+            let values = workflow_graph_run_response_values(agent_run.workflow_graph.as_ref());
+            workflow_graph = values.0;
+            workflow_summary = values.1;
+            run_payload = json!({
+                "run_id": agent_run.run_id,
+                "status": agent_run.state,
+                "conversation_id": agent_run.conversation_id,
+                "queue_item_id": agent_run.queue_item_id,
+                "started_at": agent_run.started_at,
+                "updated_at": agent_run.updated_at,
+                "completed_at": agent_run.completed_at,
+                "summary": agent_run.last_activity_desc.or(agent_run.error)
+            });
+            if let Some(object) = run_payload.as_object_mut() {
+                insert_workflow_graph_run_response_aliases(
+                    object,
+                    agent_run.workflow_graph.as_ref(),
+                );
+            }
+        }
         return Ok(json!({
             "schema": "hermes_kanban_dashboard_desktop_v1",
             "status": "ok",
@@ -2547,8 +2726,47 @@ fn kanban_dashboard_run_inspect(store: &AppStore, run_id: &str) -> AppResult<Val
             "alive": alive,
             "pid": process.get("pid").cloned().unwrap_or(Value::Null),
             "reason": if alive { Value::Null } else { json!("managed process is not running") },
+            "run": run_payload,
             "managed_process": process,
+            "workflow_graph": workflow_graph.clone(),
+            "workflowGraph": workflow_graph,
+            "workflow_summary": workflow_summary.clone(),
+            "workflowSummary": workflow_summary,
             "source": "SynthChat ManagedProcess registry",
+            "nativeWorkerVisibility": true
+        }));
+    }
+    if let Ok(run) = store.agent_run(run_id) {
+        let alive = matches!(run.state.as_str(), "started" | "running" | "pendingApproval");
+        let (workflow_graph, workflow_summary) =
+            workflow_graph_run_response_values(run.workflow_graph.as_ref());
+        return Ok(json!({
+            "schema": "hermes_kanban_dashboard_desktop_v1",
+            "status": "ok",
+            "action": "kanban-run-inspect",
+            "run_id": run_id,
+            "alive": alive,
+            "pid": Value::Null,
+            "reason": if alive { Value::Null } else { json!(format!("agent run state is {}", run.state)) },
+            "run": {
+                "run_id": run.run_id,
+                "status": run.state,
+                "conversation_id": run.conversation_id,
+                "queue_item_id": run.queue_item_id,
+                "started_at": run.started_at,
+                "updated_at": run.updated_at,
+                "completed_at": run.completed_at,
+                "summary": run.last_activity_desc.or(run.error),
+                "workflow_graph": workflow_graph.clone(),
+                "workflowGraph": workflow_graph.clone(),
+                "workflow_summary": workflow_summary.clone(),
+                "workflowSummary": workflow_summary.clone()
+            },
+            "workflow_summary": workflow_summary.clone(),
+            "workflowSummary": workflow_summary.clone(),
+            "workflow_graph": workflow_graph.clone(),
+            "workflowGraph": workflow_graph,
+            "source": "SynthChat agent_runs",
             "nativeWorkerVisibility": true
         }));
     }
@@ -3200,9 +3418,31 @@ fn kanban_dashboard_dispatch(
                 AgentRunRecord::new(conversation_id.clone(), assignee.clone(), assignee.clone());
             run.run_id = run_id.clone();
             run.state = "running".into();
+            run.queue_item_id = Some(task_id.clone());
             run.user_request = format!("Kanban dispatch claimed task {task_id}: {title}");
             run.last_activity_at = Some(now.clone());
             run.last_activity_desc = Some("kanban dispatch claimed ready task".into());
+            let workflow_request = SendChatRequest {
+                conversation_id: Some(conversation_id.clone()),
+                persona_id: Some(assignee.clone()),
+                agent_id: Some(assignee.clone()),
+                content: run.user_request.clone(),
+                provider_data: Some(json!({
+                    "source": "dashboard_plugins.kanban-dispatch",
+                    "taskId": task_id,
+                    "title": title,
+                    "assignee": assignee,
+                    "processId": process_id,
+                    "claimLock": claim_lock
+                })),
+                queue_item_id: Some(task_id.clone()),
+            };
+            WorkflowDriver::new(WorkflowMode::ChatTurn).bootstrap(
+                &mut run,
+                &workflow_request,
+                "dashboard_plugins.kanban-dispatch",
+                ToolExecutionContext::ScheduledJob,
+            );
             store.save_agent_run(run)?;
 
             task["status"] = json!("running");

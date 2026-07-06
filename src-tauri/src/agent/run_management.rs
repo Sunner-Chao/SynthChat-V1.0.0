@@ -7,14 +7,21 @@ use tokio::{process::Command, time::timeout};
 use crate::{
     error::{AppError, AppResult},
     models::{
-        AgentCheckpointRecord, AgentRunPhaseRecord, AgentRunRecord, ChatMessage, ScheduledAgentJob,
-        SendChatRequest,
+        AgentCheckpointRecord, AgentQueuedRequest, AgentRunPhaseRecord, AgentRunRecord,
+        ChatMessage, ScheduledAgentJob, SendChatRequest,
     },
     process_utils::CommandWindowExt,
     store::{scan_scheduled_job_assembled_prompt, AppStore},
 };
 
-use super::{communication::send_message_external_targets, *};
+use super::{
+    communication::send_message_external_targets,
+    workflow_graph::{
+        workflow_mode_for_run, workflow_node_role_label, WorkflowDriver,
+        WORKFLOW_DETAIL_ALIAS_PAIRS, WORKFLOW_STATUS_ORDER,
+    },
+    *,
+};
 
 const HERMES_MAX_PLATFORM_DELIVERY_OUTPUT_CHARS: usize = 4000;
 const HERMES_TRUNCATED_PLATFORM_DELIVERY_VISIBLE_CHARS: usize = 3800;
@@ -1173,6 +1180,7 @@ pub async fn drain_all_agent_queues(
                 .error
                 .get_or_insert_with(|| "Canceled by user.".into());
         }
+        record_agent_queue_workflow_terminal(store, &completed)?;
         emit_agent_queue_event(
             app,
             &completed.status,
@@ -1182,6 +1190,34 @@ pub async fn drain_all_agent_queues(
         drained.push(completed);
     }
     Ok(drained)
+}
+
+pub(crate) fn record_agent_queue_workflow_terminal(
+    store: &AppStore,
+    item: &AgentQueuedRequest,
+) -> AppResult<()> {
+    let status = item.status.trim().to_ascii_lowercase();
+    if !matches!(
+        status.as_str(),
+        "completed" | "failed" | "canceled" | "cancelled"
+    ) {
+        return Ok(());
+    }
+    let Some(run) = store
+        .agent_runs()?
+        .into_iter()
+        .filter(|run| run.queue_item_id.as_deref() == Some(item.id.as_str()))
+        .max_by(|left, right| left.updated_at.cmp(&right.updated_at))
+    else {
+        return Ok(());
+    };
+    WorkflowDriver::new(workflow_mode_for_run(&run)).queue().terminal(
+        store,
+        &run.run_id,
+        &item.id,
+        &status,
+        item.error.as_deref(),
+    )
 }
 
 pub async fn resume_agent_run(
@@ -1204,6 +1240,8 @@ pub async fn resume_agent_run(
     } else {
         run.user_request.clone()
     };
+    record_resume_checkpoint_waiting(store, &run, checkpoint_id.as_deref())?;
+    run = store.agent_run(&run_id)?;
     let resume_prompt = format!(
         "Resume the prior agent run and continue the user's task.\n\nOriginal request:\n{}\n\nResume observations:\n{}\n\nContinue from the saved state. If more tool work is impossible, explain the current evidence and remaining blocker.",
         original_request,
@@ -1232,7 +1270,7 @@ pub async fn resume_agent_run(
 
     let mut run = store.agent_run(&run_id)?;
     let now = now_iso();
-    match result {
+    let resume_checkpoint = match result {
         Ok(messages) => {
             let summary = messages
                 .iter()
@@ -1240,7 +1278,7 @@ pub async fn resume_agent_run(
                 .find(|message| message.role == "assistant")
                 .map(|message| truncate_for_prompt(&message.content.replace('\n', " "), 240))
                 .unwrap_or_else(|| "Resume turn completed.".into());
-            run.checkpoints.push(AgentCheckpointRecord {
+            let checkpoint = AgentCheckpointRecord {
                 checkpoint_id: new_id("ckpt"),
                 run_id: run.run_id.clone(),
                 iteration: run.checkpoints.len() as u32 + 1,
@@ -1249,13 +1287,15 @@ pub async fn resume_agent_run(
                 completed_call_ids: Vec::new(),
                 event_refs: Vec::new(),
                 summary,
-            });
+            };
+            run.checkpoints.push(checkpoint.clone());
             run.state = "completed".into();
             run.error = None;
             run.completed_at = Some(now.clone());
+            checkpoint
         }
         Err(error) => {
-            run.checkpoints.push(AgentCheckpointRecord {
+            let checkpoint = AgentCheckpointRecord {
                 checkpoint_id: new_id("ckpt"),
                 run_id: run.run_id.clone(),
                 iteration: run.checkpoints.len() as u32 + 1,
@@ -1264,14 +1304,100 @@ pub async fn resume_agent_run(
                 completed_call_ids: Vec::new(),
                 event_refs: Vec::new(),
                 summary: error.to_string(),
-            });
+            };
+            run.checkpoints.push(checkpoint.clone());
             run.state = "failed".into();
             run.error = Some(error.to_string());
             run.completed_at = Some(now.clone());
+            checkpoint
         }
-    }
+    };
     run.updated_at = now;
-    store.save_agent_run(run)
+    let saved = store.save_agent_run(run)?;
+    record_resume_checkpoint_result(store, &saved, &resume_checkpoint)?;
+    store.agent_run(&saved.run_id)
+}
+
+pub(super) fn record_resume_checkpoint_waiting(
+    store: &AppStore,
+    run: &AgentRunRecord,
+    checkpoint_id: Option<&str>,
+) -> AppResult<()> {
+    let selected_checkpoint = resume_checkpoint_for_detail(run, checkpoint_id);
+    let summary = selected_checkpoint
+        .map(|checkpoint| {
+            format!(
+                "Resume requested from checkpoint {} ({})",
+                checkpoint.checkpoint_id, checkpoint.state
+            )
+        })
+        .unwrap_or_else(|| "Resume requested from latest run state".into());
+    let mut detail = json!({
+        "kind": "resume_checkpoint",
+        "checkpointScope": "resume",
+        "previousState": run.state.as_str(),
+    });
+    if let Some(checkpoint) = selected_checkpoint {
+        detail["checkpointId"] = json!(checkpoint.checkpoint_id.as_str());
+        detail["checkpointState"] = json!(checkpoint.state.as_str());
+        detail["checkpointSummary"] = json!(checkpoint.summary.as_str());
+        detail["checkpointIteration"] = json!(checkpoint.iteration);
+    }
+    let checkpoint_node = WorkflowDriver::new(workflow_mode_for_run(run)).checkpoint();
+    let mut transition_detail = detail.clone();
+    transition_detail["state"] = json!("resume_started");
+    transition_detail["summary"] = json!(summary.as_str());
+    checkpoint_node.resume_requested_from_current(store, run, transition_detail)?;
+    checkpoint_node.waiting(store, &run.run_id, "resume_started", &summary, detail)
+}
+
+pub(super) fn record_resume_checkpoint_result(
+    store: &AppStore,
+    run: &AgentRunRecord,
+    checkpoint: &AgentCheckpointRecord,
+) -> AppResult<()> {
+    let mut detail = json!({
+        "kind": "resume_checkpoint",
+        "checkpointScope": "resume",
+        "checkpointId": checkpoint.checkpoint_id.as_str(),
+        "checkpointIteration": checkpoint.iteration,
+        "runState": run.state.as_str(),
+        "state": checkpoint.state.as_str(),
+        "summary": checkpoint.summary.as_str(),
+    });
+    let checkpoint_node = WorkflowDriver::new(workflow_mode_for_run(run)).checkpoint();
+    if checkpoint.state == "resume_failed" {
+        checkpoint_node.failed(
+            store,
+            &run.run_id,
+            &checkpoint.state,
+            &checkpoint.summary,
+            detail,
+        )
+    } else {
+        checkpoint_node.resume_continued_to_planner(store, &run.run_id, detail.clone())?;
+        detail["preserveCurrent"] = json!(true);
+        checkpoint_node.completed(
+            store,
+            &run.run_id,
+            &checkpoint.state,
+            &checkpoint.summary,
+            detail,
+        )
+    }
+}
+
+fn resume_checkpoint_for_detail<'a>(
+    run: &'a AgentRunRecord,
+    checkpoint_id: Option<&str>,
+) -> Option<&'a AgentCheckpointRecord> {
+    checkpoint_id
+        .and_then(|id| {
+            run.checkpoints.iter().find(|checkpoint| {
+                checkpoint.checkpoint_id == id || checkpoint.checkpoint_id.starts_with(id)
+            })
+        })
+        .or_else(|| run.checkpoints.last())
 }
 
 pub(super) fn validate_run_resume_allowed(
@@ -1529,6 +1655,7 @@ pub(super) fn build_agent_run_diagnosis_report(
             )
         })
         .collect::<Vec<_>>();
+    let workflow_diagnosis = workflow_graph_diagnosis(run.workflow_graph.as_ref());
 
     let mut root_causes = Vec::new();
     if let Some(error) = run
@@ -1550,9 +1677,27 @@ pub(super) fn build_agent_run_diagnosis_report(
     if !blocked_todos.is_empty() {
         root_causes.push(format!("blocked todo 数量：{}。", blocked_todos.len()));
     }
+    if !workflow_diagnosis.failed_nodes.is_empty() {
+        root_causes.push(format!(
+            "workflow failed 节点：{}。",
+            workflow_diagnosis.failed_nodes.join(", ")
+        ));
+    }
+    if !workflow_diagnosis.waiting_nodes.is_empty() {
+        root_causes.push(format!(
+            "workflow waiting 节点：{}。",
+            workflow_diagnosis.waiting_nodes.join(", ")
+        ));
+    }
+    if !workflow_diagnosis.canceled_nodes.is_empty() {
+        root_causes.push(format!(
+            "workflow canceled 节点：{}。",
+            workflow_diagnosis.canceled_nodes.join(", ")
+        ));
+    }
     if root_causes.is_empty() {
         root_causes.push(
-            "当前证据没有单一明确根因；优先检查最后一个 checkpoint 和最近 planner 决策。".into(),
+            "当前证据没有单一明确根因；优先检查 workflow 当前节点、最后一个 checkpoint 和最近 planner 决策。".into(),
         );
     }
 
@@ -1562,6 +1707,15 @@ pub(super) fn build_agent_run_diagnosis_report(
     }
     if run.state == "failed" || !failed_tools.is_empty() {
         next_steps.push("针对失败工具的 payload、权限、网络和配置重跑最小复现。");
+    }
+    if !workflow_diagnosis.failed_nodes.is_empty() {
+        next_steps.push("从 workflow failed 节点的 detail 反查 planner/executor/reviewer 的直接失败原因。");
+    }
+    if !workflow_diagnosis.waiting_nodes.is_empty() {
+        next_steps.push("先处理 workflow waiting 节点对应的审批、checkpoint 或澄清阻塞。");
+    }
+    if !workflow_diagnosis.canceled_nodes.is_empty() {
+        next_steps.push("检查 workflow canceled 节点的 detail.reason，确认是用户中断、审批拒绝还是上游会话取消。");
     }
     if !run.checkpoints.is_empty() && !matches!(run.state.as_str(), "completed" | "aborted") {
         next_steps.push("可用 /resume <runId前缀> [checkpointId前缀] 从最近可恢复点继续。");
@@ -1574,7 +1728,7 @@ pub(super) fn build_agent_run_diagnosis_report(
     }
 
     Ok(format!(
-        "1) 结论\n{}\n\n2) 关键证据\n- run: {} state={} started={} updated={} completed={}\n- request: {}\n- latestCheckpoint: {}\n- checkpoints: {}\n- plannerTraces: {}\n- toolTraces: {} (failed {})\n- approvals: {} (pending {})\n- todos: {} (incomplete {})\n- scheduledJobsForConversation: {}\n\n最近 planner：\n{}\n\n最近工具：\n{}\n\n审批：\n{}\n\n计划任务：\n{}\n\n3) 根因\n{}\n\n4) 下一步修复建议\n{}",
+        "1) 结论\n{}\n\n2) 关键证据\n- run: {} state={} started={} updated={} completed={}\n- request: {}\n- latestCheckpoint: {}\n- checkpoints: {}\n- workflowGraph: {} nodes={} transitions={}\n- plannerTraces: {}\n- toolTraces: {} (failed {})\n- approvals: {} (pending {})\n- todos: {} (incomplete {})\n- scheduledJobsForConversation: {}\n\nWorkflow graph：\n{}\n\n最近 workflow transitions：\n{}\n\n最近 planner：\n{}\n\n最近工具：\n{}\n\n审批：\n{}\n\n计划任务：\n{}\n\n3) 根因\n{}\n\n4) 下一步修复建议\n{}",
         conclusion,
         run.run_id,
         run.state,
@@ -1584,6 +1738,9 @@ pub(super) fn build_agent_run_diagnosis_report(
         truncate_for_prompt(&run.user_request.replace('\n', " "), 220),
         latest_checkpoint,
         run.checkpoints.len(),
+        workflow_diagnosis.summary,
+        workflow_diagnosis.node_count,
+        workflow_diagnosis.transition_count,
         planner_traces.len(),
         tool_traces.len(),
         failed_tools.len(),
@@ -1592,6 +1749,8 @@ pub(super) fn build_agent_run_diagnosis_report(
         todos.len(),
         incomplete_todos,
         scheduled_jobs.len(),
+        format_list_or_dash(workflow_diagnosis.node_rows),
+        format_list_or_dash(workflow_diagnosis.transition_rows),
         format_list_or_dash(recent_planner),
         format_list_or_dash(recent_tools),
         format_list_or_dash(approval_rows),
@@ -1607,6 +1766,487 @@ pub(super) fn build_agent_run_diagnosis_report(
             .collect::<Vec<_>>()
             .join("\n")
     ))
+}
+
+struct WorkflowGraphDiagnosis {
+    summary: String,
+    node_rows: Vec<String>,
+    transition_rows: Vec<String>,
+    failed_nodes: Vec<String>,
+    waiting_nodes: Vec<String>,
+    canceled_nodes: Vec<String>,
+    node_count: usize,
+    transition_count: usize,
+}
+
+fn workflow_graph_diagnosis(graph: Option<&Value>) -> WorkflowGraphDiagnosis {
+    let Some(graph) = graph.and_then(Value::as_object) else {
+        return WorkflowGraphDiagnosis {
+            summary: "未捕获 workflowGraph".into(),
+            node_rows: Vec::new(),
+            transition_rows: Vec::new(),
+            failed_nodes: Vec::new(),
+            waiting_nodes: Vec::new(),
+            canceled_nodes: Vec::new(),
+            node_count: 0,
+            transition_count: 0,
+        };
+    };
+    let nodes = graph.get("nodes").and_then(Value::as_array);
+    let transitions = graph.get("transitions").and_then(Value::as_array);
+    let current_node = graph
+        .get("currentNode")
+        .or_else(|| graph.get("current_node"))
+        .and_then(Value::as_str)
+        .unwrap_or("-");
+    let current_status = graph
+        .get("currentStatus")
+        .or_else(|| graph.get("current_status"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            nodes
+                .and_then(|nodes| {
+                    nodes
+                        .iter()
+                        .find(|node| {
+                            node.get("node").and_then(Value::as_str) == Some(current_node)
+                        })
+                })
+                .and_then(|node| node.get("status"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or("-");
+    let status_summary = workflow_status_summary(nodes.map(Vec::as_slice));
+    let sequence = graph
+        .get("lastEventSequence")
+        .or_else(|| graph.get("last_event_sequence"))
+        .and_then(Value::as_u64)
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".into());
+    let schema = graph
+        .get("schema")
+        .and_then(Value::as_str)
+        .unwrap_or("workflow");
+    let mode = graph.get("mode").and_then(Value::as_str).unwrap_or("-");
+    let node_rows = nodes
+        .into_iter()
+        .flatten()
+        .map(|node| {
+            let name = node.get("node").and_then(Value::as_str).unwrap_or("-");
+            let status = node.get("status").and_then(Value::as_str).unwrap_or("-");
+            let updated = node
+                .get("updatedAt")
+                .or_else(|| node.get("updated_at"))
+                .and_then(Value::as_str)
+                .unwrap_or("-");
+            let detail = workflow_compact_detail(node.get("detail"), 160);
+            format!(
+                "- {} status={} role={} updated={} detail={}",
+                workflow_node_label(name),
+                status,
+                workflow_node_role_label(name),
+                updated,
+                if detail.is_empty() { "-" } else { detail.as_str() }
+            )
+        })
+        .collect::<Vec<_>>();
+    let failed_nodes = workflow_nodes_with_status(nodes.map(Vec::as_slice), "failed");
+    let waiting_nodes = workflow_nodes_with_status(nodes.map(Vec::as_slice), "waiting");
+    let canceled_nodes = workflow_nodes_with_status(nodes.map(Vec::as_slice), "canceled");
+    let mut transition_values = transitions
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    transition_values.sort_by_key(|transition| {
+        transition
+            .get("eventSequence")
+            .or_else(|| transition.get("event_sequence"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    });
+    let transition_rows = transition_values
+        .into_iter()
+        .rev()
+        .take(5)
+        .map(|transition| {
+            let from = transition.get("from").and_then(Value::as_str).unwrap_or("-");
+            let to = transition.get("to").and_then(Value::as_str).unwrap_or("-");
+            let reason = transition
+                .get("reason")
+                .and_then(Value::as_str)
+                .unwrap_or("transition");
+            let sequence = transition
+                .get("eventSequence")
+                .or_else(|| transition.get("event_sequence"))
+                .and_then(Value::as_u64)
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "-".into());
+            let detail = workflow_compact_detail(transition.get("detail"), 140);
+            format!(
+                "- #{} {} -> {} reason={} detail={}",
+                sequence,
+                workflow_node_label(from),
+                workflow_node_label(to),
+                reason,
+                if detail.is_empty() { "-" } else { detail.as_str() }
+            )
+        })
+        .collect::<Vec<_>>();
+
+    WorkflowGraphDiagnosis {
+        summary: format!(
+            "{} mode={} current={} status={} seq={}{}",
+            schema,
+            mode,
+            workflow_node_label(current_node),
+            current_status,
+            sequence,
+            if status_summary.is_empty() {
+                String::new()
+            } else {
+                format!(" statuses=[{}]", status_summary)
+            }
+        ),
+        node_count: nodes.map(|nodes| nodes.len()).unwrap_or(0),
+        transition_count: transitions.map(|transitions| transitions.len()).unwrap_or(0),
+        node_rows,
+        transition_rows,
+        failed_nodes,
+        waiting_nodes,
+        canceled_nodes,
+    }
+}
+
+fn workflow_status_summary(nodes: Option<&[Value]>) -> String {
+    WORKFLOW_STATUS_ORDER
+        .iter()
+        .copied()
+        .filter_map(|status| {
+            let count = nodes
+                .map(|nodes| {
+                    nodes
+                        .iter()
+                        .filter(|node| node.get("status").and_then(Value::as_str) == Some(status))
+                        .count()
+                })
+                .unwrap_or(0);
+            (count > 0).then(|| format!("{status} {count}"))
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn workflow_nodes_with_status(nodes: Option<&[Value]>, status: &str) -> Vec<String> {
+    nodes
+        .into_iter()
+        .flatten()
+        .filter(|node| node.get("status").and_then(Value::as_str) == Some(status))
+        .filter_map(|node| node.get("node").and_then(Value::as_str))
+        .map(workflow_node_label)
+        .collect()
+}
+
+fn workflow_node_label(node: &str) -> String {
+    node.replace('_', " ")
+}
+
+fn workflow_compact_detail(value: Option<&Value>, max_chars: usize) -> String {
+    let Some(value) = value.filter(|value| !value.is_null()) else {
+        return String::new();
+    };
+    if let Some(object) = value.as_object() {
+        if let Some(summary) = workflow_detail_summary(object) {
+            return truncate_for_prompt(&summary, max_chars);
+        }
+    }
+    let text = value
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| value.to_string())
+        .replace('\n', " ");
+    truncate_for_prompt(&text, max_chars)
+}
+
+fn workflow_detail_summary(object: &serde_json::Map<String, Value>) -> Option<String> {
+    let tools = workflow_detail_string_array(object.get("tools"));
+    let origins = workflow_detail_string_array(
+        object
+            .get("toolOrigins")
+            .or_else(|| object.get("tool_origins")),
+    )
+    .into_iter()
+    .map(|origin| workflow_tool_origin_label(&origin))
+    .collect::<Vec<_>>();
+    let call_ids = workflow_detail_string_array(
+        object
+            .get("toolCallIds")
+            .or_else(|| object.get("tool_call_ids")),
+    );
+    let tool_calls = workflow_detail_tool_call_summaries(
+        object
+            .get("toolCalls")
+            .or_else(|| object.get("tool_calls")),
+    );
+    let protocol = workflow_detail_scalar(
+        object,
+        &["toolProtocol", "tool_protocol"],
+    );
+
+    let mut parts = Vec::new();
+    for (label, value) in [
+        ("queueLifecycle", workflow_detail_scalar_alias(object, "queueLifecycle")),
+        ("queueStatus", workflow_detail_scalar_alias(object, "queueStatus")),
+        ("admission", workflow_detail_scalar(object, &["admission"])),
+        ("requestSource", workflow_detail_scalar_alias(object, "requestSource")),
+        ("toolContext", workflow_detail_scalar_alias(object, "toolContext")),
+        ("queueItemId", workflow_detail_scalar_alias(object, "queueItemId")),
+        ("approvalId", workflow_detail_scalar_alias(object, "approvalId")),
+        ("status", workflow_detail_scalar(object, &["status"])),
+        ("serverId", workflow_detail_scalar_alias(object, "serverId")),
+        ("toolName", workflow_detail_scalar_alias(object, "toolName")),
+        ("requestedName", workflow_detail_scalar_alias(object, "requestedName")),
+        ("toolKind", workflow_detail_scalar_alias(object, "toolKind")),
+        ("sourceLabel", workflow_detail_scalar_alias(object, "sourceLabel")),
+        ("definitionName", workflow_detail_scalar_alias(object, "definitionName")),
+        ("requiresApproval", workflow_detail_scalar_alias(object, "requiresApproval")),
+        ("directBridge", workflow_detail_scalar_alias(object, "directBridge")),
+        (
+            "approvedToolCallReplay",
+            workflow_detail_scalar_alias(object, "approvedToolCallReplay"),
+        ),
+        ("bridgeStatus", workflow_detail_scalar_alias(object, "bridgeStatus")),
+        ("bridgeRejectionReason", workflow_detail_scalar_alias(object, "bridgeRejectionReason")),
+        ("bridgeStage", workflow_detail_scalar_alias(object, "bridgeStage")),
+        (
+            "lastBridgeTarget",
+            workflow_detail_nested_summary_alias(object, "lastBridgeTarget"),
+        ),
+        ("checkpointId", workflow_detail_scalar_alias(object, "checkpointId")),
+        ("checkpointScope", workflow_detail_scalar_alias(object, "checkpointScope")),
+        ("checkpointState", workflow_detail_scalar_alias(object, "checkpointState")),
+        ("checkpointIteration", workflow_detail_scalar_alias(object, "checkpointIteration")),
+        ("kind", workflow_detail_scalar(object, &["kind"])),
+        ("state", workflow_detail_scalar(object, &["state"])),
+        ("previousState", workflow_detail_scalar_alias(object, "previousState")),
+        ("runState", workflow_detail_scalar_alias(object, "runState")),
+        ("preserveCurrent", workflow_detail_scalar_alias(object, "preserveCurrent")),
+        ("mutationKind", workflow_detail_scalar_alias(object, "mutationKind")),
+        ("targetSummary", workflow_detail_scalar_alias(object, "targetSummary")),
+        ("checkpointSummary", workflow_detail_scalar_alias(object, "checkpointSummary")),
+        ("source", workflow_detail_scalar(object, &["source"])),
+        ("conversationKind", workflow_detail_scalar_alias(object, "conversationKind")),
+        ("roomId", workflow_detail_scalar_alias(object, "roomId")),
+        ("channelId", workflow_detail_scalar_alias(object, "channelId")),
+        ("chatId", workflow_detail_scalar_alias(object, "chatId")),
+        ("threadId", workflow_detail_scalar_alias(object, "threadId")),
+        ("groupId", workflow_detail_scalar_alias(object, "groupId")),
+        ("phase", workflow_detail_scalar(object, &["phase"])),
+        ("strategy", workflow_detail_scalar(object, &["strategy"])),
+        ("batch", workflow_detail_scalar(object, &["batch"])),
+        (
+            "requestedChildren",
+            workflow_detail_count_alias(object, "requestedChildren"),
+        ),
+        (
+            "existingChildren",
+            workflow_detail_count_alias(object, "existingChildren"),
+        ),
+        (
+            "completedChildren",
+            workflow_detail_count_alias(object, "completedChildren"),
+        ),
+        (
+            "failedChildren",
+            workflow_detail_count_alias(object, "failedChildren"),
+        ),
+        (
+            "abortedChildren",
+            workflow_detail_count_alias(object, "abortedChildren"),
+        ),
+        (
+            "unknownChildren",
+            workflow_detail_count_alias(object, "unknownChildren"),
+        ),
+        ("children", workflow_detail_count(object.get("children"))),
+        ("results", workflow_detail_count(object.get("results"))),
+        ("parentDepth", workflow_detail_scalar_alias(object, "parentDepth")),
+        ("childDepth", workflow_detail_scalar_alias(object, "childDepth")),
+        ("maxSubagents", workflow_detail_scalar_alias(object, "maxSubagents")),
+        ("maxSubagentDepth", workflow_detail_scalar_alias(object, "maxSubagentDepth")),
+        ("maxConcurrentChildren", workflow_detail_scalar_alias(object, "maxConcurrentChildren")),
+        ("ok", workflow_detail_scalar(object, &["ok"])),
+        ("orchestratorEnabled", workflow_detail_scalar_alias(object, "orchestratorEnabled")),
+        ("subagentAutoApprove", workflow_detail_scalar_alias(object, "subagentAutoApprove")),
+        ("inheritMcpToolsets", workflow_detail_scalar_alias(object, "inheritMcpToolsets")),
+        ("action", workflow_detail_scalar(object, &["action"])),
+        ("toolCount", workflow_detail_count_alias(object, "toolCount")),
+        ("tools", (!tools.is_empty()).then(|| tools.join(", "))),
+        ("origins", (!origins.is_empty()).then(|| origins.join(", "))),
+        ("callIds", (!call_ids.is_empty()).then(|| call_ids.join(", "))),
+        (
+            "toolCalls",
+            (!tool_calls.is_empty()).then(|| tool_calls.join(", ")),
+        ),
+        ("protocol", protocol),
+        ("stage", workflow_detail_scalar(object, &["stage"])),
+        ("resolution", workflow_detail_scalar(object, &["resolution"])),
+        ("messageId", workflow_detail_scalar_alias(object, "messageId")),
+        ("providerId", workflow_detail_scalar_alias(object, "providerId")),
+        ("summary", workflow_detail_scalar(object, &["summary"])),
+        ("errorKind", workflow_detail_scalar_alias(object, "errorKind")),
+        ("reason", workflow_detail_scalar(object, &["reason"])),
+        ("timeoutSeconds", workflow_detail_scalar_alias(object, "timeoutSeconds")),
+        ("error", workflow_detail_scalar(object, &["error"])),
+    ] {
+        if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
+            parts.push(format!("{label}={value}"));
+        }
+    }
+
+    (!parts.is_empty()).then(|| parts.join(" · "))
+}
+
+fn workflow_detail_snake_alias(camel_key: &str) -> Option<&'static str> {
+    WORKFLOW_DETAIL_ALIAS_PAIRS
+        .iter()
+        .find_map(|(camel, snake)| (*camel == camel_key).then_some(*snake))
+}
+
+fn workflow_detail_scalar_alias(
+    object: &serde_json::Map<String, Value>,
+    camel_key: &str,
+) -> Option<String> {
+    if let Some(snake_key) = workflow_detail_snake_alias(camel_key) {
+        workflow_detail_scalar(object, &[camel_key, snake_key])
+    } else {
+        workflow_detail_scalar(object, &[camel_key])
+    }
+}
+
+fn workflow_detail_count_alias(
+    object: &serde_json::Map<String, Value>,
+    camel_key: &str,
+) -> Option<String> {
+    workflow_detail_count(object.get(camel_key)).or_else(|| {
+        workflow_detail_snake_alias(camel_key)
+            .and_then(|snake_key| workflow_detail_count(object.get(snake_key)))
+    })
+}
+
+fn workflow_detail_nested_summary_alias(
+    object: &serde_json::Map<String, Value>,
+    camel_key: &str,
+) -> Option<String> {
+    if let Some(snake_key) = workflow_detail_snake_alias(camel_key) {
+        workflow_detail_nested_summary(object, &[camel_key, snake_key])
+    } else {
+        workflow_detail_nested_summary(object, &[camel_key])
+    }
+}
+
+fn workflow_detail_scalar(
+    object: &serde_json::Map<String, Value>,
+    keys: &[&str],
+) -> Option<String> {
+    keys.iter()
+        .find_map(|key| object.get(*key))
+        .and_then(workflow_detail_value_scalar)
+}
+
+fn workflow_detail_nested_summary(
+    object: &serde_json::Map<String, Value>,
+    keys: &[&str],
+) -> Option<String> {
+    keys.iter()
+        .find_map(|key| object.get(*key))
+        .and_then(Value::as_object)
+        .and_then(workflow_detail_summary)
+}
+
+fn workflow_detail_value_scalar(value: &Value) -> Option<String> {
+    if let Some(text) = value
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Some(text.to_string());
+    }
+    if let Some(number) = value.as_i64() {
+        return Some(number.to_string());
+    }
+    if let Some(number) = value.as_u64() {
+        return Some(number.to_string());
+    }
+    if let Some(number) = value.as_f64().filter(|number| number.is_finite()) {
+        return Some(number.to_string());
+    }
+    value.as_bool().map(|value| value.to_string())
+}
+
+fn workflow_detail_count(value: Option<&Value>) -> Option<String> {
+    match value {
+        Some(Value::Array(items)) => Some(items.len().to_string()),
+        Some(Value::Number(number)) => Some(number.to_string()),
+        _ => None,
+    }
+}
+
+fn workflow_detail_string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn workflow_detail_tool_call_summaries(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_object)
+        .filter_map(|call| {
+            let name = call
+                .get("name")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            let origin = call
+                .get("origin")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(workflow_tool_origin_label);
+            let id = call
+                .get("id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            let summary = [
+                name.map(str::to_string),
+                origin,
+                id.map(str::to_string),
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(":");
+            (!summary.is_empty()).then_some(summary)
+        })
+        .collect()
+}
+
+fn workflow_tool_origin_label(origin: &str) -> String {
+    match origin {
+        "provider_native" => "provider native".into(),
+        "planner_json" => "planner JSON".into(),
+        "hermes_markup" => "Hermes markup".into(),
+        other => other.replace('_', " "),
+    }
 }
 
 fn format_list_or_dash(items: Vec<String>) -> String {

@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::{
     error::AppResult,
-    models::{now_iso, AgentDefinition, AgentRunRecord},
+    models::{now_iso, AgentDefinition, AgentRunRecord, SendChatRequest},
     store::AppStore,
 };
 
@@ -22,7 +22,9 @@ use super::{
     delegation_run_state::mark_run_as_subagent,
     delegation_scope::acp_mcp_servers_for_agent,
     shell_hooks::run_subagent_stop_hooks,
+    workflow_graph::{self, WorkflowDriver, WorkflowMode, WorkflowNodeName, WorkflowNodeStatus},
     workspace::workspace_root,
+    ToolExecutionContext,
 };
 
 pub(super) async fn execute_acp_delegate_task_request(
@@ -50,6 +52,38 @@ pub(super) async fn execute_acp_delegate_task_request(
     );
     child_run.state = "running".into();
     child_run.touch_activity(format!("ACP subagent starting: {}", request.acp_command));
+    let child_tool_context = if request.can_delegate {
+        ToolExecutionContext::SubagentOrchestrator
+    } else {
+        ToolExecutionContext::SubagentLeaf
+    };
+    let child_request = SendChatRequest {
+        conversation_id: Some(child_conversation.id.clone()),
+        persona_id: Some(parent_run.persona_id.clone()),
+        agent_id: Some(parent_run.agent_id.clone()),
+        content: request.task.clone(),
+        provider_data: Some(json!({
+            "source": "delegation_acp",
+            "transport": "acp",
+            "parentRunId": parent_run_id,
+            "childIndex": child_index,
+            "role": request.role,
+            "task": request.task,
+            "toolsets": request.toolsets,
+            "maxIterations": request.max_iterations,
+            "acpCommand": request.acp_command,
+            "acpArgs": request.acp_args,
+            "acpSessionId": request.acp_session_id,
+            "acpSessionMode": request.acp_session_mode
+        })),
+        queue_item_id: None,
+    };
+    WorkflowDriver::new(WorkflowMode::ChatTurn).bootstrap(
+        &mut child_run,
+        &child_request,
+        "delegation_acp",
+        child_tool_context,
+    );
     let child_run = mark_run_as_subagent(
         store,
         child_run,
@@ -58,6 +92,16 @@ pub(super) async fn execute_acp_delegate_task_request(
         child_index,
         request,
         request.can_delegate,
+    )?;
+    let child_tool_names = vec![format!("acp:{}", request.acp_command)];
+    workflow_graph::record_workflow_planner_to_executor(
+        store,
+        &child_run.run_id,
+        1,
+        WorkflowMode::ChatTurn,
+        1,
+        &child_tool_names,
+        &[],
     )?;
 
     let cwd = workspace_root(agent)?;
@@ -119,6 +163,29 @@ pub(super) async fn execute_acp_delegate_task_request(
 
     match acp_result {
         Ok(result) => {
+            workflow_graph::record_workflow_executor_to_planner(
+                store,
+                &child_run.run_id,
+                1,
+                WorkflowMode::ChatTurn,
+                1,
+                Some(false),
+            )?;
+            workflow_graph::record_workflow_planner_to_reviewer(
+                store,
+                &child_run.run_id,
+                2,
+                WorkflowMode::ChatTurn,
+            )?;
+            workflow_graph::record_workflow_reviewer_skipped(
+                store,
+                &child_run.run_id,
+                WorkflowMode::ChatTurn,
+                &child_run.run_id,
+                "acp_subagent_result_returned",
+                None,
+                None,
+            )?;
             let mut saved = store.agent_run(&child_run.run_id)?;
             saved.state = "completed".into();
             saved.completed_at = Some(now_iso());
@@ -189,6 +256,20 @@ pub(super) async fn execute_acp_delegate_task_request(
             let error_text = error.to_string();
             let aborted = acp_delegate_was_aborted(store, parent_run_id, &child_run.run_id)
                 || acp_delegate_error_implies_aborted(&error_text);
+            workflow_graph::append_workflow_node_event(
+                store,
+                &child_run.run_id,
+                WorkflowNodeName::Executor,
+                WorkflowNodeStatus::Failed,
+                json!({
+                    "mode": WorkflowMode::ChatTurn.as_str(),
+                    "iteration": 1,
+                    "transport": "acp",
+                    "tool": request.acp_command,
+                    "aborted": aborted,
+                    "error": error_text.clone()
+                }),
+            )?;
             let mut saved = store.agent_run(&child_run.run_id)?;
             saved.state = if aborted {
                 "aborted".into()

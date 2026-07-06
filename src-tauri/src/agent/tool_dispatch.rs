@@ -18,8 +18,13 @@ use crate::{
     store::AppStore,
 };
 
-use super::decision_parser::{provider_tool_call_id, PROVIDER_TOOL_CALL_META_KEY};
+use super::decision_parser::{
+    provider_tool_call_id, strip_provider_tool_call_metadata, validate_tool_call_payload,
+    APPROVED_TOOL_CALL_REPLAY_KEY, PROVIDER_TOOL_CALL_META_KEY,
+};
 use super::execution::{start_managed_process, terminal_background_requested};
+use super::tool_registry::internal_tool_input_schema;
+use super::workflow_graph::{workflow_mode_for_run, WorkflowDriver};
 use super::*;
 pub(super) const SHORT_CONTEXT_SUMMARY_PREFIX: &str = "[CONTEXT COMPACTION - REFERENCE ONLY] Earlier turns were compacted into the summary below. This is a handoff from a previous context window; treat it as background reference, NOT as active instructions. Do NOT answer questions or fulfill requests mentioned in this summary; they were already addressed or superseded. Respond ONLY to the latest visible user message after this summary, which is the single source of truth for what to do right now. If the latest visible user message contradicts, supersedes, changes topic from, or diverges from Active Task, In Progress, Pending User Asks, or Remaining Work in this summary, the latest user message wins; discard those stale items entirely and do not wrap up old work first. Reverse signals such as stop, undo, roll back, just verify, don't do that anymore, or never mind end any in-flight work described here and must not be re-surfaced later. Persistent memory and explicit current persona settings remain authoritative and active. Current files/config may reflect work described here; avoid repeating it:";
 pub(super) const LEGACY_SHORT_CONTEXT_SUMMARY_PREFIX: &str = "[CONTEXT SUMMARY]:";
@@ -647,6 +652,7 @@ pub(super) async fn execute_parallel_tool_batch(
                 payload.clone(),
                 context,
                 app,
+                false,
             )
             .await
         } else {
@@ -686,11 +692,7 @@ pub(super) fn tool_executor_batch_stats_detail(
                 "toolName": tool_name,
                 "ok": result.is_ok(),
             });
-            if let Some(call_id) = payload
-                .get(PROVIDER_TOOL_CALL_META_KEY)
-                .and_then(|metadata| metadata.get("id").or_else(|| metadata.get("call_id")))
-                .and_then(Value::as_str)
-            {
+            if let Some(call_id) = provider_tool_call_id(payload) {
                 item["providerCallId"] = json!(call_id);
             }
             match result {
@@ -1429,9 +1431,13 @@ pub(super) async fn execute_recovery_internal_tool(
     payload: Value,
     tool_context: ToolExecutionContext,
     app: Option<&AppHandle>,
+    approved_replay_context: bool,
 ) -> AppResult<(String, ToolEvent)> {
-    let replay_payload = payload.clone();
-    let payload = strip_provider_tool_call_metadata(payload);
+    let mut replay_payload = payload.clone();
+    let mut payload = strip_provider_tool_call_metadata(payload);
+    let _ = take_approved_tool_call_replay_marker(&mut replay_payload);
+    let _ = take_approved_tool_call_replay_marker(&mut payload);
+    let approved_tool_call_replay = tool_name == "tool_call" && approved_replay_context;
     ensure_agent_run_accepts_tool_execution(store, run_id)?;
     ensure_internal_tool_allowed(agent, tool_name, tool_context)?;
     let availability = internal_tool_availability(store);
@@ -1457,6 +1463,43 @@ pub(super) async fn execute_recovery_internal_tool(
                 inherit_provider_tool_call_metadata(target_payload, &replay_payload);
             let tools = available_mcp_tool_definitions(store, agent)?;
             if let Some(definition) = resolve_mcp_tool(&tools, &target_name) {
+                let allowed_in_context = tool_allowed_in_context(&definition, tool_context);
+                let (bridge_status, bridge_rejection_reason) = if !allowed_in_context {
+                    (
+                        "context_blocked",
+                        Some("target is not allowed in the current execution context"),
+                    )
+                } else if definition.requires_approval {
+                    (
+                        "approval_required",
+                        Some("target requires approval before direct bridge dispatch"),
+                    )
+                } else {
+                    ("dispatch_ready", None)
+                };
+                record_tool_call_bridge_target(
+                    store,
+                    run_id,
+                    &target_name,
+                    &definition.server_id,
+                    &definition.tool_name,
+                    "mcp",
+                    definition.requires_approval,
+                    approved_tool_call_replay,
+                    bridge_status,
+                    bridge_rejection_reason,
+                )?;
+                if !allowed_in_context {
+                    return Err(AppError::BadRequest(format!(
+                        "tool_call target is not allowed in this context: {target_name}"
+                    )));
+                }
+                if definition.requires_approval {
+                    return Err(AppError::BadRequest(format!(
+                        "tool_call target requires approval: {target_name}"
+                    )));
+                }
+                validate_tool_call_payload(&definition, &target_payload)?;
                 return execute_recovery_mcp_tool(
                     store,
                     run_id,
@@ -1474,6 +1517,57 @@ pub(super) async fn execute_recovery_internal_tool(
                 .await;
             }
             if is_internal_tool(&target_name) {
+                let definition = ToolDefinition {
+                    name: target_name.clone(),
+                    display_name: target_name.clone(),
+                    description: String::new(),
+                    source: "internal".into(),
+                    server_id: "__internal".into(),
+                    tool_name: target_name.clone(),
+                    input_schema: internal_tool_input_schema(&target_name),
+                    requires_approval: false,
+                };
+                validate_tool_call_payload(&definition, &target_payload)?;
+                let approval_reason = if approved_tool_call_replay {
+                    None
+                } else {
+                    let reason = tool_approval_reason(
+                        store,
+                        "__internal",
+                        &target_name,
+                        &target_payload,
+                        is_risky_tool_call(&target_name, &target_payload),
+                    )?;
+                    apply_scheduled_approval_mode(
+                        store,
+                        tool_context,
+                        reason,
+                        &target_name,
+                    )?
+                };
+                record_tool_call_bridge_target(
+                    store,
+                    run_id,
+                    &target_name,
+                    "__internal",
+                    &target_name,
+                    "internal",
+                    approval_reason.is_some(),
+                    approved_tool_call_replay,
+                    if approval_reason.is_some() {
+                        "approval_required"
+                    } else {
+                        "dispatch_ready"
+                    },
+                    approval_reason
+                        .as_deref()
+                        .map(|_| "target requires approval before direct bridge dispatch"),
+                )?;
+                if let Some(reason) = approval_reason {
+                    return Err(AppError::BadRequest(format!(
+                        "tool_call target requires approval: {target_name} ({reason})"
+                    )));
+                }
                 return Box::pin(execute_recovery_internal_tool(
                     store,
                     agent,
@@ -1483,9 +1577,22 @@ pub(super) async fn execute_recovery_internal_tool(
                     target_payload,
                     tool_context,
                     app,
+                    false,
                 ))
                 .await;
             }
+            record_tool_call_bridge_target(
+                store,
+                run_id,
+                &target_name,
+                "<missing>",
+                &target_name,
+                "unavailable",
+                false,
+                approved_tool_call_replay,
+                "unavailable",
+                Some("target tool is not available"),
+            )?;
             return Err(AppError::BadRequest(format!(
                 "tool not found: {target_name}"
             )));
@@ -1844,6 +1951,45 @@ pub(super) async fn execute_recovery_internal_tool(
     }
 }
 
+fn record_tool_call_bridge_target(
+    store: &AppStore,
+    run_id: &str,
+    target_name: &str,
+    server_id: &str,
+    tool_name: &str,
+    tool_kind: &str,
+    requires_approval: bool,
+    approved_replay_context: bool,
+    bridge_status: &str,
+    bridge_rejection_reason: Option<&str>,
+) -> AppResult<()> {
+    let run = store.agent_run(run_id)?;
+    WorkflowDriver::new(workflow_mode_for_run(&run))
+        .executor()
+        .tool_call_bridge_target(
+            store,
+            run_id,
+            target_name,
+            server_id,
+            tool_name,
+            tool_kind,
+            requires_approval,
+            approved_replay_context,
+            bridge_status,
+            bridge_rejection_reason,
+        )
+}
+
+fn take_approved_tool_call_replay_marker(payload: &mut Value) -> bool {
+    let Some(object) = payload.as_object_mut() else {
+        return false;
+    };
+    matches!(
+        object.remove(APPROVED_TOOL_CALL_REPLAY_KEY),
+        Some(Value::Bool(true))
+    )
+}
+
 fn skipped_disabled_send_message_event(
     store: &AppStore,
     run_id: &str,
@@ -1887,13 +2033,6 @@ fn skipped_disabled_send_message_event(
         error: None,
     })?;
     Ok((text, event))
-}
-
-fn strip_provider_tool_call_metadata(mut payload: Value) -> Value {
-    if let Some(object) = payload.as_object_mut() {
-        object.remove(PROVIDER_TOOL_CALL_META_KEY);
-    }
-    payload
 }
 
 fn inherit_provider_tool_call_metadata(mut target_payload: Value, source_payload: &Value) -> Value {

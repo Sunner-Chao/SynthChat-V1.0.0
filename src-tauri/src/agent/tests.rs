@@ -1,10 +1,14 @@
+use super::approval_gateway::workflow_graph_approval_iteration;
 use super::browser_tools::{
     await_browser_future_interruptible, browser_cdp_success_payload,
     browser_session_create_request, wait_browser_run_interruptible,
 };
 use super::decision_parser::{
     canonical_decision_from_value, canonical_tool_calls_from_decision, provider_tool_call_id,
-    validated_tool_requests_from_decision, ToolCallOrigin,
+    strip_provider_tool_call_metadata, validated_tool_requests_from_decision,
+    validated_tool_requests_from_decision_with_error, APPROVED_TOOL_CALL_REPLAY_KEY,
+    DECISION_ORIGIN_META_KEY, PROVIDER_TOOL_CALL_META_KEY, ToolCallOrigin,
+    ToolCallValidationErrorKind,
 };
 use super::delegation::apply_delegation_iteration_budget;
 use super::diagnostics::{
@@ -16,15 +20,40 @@ use super::diagnostics::{
 use super::execution::remote_terminal_command_for_run;
 use super::web_tools::xai_search_tool_definition;
 use super::workflow_graph::{
-    append_workflow_node_event, append_workflow_transition_event, push_workflow_graph_bootstrap,
-    record_workflow_planner_to_executor, resolve_workflow_executor_approval_route,
+    append_workflow_node_event, append_workflow_transition_event, apply_workflow_graph_event,
+    push_workflow_graph_bootstrap, record_workflow_planner_to_executor,
+    resolve_workflow_executor_approval_route,
     resolve_workflow_executor_continue_route, resolve_workflow_planner_route,
-    resolve_workflow_reviewer_completed_route, WorkflowDriver, WorkflowExecutorRoute, WorkflowMode,
+    resolve_workflow_reviewer_completed_route, resolve_workflow_reviewer_skipped_route,
+    workflow_graph_node_runtime_payload, workflow_graph_runtime_summary,
+    workflow_graph_transition_runtime_payload, workflow_graph_with_runtime_aliases,
+    workflow_node_role_label, WorkflowDriver, WorkflowExecutorApprovalPolicyStage,
+    WorkflowExecutorRoute, WorkflowMode,
     WorkflowExecutorToolKind, WorkflowExecutorToolResolution, WorkflowNodeName,
-    WorkflowNodeStatus, WorkflowPlannerRoute, WorkflowReviewerRoute,
-    WORKFLOW_INTERNAL_TOOL_SERVER_ID,
+    WorkflowNodeStatus, WorkflowPlannerErrorKind, WorkflowPlannerRoute, WorkflowReviewerRoute,
+    SYNTHGRAPH_WORKFLOW_SCHEMA,
+    WORKFLOW_API_EVENT_NODE_TEMPLATE, WORKFLOW_API_EVENT_SNAPSHOT,
+    WORKFLOW_API_EVENT_TRANSITION, WORKFLOW_INTERNAL_TOOL_SERVER_ID,
+    WORKFLOW_PHASE_INITIALIZED, WORKFLOW_PHASE_NODE, WORKFLOW_PHASE_TRANSITION,
+    WORKFLOW_RUNTIME_KIND_SNAPSHOT, WORKFLOW_RUNTIME_KIND_TRANSITION,
+    WORKFLOW_NODE_ORDER, WORKFLOW_RUNTIME_NODE_KIND_PREFIX, WORKFLOW_RUNTIME_SOURCE,
+    WORKFLOW_REASON_APPROVAL_REQUIRED, WORKFLOW_REASON_APPROVAL_RESUMED,
+    WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT, WORKFLOW_REASON_DELEGATE_TASK_STARTED,
+    WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE, WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT,
+    WORKFLOW_REASON_GROUP_CONTEXT_READY,
+    WORKFLOW_REASON_ORDER, WORKFLOW_REASON_QUEUED_TURN,
+    WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED, WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED,
+    WORKFLOW_REASON_TOOL_CALLS, WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED,
+    WORKFLOW_STATUS_ORDER,
 };
+use super::workflow_runtime_contract::{TOOL_CALL_PROTOCOL_SCHEMA, WORKFLOW_RUNTIME_EVENTS_SCHEMA};
 use super::*;
+use crate::llm::{
+    provider_tool_call_metadata_source_keys, PROVIDER_TOOL_CALL_ID_KEYS,
+    TOOL_CALL_ARGUMENTS_CORRUPTION_KEY,
+    TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER,
+};
+use crate::models::AgentQueuedRequest;
 use crate::store::{ManagedProcess, ManagedProcessNotificationState};
 use futures::{SinkExt as _, StreamExt as _};
 use std::{
@@ -2167,6 +2196,29 @@ def register(ctx):
             && event["toolName"] == "kanban_create"
             && event["status"] == "running"
     }));
+    let pending_graph = pending_bridge_run.workflow_graph.as_ref().unwrap();
+    assert_eq!(pending_graph["currentNode"], "approval");
+    let pending_executor = pending_graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(pending_executor["detail"]["stage"], "tool_started");
+    assert_eq!(pending_executor["detail"]["toolName"], "kanban_create");
+    let pending_approval = pending_graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "approval")
+        .unwrap();
+    assert_eq!(pending_approval["status"], "waiting");
+    assert_eq!(
+        pending_approval["detail"]["approvalId"],
+        bridge_approval.id.as_str()
+    );
+    assert_eq!(pending_approval["detail"]["serverId"], "__internal");
+    assert_eq!(pending_approval["detail"]["toolName"], "kanban_create");
 
     let approved_bridge = approve_tool_call_common(&store, bridge_approval.id, None, None)
         .await
@@ -2184,6 +2236,8 @@ def register(ctx):
             && event["toolName"] == "kanban_create"
             && event["status"] == "running"
     }));
+    let after_approval_graph = after_approval_run.workflow_graph.as_ref().unwrap();
+    let after_approval_sequence = after_approval_graph["lastEventSequence"].as_u64().unwrap();
     let approved_listed =
         serde_json::from_str::<Value>(&kanban_list_tool(&store, &json!({"limit": 5})).unwrap())
             .unwrap();
@@ -2228,6 +2282,19 @@ def register(ctx):
         .tool_events
         .iter()
         .any(|event| event["toolName"] == "kanban_create" && event["ok"] == true));
+    let bridge_graph = saved_bridge_run.workflow_graph.as_ref().unwrap();
+    assert!(
+        bridge_graph["lastEventSequence"].as_u64().unwrap() > after_approval_sequence
+    );
+    let bridge_executor = bridge_graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(bridge_executor["detail"]["stage"], "tool_started");
+    assert_eq!(bridge_executor["detail"]["serverId"], "__internal");
+    assert_eq!(bridge_executor["detail"]["toolName"], "kanban_create");
 
     let describe_bridge_definition = tools
         .iter()
@@ -2295,6 +2362,17 @@ def register(ctx):
             && event["status"] == "completed"
             && event["ok"] == true
     }));
+    let mcp_bridge_graph = saved_mcp_bridge_run.workflow_graph.as_ref().unwrap();
+    let mcp_bridge_executor = mcp_bridge_graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(mcp_bridge_executor["detail"]["stage"], "tool_started");
+    assert_eq!(mcp_bridge_executor["detail"]["serverId"], "stub");
+    assert_eq!(mcp_bridge_executor["detail"]["toolName"], "echo");
+    assert_eq!(mcp_bridge_executor["detail"]["toolKind"], "mcp");
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -4848,6 +4926,46 @@ fn planner_decision_normalizes_tool_calls_array() {
 }
 
 #[test]
+fn planner_decision_normalizes_documented_tool_array_aliases() {
+    let cases = [
+        (
+            r#"{"toolCalls":[{"tool":"terminal","payload":{"command":"pwd"}}]}"#,
+            "terminal",
+            "pwd",
+        ),
+        (
+            r#"{"tools":[{"name":"terminal","args":{"command":"date"}}]}"#,
+            "terminal",
+            "date",
+        ),
+        (
+            r#"{"calls":[{"name":"terminal","input":{"command":"whoami"}}]}"#,
+            "terminal",
+            "whoami",
+        ),
+        (
+            r#"{"function_calls":[{"function":{"name":"terminal","arguments":"{\"command\":\"uptime\"}"}}]}"#,
+            "terminal",
+            "uptime",
+        ),
+        (
+            r#"{"action":"function_call","function":{"name":"terminal","arguments":"{\"command\":\"hostname\"}"}}"#,
+            "terminal",
+            "hostname",
+        ),
+    ];
+
+    for (raw, expected_tool, expected_command) in cases {
+        let decision = parse_agent_decision(raw);
+        let requests = planned_tool_requests_from_decision(&decision);
+        assert_eq!(decision["action"], "tool");
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].0, expected_tool);
+        assert_eq!(requests[0].1["command"], expected_command);
+    }
+}
+
+#[test]
 fn planner_decision_preserves_provider_tool_call_metadata() {
     let decision = parse_agent_decision(
         r#"{"tool_calls":[{"id":"provider_call","name":"terminal","extra_content":{"google":{"thought_signature":"sig"}},"arguments":"{\"command\":\"pwd\"}"}]}"#,
@@ -4867,6 +4985,30 @@ fn planner_decision_preserves_provider_tool_call_metadata() {
     assert_eq!(
         provider_tool_call_id(&decision["payload"]).as_deref(),
         Some("provider_call")
+    );
+
+    let aliased = parse_agent_decision(
+        r#"{"tool_calls":[{"tool_call_id":"provider_alias","name":"terminal","arguments":"{\"command\":\"pwd\"}"}]}"#,
+    );
+    assert_eq!(
+        aliased["payload"]["__agentProviderToolCall"]["tool_call_id"],
+        "provider_alias"
+    );
+    assert_eq!(
+        provider_tool_call_id(&aliased["payload"]).as_deref(),
+        Some("provider_alias")
+    );
+
+    let response_item_alias = parse_agent_decision(
+        r#"{"tool_calls":[{"response_item_id":"response_item_1","name":"terminal","arguments":"{\"command\":\"pwd\"}"}]}"#,
+    );
+    assert_eq!(
+        response_item_alias["payload"]["__agentProviderToolCall"]["response_item_id"],
+        "response_item_1"
+    );
+    assert_eq!(
+        provider_tool_call_id(&response_item_alias["payload"]).as_deref(),
+        Some("response_item_1")
     );
 }
 
@@ -4890,6 +5032,154 @@ fn canonical_decision_preserves_provider_tool_call_shape() {
         }
         other => panic!("expected canonical tool decision, got {other:?}"),
     }
+}
+
+#[test]
+fn provider_tool_call_metadata_stripper_preserves_business_payload() {
+    let payload = json!({
+        "command": "pwd",
+        "__agentProviderToolCall": {
+            "id": "provider_call",
+            "extra_content": {"google": {"thought_signature": "sig"}}
+        }
+    });
+
+    let stripped = strip_provider_tool_call_metadata(payload);
+
+    assert_eq!(stripped, json!({"command": "pwd"}));
+}
+
+#[test]
+fn provider_native_internal_tool_call_uses_shared_schema_validation() {
+    let tool = ToolDefinition {
+        name: "terminal".into(),
+        display_name: "terminal".into(),
+        description: "Run terminal".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "terminal".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": {"command": {"type": "string"}},
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"id":"provider_terminal","name":"terminal","arguments":"{\"command\":\"pwd\"}"}]}"#,
+    );
+
+    let requests = validated_tool_requests_from_decision_with_error(&decision, &[tool]).unwrap();
+
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].0, "terminal");
+    assert_eq!(requests[0].1["command"], "pwd");
+    assert_eq!(
+        requests[0].1["__agentProviderToolCall"]["id"],
+        "provider_terminal"
+    );
+    assert_eq!(
+        strip_provider_tool_call_metadata(requests[0].1.clone()),
+        json!({"command": "pwd"})
+    );
+}
+
+#[test]
+fn provider_native_openai_function_shape_uses_shared_schema_validation() {
+    let tool = ToolDefinition {
+        name: "terminal".into(),
+        display_name: "terminal".into(),
+        description: "Run terminal".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "terminal".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": {"command": {"type": "string"}},
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"id":"call_openai","type":"function","function":{"name":"terminal","arguments":"{\"command\":\"pwd\"}"}}]}"#,
+    );
+
+    let calls = canonical_tool_calls_from_decision(&decision);
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].origin, ToolCallOrigin::ProviderNative);
+    assert_eq!(calls[0].id.as_deref(), Some("call_openai"));
+
+    let requests = validated_tool_requests_from_decision_with_error(&decision, &[tool]).unwrap();
+
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].0, "terminal");
+    assert_eq!(requests[0].1["command"], "pwd");
+    assert_eq!(
+        provider_tool_call_id(&requests[0].1).as_deref(),
+        Some("call_openai")
+    );
+    assert_eq!(
+        strip_provider_tool_call_metadata(requests[0].1.clone()),
+        json!({"command": "pwd"})
+    );
+}
+
+#[test]
+fn tool_call_schema_validation_rejects_non_object_payload_even_without_schema() {
+    let tool = ToolDefinition {
+        name: "loose_tool".into(),
+        display_name: "loose_tool".into(),
+        description: "Schema-less tool still requires object payloads".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "loose_tool".into(),
+        input_schema: json!({}),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"loose_tool","payload":["not","an","object"]}"#,
+    );
+
+    let error = validated_tool_requests_from_decision_with_error(&decision, &[tool])
+        .unwrap_err();
+
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("payload must be a JSON object"));
+}
+
+#[test]
+fn planner_legacy_function_call_shape_uses_shared_schema_validation() {
+    let tool = ToolDefinition {
+        name: "terminal".into(),
+        display_name: "terminal".into(),
+        description: "Run terminal".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "terminal".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": {"command": {"type": "string"}},
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"function_call":{"name":"terminal","arguments":"{\"command\":\"pwd\"}"}}"#,
+    );
+
+    let calls = canonical_tool_calls_from_decision(&decision);
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].origin, ToolCallOrigin::PlannerJson);
+    assert_eq!(calls[0].name, "terminal");
+
+    let requests = validated_tool_requests_from_decision_with_error(&decision, &[tool]).unwrap();
+
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].0, "terminal");
+    assert_eq!(requests[0].1["command"], "pwd");
 }
 
 #[test]
@@ -4928,6 +5218,405 @@ fn tool_call_schema_validation_rejects_missing_required_payload() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("payload.uri is required"));
+}
+
+#[test]
+fn tool_call_schema_validation_supports_json_schema_combinators() {
+    let tool = ToolDefinition {
+        name: "selector".into(),
+        display_name: "selector".into(),
+        description: "Select a resource".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "selector".into(),
+        input_schema: json!({
+            "type": "object",
+            "allOf": [{"required": ["kind"]}],
+            "anyOf": [
+                {"required": ["query"]},
+                {"required": ["uri"]}
+            ],
+            "properties": {
+                "kind": {"type": "string"},
+                "query": {"type": "string"},
+                "uri": {"type": "string"},
+                "mode": {
+                    "oneOf": [
+                        {"enum": ["read"]},
+                        {"enum": ["write"]}
+                    ]
+                }
+            }
+        }),
+        requires_approval: false,
+    };
+
+    let valid = parse_agent_decision(
+        r#"{"action":"tool","tool":"selector","payload":{"kind":"resource","query":"docs","mode":"read"}}"#,
+    );
+    assert!(validated_tool_requests_from_decision_with_error(&valid, &[tool.clone()]).is_ok());
+
+    let missing_all_of = parse_agent_decision(
+        r#"{"action":"tool","tool":"selector","payload":{"query":"docs","mode":"read"}}"#,
+    );
+    let error =
+        validated_tool_requests_from_decision_with_error(&missing_all_of, &[tool.clone()])
+            .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("allOf[0]"));
+    assert!(error.message().contains("payload.kind is required"));
+
+    let missing_any_of = parse_agent_decision(
+        r#"{"action":"tool","tool":"selector","payload":{"kind":"resource","mode":"read"}}"#,
+    );
+    let error =
+        validated_tool_requests_from_decision_with_error(&missing_any_of, &[tool.clone()])
+            .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("anyOf"));
+    assert!(error.message().contains("payload.query is required"));
+
+    let invalid_one_of = parse_agent_decision(
+        r#"{"action":"tool","tool":"selector","payload":{"kind":"resource","query":"docs","mode":"delete"}}"#,
+    );
+    let error =
+        validated_tool_requests_from_decision_with_error(&invalid_one_of, &[tool]).unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("oneOf"));
+}
+
+#[test]
+fn tool_call_schema_validation_rejects_empty_json_schema_combinators() {
+    let empty_any_of_tool = ToolDefinition {
+        name: "empty_any_of".into(),
+        display_name: "empty_any_of".into(),
+        description: "Invalid empty anyOf schema".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "empty_any_of".into(),
+        input_schema: json!({
+            "type": "object",
+            "anyOf": []
+        }),
+        requires_approval: false,
+    };
+    let any_decision =
+        parse_agent_decision(r#"{"action":"tool","tool":"empty_any_of","payload":{}}"#);
+    let error =
+        validated_tool_requests_from_decision_with_error(&any_decision, &[empty_any_of_tool])
+            .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("anyOf must include at least one schema"));
+
+    let empty_one_of_tool = ToolDefinition {
+        name: "empty_one_of".into(),
+        display_name: "empty_one_of".into(),
+        description: "Invalid empty oneOf schema".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "empty_one_of".into(),
+        input_schema: json!({
+            "type": "object",
+            "oneOf": []
+        }),
+        requires_approval: false,
+    };
+    let one_decision =
+        parse_agent_decision(r#"{"action":"tool","tool":"empty_one_of","payload":{}}"#);
+    let error =
+        validated_tool_requests_from_decision_with_error(&one_decision, &[empty_one_of_tool])
+            .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("oneOf must include at least one schema"));
+}
+
+#[test]
+fn tool_call_schema_validation_enforces_additional_properties_boundary() {
+    let closed_tool = ToolDefinition {
+        name: "closed_payload".into(),
+        display_name: "closed_payload".into(),
+        description: "Reject undeclared keys".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "closed_payload".into(),
+        input_schema: json!({
+            "type": "object",
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let closed_decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"closed_payload","payload":{"unexpected":true}}"#,
+    );
+
+    let error =
+        validated_tool_requests_from_decision_with_error(&closed_decision, &[closed_tool])
+            .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("payload.unexpected is not allowed by schema"));
+
+    let typed_extra_tool = ToolDefinition {
+        name: "typed_extra_payload".into(),
+        display_name: "typed_extra_payload".into(),
+        description: "Validate undeclared keys with additionalProperties schema".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "typed_extra_payload".into(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "known": {"type": "string"}
+            },
+            "additionalProperties": {"type": "integer"}
+        }),
+        requires_approval: false,
+    };
+    let valid_extra = parse_agent_decision(
+        r#"{"action":"tool","tool":"typed_extra_payload","payload":{"known":"ok","count":2}}"#,
+    );
+    assert!(
+        validated_tool_requests_from_decision_with_error(
+            &valid_extra,
+            &[typed_extra_tool.clone()]
+        )
+        .is_ok()
+    );
+
+    let invalid_extra = parse_agent_decision(
+        r#"{"action":"tool","tool":"typed_extra_payload","payload":{"known":"ok","count":"two"}}"#,
+    );
+    let error =
+        validated_tool_requests_from_decision_with_error(&invalid_extra, &[typed_extra_tool])
+            .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("payload.count expected integer"));
+
+    let schema_only_extra_tool = ToolDefinition {
+        name: "schema_only_extra_payload".into(),
+        display_name: "schema_only_extra_payload".into(),
+        description: "Validate additionalProperties schema without explicit type".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "schema_only_extra_payload".into(),
+        input_schema: json!({
+            "additionalProperties": {"type": "integer"}
+        }),
+        requires_approval: false,
+    };
+    let invalid_schema_only_extra = parse_agent_decision(
+        r#"{"action":"tool","tool":"schema_only_extra_payload","payload":{"count":"two"}}"#,
+    );
+    let error = validated_tool_requests_from_decision_with_error(
+        &invalid_schema_only_extra,
+        &[schema_only_extra_tool],
+    )
+    .unwrap_err();
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("payload.count expected integer"));
+}
+
+#[test]
+fn tool_call_bridge_validation_rejects_invalid_target_payload() {
+    let bridge = ToolDefinition {
+        name: "tool_call".into(),
+        display_name: "tool_call".into(),
+        description: "Invoke a discovered tool".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "tool_call".into(),
+        input_schema: json!({}),
+        requires_approval: false,
+    };
+    let target = ToolDefinition {
+        name: "mcp_ai_exa_exa_search_docs".into(),
+        display_name: "search_docs".into(),
+        description: "Search docs".into(),
+        source: "mcp_utility".into(),
+        server_id: "ai.exa/exa".into(),
+        tool_name: "search_docs".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {"query": {"type": "string"}}
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"name":"tool_call","arguments":"{\"name\":\"mcp_ai_exa_exa_search_docs\",\"arguments\":{}}"}]}"#,
+    );
+
+    let error =
+        validated_tool_requests_from_decision_with_error(&decision, &[bridge, target]).unwrap_err();
+
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::SchemaValidation);
+    assert!(error.message().contains("target tool"));
+    assert!(error.message().contains("payload.query is required"));
+}
+
+#[test]
+fn tool_call_bridge_validation_reports_unavailable_target() {
+    let bridge = ToolDefinition {
+        name: "tool_call".into(),
+        display_name: "tool_call".into(),
+        description: "Invoke a discovered tool".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "tool_call".into(),
+        input_schema: json!({}),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"tool_call","payload":{"name":"missing_mcp_tool","arguments":{}}}"#,
+    );
+
+    let error = validated_tool_requests_from_decision_with_error(&decision, &[bridge]).unwrap_err();
+
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::ToolUnavailable);
+    assert!(error.message().contains("target tool is not available"));
+}
+
+#[test]
+fn tool_call_bridge_validation_rejects_approval_required_target() {
+    let bridge = ToolDefinition {
+        name: "tool_call".into(),
+        display_name: "tool_call".into(),
+        description: "Invoke a discovered tool".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "tool_call".into(),
+        input_schema: json!({}),
+        requires_approval: false,
+    };
+    let target = ToolDefinition {
+        name: "browser.delete_profile".into(),
+        display_name: "delete_profile".into(),
+        description: "Delete a browser profile".into(),
+        source: "mcp".into(),
+        server_id: "browser".into(),
+        tool_name: "delete_profile".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["profileId"],
+            "properties": {"profileId": {"type": "string"}}
+        }),
+        requires_approval: true,
+    };
+    let decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"tool_call","payload":{"name":"browser.delete_profile","arguments":{"profileId":"default"}}}"#,
+    );
+
+    let error =
+        validated_tool_requests_from_decision_with_error(&decision, &[bridge, target]).unwrap_err();
+
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::ApprovalRequired);
+    assert!(error.message().contains("target tool requires approval"));
+    assert!(error.message().contains("normal executor approval route"));
+}
+
+#[test]
+fn tool_call_bridge_validation_rejects_internal_risky_target() {
+    let bridge = ToolDefinition {
+        name: "tool_call".into(),
+        display_name: "tool_call".into(),
+        description: "Invoke a discovered tool".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "tool_call".into(),
+        input_schema: json!({}),
+        requires_approval: false,
+    };
+    let terminal = ToolDefinition {
+        name: "terminal".into(),
+        display_name: "terminal".into(),
+        description: "Run terminal".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "terminal".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": {"command": {"type": "string"}}
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"tool_call","payload":{"name":"terminal","arguments":{"command":"echo hi"}}}"#,
+    );
+
+    let error = validated_tool_requests_from_decision_with_error(&decision, &[bridge, terminal])
+        .unwrap_err();
+
+    assert_eq!(error.kind(), ToolCallValidationErrorKind::ApprovalRequired);
+    assert!(error.message().contains("target tool requires approval"));
+    assert!(error.message().contains("normal executor approval route"));
+}
+
+#[test]
+fn tool_call_validation_exposes_structured_error_kind() {
+    let tool = ToolDefinition {
+        name: "mcp_ai_exa_exa_read_resource".into(),
+        display_name: "read_resource".into(),
+        description: "Read a resource".into(),
+        source: "mcp_utility".into(),
+        server_id: "ai.exa/exa".into(),
+        tool_name: "__mcp_read_resource".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["uri"],
+            "properties": {"uri": {"type": "string"}}
+        }),
+        requires_approval: false,
+    };
+    let missing_tool = parse_agent_decision(
+        r#"{"action":"tool","tool":"missing_tool","payload":{"query":"docs"}}"#,
+    );
+    let schema_error = parse_agent_decision(
+        r#"{"tool_calls":[{"name":"mcp_ai_exa_exa_read_resource","arguments":"{}"}]}"#,
+    );
+
+    let unavailable = validated_tool_requests_from_decision_with_error(&missing_tool, &[])
+        .unwrap_err();
+    let invalid_schema = validated_tool_requests_from_decision_with_error(&schema_error, &[tool])
+        .unwrap_err();
+
+    assert_eq!(
+        unavailable.kind(),
+        ToolCallValidationErrorKind::ToolUnavailable
+    );
+    assert_eq!(
+        invalid_schema.kind(),
+        ToolCallValidationErrorKind::SchemaValidation
+    );
+    assert!(invalid_schema.message().contains("payload.uri is required"));
+}
+
+#[test]
+fn tool_call_schema_validation_reports_origin_and_provider_call_id() {
+    let tool = ToolDefinition {
+        name: "ai.exa/exa.search-docs".into(),
+        display_name: "search-docs".into(),
+        description: "Search docs".into(),
+        source: "mcp".into(),
+        server_id: "ai.exa/exa".into(),
+        tool_name: "search-docs".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {"query": {"type": "string"}},
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"id":"provider_call","name":"mcp_ai_exa_exa_search_docs","arguments":"{}"}]}"#,
+    );
+
+    let error = validated_tool_requests_from_decision(&decision, &[tool])
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("provider_native"));
+    assert!(error.contains("provider_call"));
+    assert!(error.contains("payload.query is required"));
 }
 
 #[test]
@@ -5072,6 +5761,25 @@ fn tool_started_event_has_frontend_tool_transition_fields() {
         .as_deref()
         .is_some_and(|id| id.starts_with("call-")));
     assert_eq!(event.raw.as_ref().unwrap()["payload"]["command"], "pwd");
+}
+
+#[test]
+fn tool_events_use_provider_response_item_id_as_call_id() {
+    let payload = json!({
+        "command": "pwd",
+        "__agentProviderToolCall": {"response_item_id": "response-item-call"}
+    });
+    let event = tool_started_event("run-test", "__internal", "terminal", &payload);
+    let (_, failed) = tool_failed_transition_events(
+        "run-test",
+        "__internal",
+        "terminal",
+        &payload,
+        "terminal failed",
+    );
+
+    assert_eq!(event.call_id.as_deref(), Some("response-item-call"));
+    assert_eq!(failed.call_id.as_deref(), Some("response-item-call"));
 }
 
 #[test]
@@ -5308,7 +6016,10 @@ fn tool_executor_batch_stats_detail_counts_parallel_results() {
     let results = vec![
         (
             "read_file".into(),
-            json!({"path": "a.txt"}),
+            json!({
+                "path": "a.txt",
+                "__agentProviderToolCall": {"response_item_id": "response-item-batch"}
+            }),
             Ok(("ok".into(), event)),
         ),
         (
@@ -5326,6 +6037,7 @@ fn tool_executor_batch_stats_detail_counts_parallel_results() {
     assert_eq!(detail["successCount"], 1);
     assert_eq!(detail["failureCount"], 1);
     assert_eq!(detail["tools"][0]["elapsedMs"], 42);
+    assert_eq!(detail["tools"][0]["providerCallId"], "response-item-batch");
     assert!(detail["tools"][1]["error"]
         .as_str()
         .unwrap()
@@ -5363,6 +6075,7 @@ async fn aborted_run_rejects_internal_tool_execution_before_start() {
         json!({"path": "missing.txt"}),
         ToolExecutionContext::Interactive,
         None,
+        false,
     )
     .await;
 
@@ -5453,6 +6166,30 @@ fn tool_event_record_merges_running_lifecycle_event() {
     assert_eq!(run.tool_events[0]["title"], "internal · terminal");
     assert_eq!(run.tool_events[0]["elapsedMs"], 42);
     assert_eq!(run.tool_events[0]["text"], "workspace");
+}
+
+#[test]
+fn tool_event_record_merges_local_lifecycle_events_with_generated_call_ids() {
+    let mut run = AgentRunRecord::new(
+        "conv-test".into(),
+        "persona-test".into(),
+        "agent-test".into(),
+    );
+    let payload = json!({"command": "pwd"});
+    let started = tool_started_event("run-test", "__internal", "terminal", &payload);
+    let mut completed = tool_started_event("run-test", "__internal", "terminal", &payload);
+    assert_ne!(started.call_id, completed.call_id);
+    completed.status = Some("completed".into());
+    completed.ok = true;
+    completed.elapsed_ms = 42;
+    completed.summary = "done".into();
+
+    push_tool_event_record(&mut run, &started);
+    push_tool_event_record(&mut run, &completed);
+
+    assert_eq!(run.tool_events.len(), 1);
+    assert_eq!(run.tool_events[0]["status"], "completed");
+    assert_eq!(run.tool_events[0]["raw"]["payload"], payload);
 }
 
 #[test]
@@ -5567,6 +6304,49 @@ fn tool_event_record_merges_bridge_target_by_provider_call_id() {
 }
 
 #[test]
+fn tool_event_record_matches_response_item_id_from_raw_payload() {
+    let mut run = AgentRunRecord::new(
+        "conv-test".into(),
+        "persona-test".into(),
+        "agent-test".into(),
+    );
+    let mut started = tool_started_event(
+        "run-test",
+        "__internal",
+        "tool_call",
+        &json!({
+            "name": "read_file",
+            "arguments": {"path": "notes.txt"},
+            "__agentProviderToolCall": {"response_item_id": "response-item-run"}
+        }),
+    );
+    started.call_id = None;
+    let mut completed = tool_started_event(
+        "run-test",
+        "__internal",
+        "read_file",
+        &json!({
+            "path": "notes.txt",
+            "__agentProviderToolCall": {"response_item_id": "response-item-run"}
+        }),
+    );
+    completed.call_id = None;
+    completed.status = Some("completed".into());
+    completed.text = Some("response item bridge result".into());
+
+    push_tool_event_record(&mut run, &started);
+    push_tool_event_record(&mut run, &completed);
+
+    assert_eq!(run.tool_events.len(), 1);
+    assert_eq!(run.tool_events[0]["status"], "completed");
+    assert_eq!(run.tool_events[0]["toolName"], "read_file");
+    assert_eq!(
+        run.tool_events[0]["raw"]["payload"]["__agentProviderToolCall"]["response_item_id"],
+        "response-item-run"
+    );
+}
+
+#[test]
 fn tool_event_messages_replace_running_lifecycle_message() {
     let dir = std::env::temp_dir().join(format!("synthchat-tool-event-upsert-{}", new_id("test")));
     fs::create_dir_all(&dir).unwrap();
@@ -5607,6 +6387,50 @@ fn tool_event_messages_replace_running_lifecycle_message() {
     let value = serde_json::from_str::<Value>(&messages[0].content).unwrap();
     assert_eq!(value["event"]["status"].as_str(), Some("completed"));
     assert_eq!(value["event"]["text"].as_str(), Some("workspace"));
+}
+
+#[test]
+fn tool_event_messages_replace_local_lifecycle_message_with_generated_call_ids() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-event-upsert-generated-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let conversation_id = "conv-tool-generated-upsert";
+    let payload = json!({"command": "pwd"});
+    let started = tool_started_event("run-test", "__internal", "terminal", &payload);
+    let running_message = store
+        .append_message(ChatMessage::new(
+            conversation_id.into(),
+            "tool",
+            json!({"type": "toolEvent", "event": started.clone()}).to_string(),
+            "desktop-agent-tool",
+        ))
+        .unwrap();
+
+    let mut completed = tool_started_event("run-test", "__internal", "terminal", &payload);
+    assert_ne!(started.call_id, completed.call_id);
+    completed.status = Some("completed".into());
+    completed.summary = "done".into();
+    completed.text = Some("workspace".into());
+    let completed_message = store
+        .append_message(ChatMessage::new(
+            conversation_id.into(),
+            "tool",
+            json!({"type": "toolEvent", "event": completed}).to_string(),
+            "desktop-agent-tool",
+        ))
+        .unwrap();
+
+    let messages = store.messages(conversation_id, None).unwrap();
+    assert_eq!(messages.len(), 1);
+    assert_eq!(completed_message.id, running_message.id);
+    let value = serde_json::from_str::<Value>(&messages[0].content).unwrap();
+    assert_eq!(value["event"]["status"].as_str(), Some("completed"));
+    assert_eq!(value["event"]["raw"]["payload"], payload);
+
+    let _ = fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -5664,6 +6488,70 @@ fn tool_event_messages_merge_bridge_target_by_provider_call_id() {
     assert_eq!(value["event"]["status"].as_str(), Some("completed"));
     assert_eq!(value["event"]["toolName"].as_str(), Some("read_file"));
     assert_eq!(value["event"]["callId"].as_str(), Some("tc-bridge-message"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn tool_event_messages_match_response_item_id_from_raw_payload() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-event-upsert-response-item-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let conversation_id = "conv-tool-response-item-upsert";
+    let mut started = tool_started_event(
+        "run-test",
+        "__internal",
+        "tool_call",
+        &json!({
+            "name": "read_file",
+            "arguments": {"path": "notes.txt"},
+            "__agentProviderToolCall": {"response_item_id": "response-item-message"}
+        }),
+    );
+    started.call_id = None;
+    let running_message = store
+        .append_message(ChatMessage::new(
+            conversation_id.into(),
+            "tool",
+            json!({"type": "toolEvent", "event": started}).to_string(),
+            "desktop-agent-tool",
+        ))
+        .unwrap();
+
+    let mut completed = tool_started_event(
+        "run-test",
+        "__internal",
+        "read_file",
+        &json!({
+            "path": "notes.txt",
+            "__agentProviderToolCall": {"response_item_id": "response-item-message"}
+        }),
+    );
+    completed.call_id = None;
+    completed.status = Some("completed".into());
+    completed.text = Some("response item bridge result".into());
+    let completed_message = store
+        .append_message(ChatMessage::new(
+            conversation_id.into(),
+            "tool",
+            json!({"type": "toolEvent", "event": completed}).to_string(),
+            "desktop-agent-tool",
+        ))
+        .unwrap();
+
+    let messages = store.messages(conversation_id, None).unwrap();
+    assert_eq!(messages.len(), 1);
+    assert_eq!(completed_message.id, running_message.id);
+    let value = serde_json::from_str::<Value>(&messages[0].content).unwrap();
+    assert_eq!(value["event"]["status"].as_str(), Some("completed"));
+    assert_eq!(value["event"]["toolName"].as_str(), Some("read_file"));
+    assert_eq!(
+        value["event"]["raw"]["payload"]["__agentProviderToolCall"]["response_item_id"],
+        "response-item-message"
+    );
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -5899,6 +6787,14 @@ fn agent_timeout_interruption_appends_visible_error_message() {
     run.last_activity_desc = Some("tool started: __internal.terminal".into());
     let run_id = run.run_id.clone();
     store.save_agent_run(run).unwrap();
+    append_workflow_node_event(
+        &store,
+        &run_id,
+        WorkflowNodeName::Executor,
+        WorkflowNodeStatus::Running,
+        json!({"mode": "chat_turn", "stage": "tool_execution"}),
+    )
+    .unwrap();
 
     let interrupted =
         check_agent_run_interrupted(&store, &run_id, Instant::now(), 60, 0, None).unwrap();
@@ -5906,6 +6802,21 @@ fn agent_timeout_interruption_appends_visible_error_message() {
     assert!(interrupted);
     let aborted = store.agent_run(&run_id).unwrap();
     assert_eq!(aborted.state, "aborted");
+    let graph = aborted.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["status"], "failed");
+    assert_eq!(executor["detail"]["errorKind"], "agent_run_timeout");
+    assert_eq!(executor["detail"]["timeoutSeconds"], 60);
+    assert!(executor["detail"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("tool started: __internal.terminal"));
     let messages = store.messages(&conversation.id, None).unwrap();
     let assistant = messages
         .iter()
@@ -5924,6 +6835,56 @@ fn agent_timeout_interruption_appends_visible_error_message() {
     assert_eq!(lifecycle["resumePending"], true);
     assert_eq!(lifecycle["resumeReason"], "agent_run_timeout");
     assert_eq!(lifecycle["source"], "agent-loop-timeout");
+}
+
+#[test]
+fn abort_agent_run_marks_current_workflow_node_canceled() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-agent-abort-workflow-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let conversation = store
+        .create_conversation(None, Some("default".into()))
+        .unwrap();
+    let mut run = AgentRunRecord::new(conversation.id.clone(), "default".into(), "default".into());
+    run.state = "running".into();
+    let run_id = run.run_id.clone();
+    store.save_agent_run(run).unwrap();
+    append_workflow_node_event(
+        &store,
+        &run_id,
+        WorkflowNodeName::Executor,
+        WorkflowNodeStatus::Running,
+        json!({"mode": "chat_turn", "stage": "tool_execution"}),
+    )
+    .unwrap();
+
+    let aborted = store
+        .abort_agent_run(&run_id, Some("manual stop".into()))
+        .unwrap();
+
+    assert_eq!(aborted.state, "aborted");
+    let graph = aborted.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["currentStatus"], "canceled");
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["status"], "canceled");
+    assert_eq!(executor["detail"]["aborted"], true);
+    assert_eq!(executor["detail"]["runState"], "aborted");
+    assert_eq!(executor["detail"]["reason"], "manual stop");
+    let event = aborted.phase_events.last().unwrap();
+    assert_eq!(event.phase, WORKFLOW_PHASE_NODE);
+    assert_eq!(event.detail["node"], "executor");
+    assert_eq!(event.detail["status"], "canceled");
+
+    let _ = fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -6009,6 +6970,18 @@ fn denied_tool_approval_aborts_run_and_appends_visible_message() {
         .as_deref()
         .unwrap_or_default()
         .contains("Tool approval denied"));
+    let graph = aborted.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "approval");
+    let approval_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "approval")
+        .unwrap();
+    assert_eq!(approval_node["status"], "canceled");
+    assert_eq!(approval_node["detail"]["approvalId"], "approval-deny-test");
+    assert_eq!(approval_node["detail"]["status"], "denied");
+    assert_eq!(approval_node["detail"]["reason"], "not allowed");
     let messages = store.messages(&conversation.id, None).unwrap();
     assert!(messages.iter().any(|message| {
         message.source == "desktop-agent-error" && message.content.contains("工具调用已拒绝")
@@ -6116,6 +7089,100 @@ async fn approved_write_file_approval_mutates_existing_file() {
     let run = store.agent_run(&run_id).unwrap();
     assert_eq!(run.tool_events.len(), 1);
     assert_eq!(run.tool_events[0]["toolName"], "write_file");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn approved_tool_call_bridge_replay_allows_internal_target_after_approval() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-approved-tool-call-bridge-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let target = dir.join("bridge.txt");
+    fs::write(&target, "before\n").unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let mut agent = store.agent(Some("default")).unwrap();
+    agent.workspace_dir = dir.to_string_lossy().to_string();
+    store.save_agent(agent).unwrap();
+    let conversation = store
+        .create_conversation(None, Some("default".into()))
+        .unwrap();
+    let mut run = AgentRunRecord::new(conversation.id.clone(), "default".into(), "default".into());
+    run.state = "pendingApproval".into();
+    let run_id = run.run_id.clone();
+    store.save_agent_run(run).unwrap();
+    store
+        .append_tool_approval(ToolApprovalRequest {
+            id: "approval-approve-tool-call-bridge".into(),
+            created_at: now_iso(),
+            updated_at: now_iso(),
+            status: "pending".into(),
+            conversation_id: Some(conversation.id.clone()),
+            persona_id: Some("default".into()),
+            agent_id: Some("default".into()),
+            run_id: Some(run_id.clone()),
+            server_id: "__internal".into(),
+            tool_name: "tool_call".into(),
+            payload: json!({
+                "name": "write_file",
+                "arguments": {"path": "bridge.txt", "content": "after\n"}
+            }),
+            reason: "bridge target requires approval".into(),
+            result: None,
+            error: None,
+        })
+        .unwrap();
+
+    let approval = approve_tool_call_common(
+        &store,
+        "approval-approve-tool-call-bridge".into(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(approval.status, "approved");
+    assert_eq!(fs::read_to_string(target).unwrap(), "after\n");
+    assert_eq!(approval.result.as_ref().unwrap()["ok"], true);
+    assert!(approval.payload.get(APPROVED_TOOL_CALL_REPLAY_KEY).is_none());
+    let run = store.agent_run(&run_id).unwrap();
+    assert_eq!(run.tool_events.len(), 1);
+    assert_eq!(run.tool_events[0]["toolName"], "write_file");
+    let graph = run.workflow_graph.as_ref().unwrap();
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["status"], "running");
+    assert_eq!(executor["detail"]["stage"], "tool_call_bridge_target");
+    assert_eq!(executor["detail"]["source"], "tool_call");
+    assert_eq!(executor["detail"]["directBridge"], true);
+    assert_eq!(executor["detail"]["direct_bridge"], true);
+    assert_eq!(executor["detail"]["requestedName"], "write_file");
+    assert_eq!(executor["detail"]["serverId"], "__internal");
+    assert_eq!(executor["detail"]["toolName"], "write_file");
+    assert_eq!(executor["detail"]["toolKind"], "internal");
+    assert_eq!(executor["detail"]["sourceLabel"], "write_file");
+    assert_eq!(executor["detail"]["requiresApproval"], false);
+    assert_eq!(executor["detail"]["approvedToolCallReplay"], true);
+    assert_eq!(executor["detail"]["approved_tool_call_replay"], true);
+    assert_eq!(executor["detail"]["bridgeStatus"], "dispatch_ready");
+    assert_eq!(executor["detail"]["bridge_status"], "dispatch_ready");
+    assert!(executor["detail"].get("bridgeRejectionReason").is_none());
+    assert_eq!(
+        run.tool_events[0]["raw"]["payload"]
+            .get(APPROVED_TOOL_CALL_REPLAY_KEY),
+        None
+    );
+    let traces = store.tool_traces().unwrap();
+    let write_trace = traces
+        .iter()
+        .find(|trace| trace.tool_name == "write_file")
+        .unwrap();
+    assert!(write_trace.payload.get(APPROVED_TOOL_CALL_REPLAY_KEY).is_none());
 }
 
 #[test]
@@ -6311,6 +7378,19 @@ fn turn_aborted_marker_aborts_run_and_appends_visible_message() {
         .error
         .as_deref()
         .unwrap_or_default()
+        .contains("turn_aborted"));
+    let graph = run.workflow_graph.as_ref().unwrap();
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "provider_turn_aborted");
+    assert!(planner["detail"]["error"]
+        .as_str()
+        .unwrap()
         .contains("turn_aborted"));
     let messages = store.messages(&conversation.id, None).unwrap();
     assert!(messages.iter().any(|message| {
@@ -8682,6 +9762,56 @@ fn toolsets_control_command_rejects_unknown_toolset() {
     let _ = fs::remove_dir_all(dir);
 }
 
+#[tokio::test]
+async fn synthchat_tools_mcp_call_records_workflow_run_and_tool_event() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tools-mcp-workflow-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+
+    let output = synthchat_tools_mcp_call(&store, "kanban_list", json!({"limit": 1}))
+        .await
+        .unwrap();
+
+    assert!(output.contains("tasks"));
+    let runs = store.agent_runs().unwrap();
+    let run = runs
+        .iter()
+        .find(|run| run.agent_id == "synthchat-tools-mcp")
+        .expect("synthchat-tools MCP call should create an observable run");
+    assert_eq!(run.state, "completed");
+    assert!(run.user_request.contains("kanban_list"));
+    assert!(run.tool_events.iter().any(|event| {
+        event["toolName"] == "kanban_list"
+            && event["status"] == "completed"
+            && event["ok"] == true
+    }));
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["schema"], SYNTHGRAPH_WORKFLOW_SCHEMA);
+    assert!(graph["nodes"].as_array().unwrap().iter().any(|node| {
+        node["node"] == "executor" && node["status"] == "completed"
+    }));
+    assert!(graph["nodes"].as_array().unwrap().iter().any(|node| {
+        node["node"] == "reviewer"
+            && node["status"] == "skipped"
+            && node["detail"]["reason"] == "synthchat_tools_mcp_result_returned"
+    }));
+    assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
+        transition["from"] == "planner"
+            && transition["to"] == "executor"
+            && transition["reason"] == WORKFLOW_REASON_TOOL_CALLS
+    }));
+    assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
+        transition["from"] == "planner"
+            && transition["to"] == "reviewer"
+            && transition["reason"] == WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+    }));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
 #[test]
 fn tool_registry_control_command_lists_visible_tools_after_agent_policy() {
     let dir = std::env::temp_dir().join(format!("synthchat-tool-registry-{}", new_id("test")));
@@ -10132,6 +11262,154 @@ fn resume_helpers_validate_state_and_checkpoint_prefix() {
 }
 
 #[test]
+fn resume_checkpoint_helpers_record_workflow_nodes() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-resume-workflow-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Resume Workflow".into()), Some(persona.id.clone()))
+        .unwrap();
+    let agent = store.agent(None).unwrap();
+    let mut run = AgentRunRecord::new(conversation.id, persona.id, agent.id);
+    run.user_request = "Continue implementation".into();
+    run.state = "failed".into();
+    run.error = Some("tool failed".into());
+    run.checkpoints.push(AgentCheckpointRecord {
+        checkpoint_id: "ckpt_resume_source".into(),
+        run_id: run.run_id.clone(),
+        iteration: 1,
+        created_at: now_iso(),
+        state: "tool_failed".into(),
+        completed_call_ids: vec!["call-1".into()],
+        event_refs: vec!["event-1".into()],
+        summary: "read_file failed".into(),
+    });
+    run = store.save_agent_run(run).unwrap();
+
+    record_resume_checkpoint_waiting(&store, &run, Some("ckpt_resume")).unwrap();
+    let waiting = store.agent_run(&run.run_id).unwrap();
+    let graph = waiting.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "checkpoint");
+    let checkpoint = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "waiting");
+    assert_eq!(checkpoint["detail"]["kind"], "resume_checkpoint");
+    assert_eq!(checkpoint["detail"]["checkpointScope"], "resume");
+    assert_eq!(checkpoint["detail"]["state"], "resume_started");
+    assert_eq!(checkpoint["detail"]["checkpointId"], "ckpt_resume_source");
+    assert_eq!(checkpoint["detail"]["previousState"], "failed");
+    let resume_requested_edge = graph["transitions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|transition| {
+            transition["from"] == "planner"
+                && transition["to"] == "checkpoint"
+                && transition["reason"] == WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED
+        })
+        .unwrap();
+    assert_eq!(
+        resume_requested_edge["detail"]["checkpointId"],
+        "ckpt_resume_source"
+    );
+    assert_eq!(
+        resume_requested_edge["detail"]["state"],
+        "resume_started"
+    );
+
+    let mut completed_run = waiting.clone();
+    completed_run.state = "completed".into();
+    let resumed_checkpoint = AgentCheckpointRecord {
+        checkpoint_id: "ckpt_resume_done".into(),
+        run_id: completed_run.run_id.clone(),
+        iteration: completed_run.checkpoints.len() as u32 + 1,
+        created_at: now_iso(),
+        state: "resumed".into(),
+        completed_call_ids: Vec::new(),
+        event_refs: Vec::new(),
+        summary: "Resume turn completed.".into(),
+    };
+    completed_run.checkpoints.push(resumed_checkpoint.clone());
+    completed_run = store.save_agent_run(completed_run).unwrap();
+    record_resume_checkpoint_result(&store, &completed_run, &resumed_checkpoint).unwrap();
+    let completed = store.agent_run(&run.run_id).unwrap();
+    let completed_checkpoint = completed.workflow_graph.as_ref().unwrap()["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap()
+        .clone();
+    assert_eq!(completed_checkpoint["status"], "completed");
+    assert_eq!(completed_checkpoint["detail"]["state"], "resumed");
+    assert_eq!(
+        completed_checkpoint["detail"]["checkpointId"],
+        "ckpt_resume_done"
+    );
+    assert_eq!(completed_checkpoint["detail"]["runState"], "completed");
+    assert_eq!(completed_checkpoint["detail"]["preserveCurrent"], true);
+    assert_eq!(completed.workflow_graph.as_ref().unwrap()["currentNode"], "planner");
+    assert!(completed.workflow_graph.as_ref().unwrap()["currentStatus"].is_null());
+    let resume_continued_edge = completed.workflow_graph.as_ref().unwrap()["transitions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|transition| {
+            transition["from"] == "checkpoint"
+                && transition["to"] == "planner"
+                && transition["reason"] == WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED
+        })
+        .unwrap()
+        .clone();
+    assert_eq!(
+        resume_continued_edge["detail"]["checkpointId"],
+        "ckpt_resume_done"
+    );
+    assert_eq!(resume_continued_edge["detail"]["state"], "resumed");
+
+    let mut failed_run = completed.clone();
+    failed_run.state = "failed".into();
+    let failed_checkpoint = AgentCheckpointRecord {
+        checkpoint_id: "ckpt_resume_failed".into(),
+        run_id: failed_run.run_id.clone(),
+        iteration: failed_run.checkpoints.len() as u32 + 1,
+        created_at: now_iso(),
+        state: "resume_failed".into(),
+        completed_call_ids: Vec::new(),
+        event_refs: Vec::new(),
+        summary: "resume error".into(),
+    };
+    failed_run.checkpoints.push(failed_checkpoint.clone());
+    failed_run = store.save_agent_run(failed_run).unwrap();
+    record_resume_checkpoint_result(&store, &failed_run, &failed_checkpoint).unwrap();
+    let failed = store.agent_run(&run.run_id).unwrap();
+    let failed_checkpoint_node = failed.workflow_graph.as_ref().unwrap()["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap()
+        .clone();
+    assert_eq!(failed_checkpoint_node["status"], "failed");
+    assert_eq!(failed_checkpoint_node["detail"]["state"], "resume_failed");
+    assert_eq!(
+        failed_checkpoint_node["detail"]["checkpointId"],
+        "ckpt_resume_failed"
+    );
+    assert_eq!(failed_checkpoint_node["detail"]["runState"], "failed");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
 fn diagnose_report_includes_runtime_evidence() {
     let dir = std::env::temp_dir().join(format!("synthchat-diagnose-{}", new_id("test")));
     fs::create_dir_all(&dir).unwrap();
@@ -10145,6 +11423,87 @@ fn diagnose_report_includes_runtime_evidence() {
     run.user_request = "Find the broken endpoint".into();
     run.state = "failed".into();
     run.error = Some("HTTP 500".into());
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "currentNode": "executor",
+        "lastEventSequence": 7,
+        "nodes": [
+            {
+                "node": "executor",
+                "status": "failed",
+                "detail": {
+                    "stage": "tool_failed",
+                    "toolName": "web_request",
+                    "toolCount": 1,
+                    "tools": ["web_request"],
+                    "toolProtocol": "canonical_tool_call_v1",
+                    "toolOrigins": ["provider_native"],
+                    "toolCallIds": ["call-web"],
+                    "toolCalls": [{
+                        "name": "web_request",
+                        "origin": "provider_native",
+                        "id": "call-web",
+                        "providerNative": true
+                    }]
+                },
+                "eventSequence": 7,
+                "updatedAt": "2026-01-01T00:00:00Z"
+            },
+            {
+                "node": "approval",
+                "status": "waiting",
+                "detail": {
+                    "approvalId": "approval-diag",
+                    "status": "pending",
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "requestedName": "mcp_files_write",
+                    "toolKind": "mcp",
+                    "sourceLabel": "mcp.files:write_file",
+                    "reason": "requires write permission"
+                },
+                "eventSequence": 5,
+                "updatedAt": "2026-01-01T00:00:00Z"
+            },
+            {
+                "node": "checkpoint",
+                "status": "waiting",
+                "detail": {
+                    "checkpointId": "ckpt_diag_wait",
+                    "checkpointScope": "user_input",
+                    "checkpointState": "waiting_user",
+                    "kind": "clarify_pause",
+                    "state": "clarify_pending",
+                    "preserveCurrent": true,
+                    "summary": "waiting for user confirmation"
+                },
+                "eventSequence": 6,
+                "updatedAt": "2026-01-01T00:00:00Z"
+            },
+            {
+                "node": "group_room",
+                "status": "completed",
+                "detail": {
+                    "source": "delegate_task",
+                    "phase": "completed",
+                    "strategy": "planner_executor",
+                    "batch": true,
+                    "requestedChildren": 2,
+                    "existingChildren": 0,
+                    "completedChildren": 2,
+                    "failedChildren": 0,
+                    "abortedChildren": 0,
+                    "unknownChildren": 0,
+                    "children": [{ "role": "reader" }, { "role": "reviewer" }],
+                    "results": [{ "status": "completed" }, { "status": "completed" }]
+                },
+                "eventSequence": 4,
+                "updatedAt": "2026-01-01T00:00:00Z"
+            }
+        ],
+        "transitions": []
+    }));
     run.checkpoints.push(AgentCheckpointRecord {
         checkpoint_id: "ckpt_diag".into(),
         run_id: run.run_id.clone(),
@@ -10208,6 +11567,19 @@ fn diagnose_report_includes_runtime_evidence() {
     assert!(report.contains("failed 1"));
     assert!(report.contains("blocked todo"));
     assert!(report.contains("web_request"));
+    assert!(report.contains("executor status=failed role=tool execution"));
+    assert!(report.contains("origins=provider native"));
+    assert!(report.contains("callIds=call-web"));
+    assert!(report.contains("approvalId=approval-diag"));
+    assert!(report.contains("serverId=mcp.files"));
+    assert!(report.contains("toolName=write_file"));
+    assert!(report.contains("checkpointId=ckpt_diag_wait"));
+    assert!(report.contains("checkpointScope=user_input"));
+    assert!(report.contains("source=delegate_task"));
+    assert!(report.contains("phase=completed"));
+    assert!(report.contains("strategy=planner_executor"));
+    assert!(report.contains("requestedChildren=2"));
+    assert!(report.contains("completedChildren=2"));
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -17581,6 +18953,126 @@ fn platform_adapter_status_exposes_api_server_boundary_matrix() {
     assert_eq!(adapter["capabilityMatrix"]["runs"], true);
     assert_eq!(adapter["capabilityMatrix"]["runEvents"], true);
     assert_eq!(adapter["capabilityMatrix"]["runEventsSse"], true);
+    assert_eq!(adapter["capabilityMatrix"]["workflowGraphEvents"], true);
+    assert_eq!(
+        adapter["capabilityMatrix"]["workflowGraphRuntimeContract"],
+        true
+    );
+    assert_eq!(
+        adapter["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["agent_runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["workflowGraphEvents"],
+        true
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["agent_runtime_contracts"]["tool_call_protocol"]
+            ["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["run_events"]["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["kanban_runtime_events"]["runtimeContracts"]["workflowGraph"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["kanban_runtime_events"]["runtimeContracts"]["toolCallProtocol"]
+            ["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["kanban_runtime_events"]["agentRuntimeContracts"]["workflowGraph"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["kanban_runtime_events"]["agent_runtime_contracts"]
+            ["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["kanban_runtime_events"]["runtime_contracts"]["workflow_graph"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        adapter["endpoints"]["kanban_runtime_events"]["runtime_contracts"]["tool_call_protocol"]
+            ["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
     assert_eq!(adapter["capabilityMatrix"]["runApproval"], true);
     assert_eq!(adapter["capabilityMatrix"]["runStop"], true);
     assert_eq!(adapter["capabilityMatrix"]["toolProgressEvents"], true);
@@ -17866,6 +19358,76 @@ async fn api_server_native_endpoints_match_openai_surface() {
     assert_eq!(capabilities["capabilityMatrix"]["runs"], true);
     assert_eq!(capabilities["capabilityMatrix"]["runEvents"], true);
     assert_eq!(capabilities["capabilityMatrix"]["runEventsSse"], true);
+    assert_eq!(
+        capabilities["capabilityMatrix"]["workflowGraphEvents"],
+        true
+    );
+    assert_eq!(
+        capabilities["capabilityMatrix"]["workflowGraphRuntimeContract"],
+        true
+    );
+    assert_eq!(
+        capabilities["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["workflowGraphEvents"],
+        true
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["agentRuntimeContracts"]["workflowGraph"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["agent_runtime_contracts"]["tool_call_protocol"]
+            ["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["run_events"]["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
     assert_eq!(capabilities["capabilityMatrix"]["toolProgressEvents"], true);
     assert_eq!(capabilities["capabilityMatrix"]["runApproval"], true);
     assert_eq!(capabilities["capabilityMatrix"]["runStop"], true);
@@ -21204,6 +22766,22 @@ async fn api_server_exposes_kanban_runtime_events_json_and_sse_bridge() {
     );
     run.queue_item_id = Some(queued.id.clone());
     run.state = "running".into();
+    let workflow_updated_at = now_iso();
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "currentNode": "planner",
+        "lastEventSequence": 1,
+        "updatedAt": workflow_updated_at.clone(),
+        "nodes": [{
+            "node": "planner",
+            "status": "running",
+            "detail": {"iteration": 1},
+            "eventSequence": 1,
+            "updatedAt": workflow_updated_at.clone()
+        }],
+        "transitions": []
+    }));
     run.phase_events.push(AgentRunPhaseRecord {
         phase: "tool_started".into(),
         detail: json!({"serverId": "__internal", "toolName": "kanban-show"}),
@@ -21241,9 +22819,1124 @@ async fn api_server_exposes_kanban_runtime_events_json_and_sse_bridge() {
         true
     );
     assert_eq!(
+        capabilities["capabilityMatrix"]["workflowGraphRuntimeEvents"],
+        true
+    );
+    assert_eq!(
+        capabilities["capabilityMatrix"]["workflowGraphRuntimeContract"],
+        true
+    );
+    assert_eq!(
+        capabilities["capabilityMatrix"]["toolCallProtocolContract"],
+        true
+    );
+    assert_eq!(
         capabilities["endpoints"]["kanban_runtime_events"]["path"],
         "/api/plugins/kanban/runtime-events"
     );
+    assert!(capabilities["endpoints"]["kanban_runtime_events"]["sources"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(WORKFLOW_RUNTIME_SOURCE)));
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["workflowGraphRuntimeContract"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["workflow_graph_runtime_contract"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["runtimeContracts"]["workflowGraph"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["agentRuntimeContracts"]
+            ["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["runtime_contracts"]["workflow_graph"]
+            ["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["agent_runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        capabilities["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["runtimeContracts"]["toolCallProtocol"]
+            ["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["agent_runtime_contracts"]
+            ["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        capabilities["endpoints"]["kanban_runtime_events"]["runtime_contracts"]
+            ["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    let tool_call_contract =
+        &capabilities["endpoints"]["kanban_runtime_events"]["toolCallProtocolContract"];
+    assert!(tool_call_contract["acceptedOrigins"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("provider_native")));
+    assert!(tool_call_contract["canonicalizationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "provider_adapter_normalization"
+            && stage["entryPoints"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("llm::normalize_provider_tool_arguments"))));
+    assert!(tool_call_contract["canonicalizationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "planner_decision_parsing"
+            && stage["inputOrigins"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("hermes_markup"))));
+    assert!(tool_call_contract["canonicalizationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "canonical_tool_call_projection"
+            && stage["entryPoints"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(
+                    "decision_parser::canonical_tool_calls_from_decision"
+                ))));
+    assert_eq!(
+        tool_call_contract["acceptedInputShapes"]["providerNative"]["normalizedMetadataKey"],
+        PROVIDER_TOOL_CALL_META_KEY
+    );
+    assert_eq!(
+        tool_call_contract["acceptedInputShapes"]["providerNative"]["sourceKeys"],
+        json!(provider_tool_call_metadata_source_keys())
+    );
+    assert_eq!(
+        tool_call_contract["acceptedInputShapes"]["providerNative"]["callIdLookupKeys"],
+        json!(PROVIDER_TOOL_CALL_ID_KEYS)
+    );
+    assert!(tool_call_contract["validation"]["errorKinds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("schema_validation")));
+    assert!(tool_call_contract["validation"]["errorKinds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("approval_required")));
+    assert_eq!(
+        tool_call_contract["validation"]["plannerValidationEntry"],
+        "validated_tool_requests_from_decision_with_error"
+    );
+    assert_eq!(
+        tool_call_contract["validation"]["plannerCanonicalValidationEntry"],
+        "validated_tool_calls_from_decision_with_error"
+    );
+    assert!(tool_call_contract["validationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "definition_resolution"
+            && stage["errorKind"] == "tool_unavailable"));
+    assert!(tool_call_contract["validationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "payload_schema_validation"
+            && stage["entryPoint"] == "decision_parser::validate_tool_call_payload"));
+    assert!(tool_call_contract["validationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "bridge_target_validation"
+            && stage["entryPoint"] == "decision_parser::validate_tool_call_bridge_target"));
+    assert!(tool_call_contract["validationPipeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|stage| stage["stage"] == "dispatch_boundary_revalidation"
+            && stage["entryPoint"] == "tool_dispatch::execute_recovery_internal_tool"));
+    assert_eq!(
+        tool_call_contract["workflowGraphObservability"]["source"],
+        WORKFLOW_RUNTIME_SOURCE
+    );
+    assert_eq!(
+        tool_call_contract["workflowGraphObservability"]["protocolValue"],
+        "canonical_tool_call_v1"
+    );
+    assert!(tool_call_contract["workflowGraphObservability"]["plannerDetailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolOrigins")));
+    assert!(tool_call_contract["workflowGraphObservability"]["plannerDetailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_call_ids")));
+    assert_eq!(
+        tool_call_contract["workflowGraphObservability"]["transitionReason"],
+        WORKFLOW_REASON_TOOL_CALLS
+    );
+    assert!(tool_call_contract["validation"]["definitionResolution"]
+        .as_str()
+        .unwrap()
+        .contains("context-visible"));
+    assert!(tool_call_contract["providerAdapterBoundary"]["normalizedProviders"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("responses")));
+    assert!(tool_call_contract["providerAdapterBoundary"]["normalizedProviders"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("anthropic")));
+    assert!(tool_call_contract["providerAdapterBoundary"]["plannerEntryPoints"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(
+            "agent_loop.run_chat_turn -> parse_agent_decision(reply.content)"
+        )));
+    assert_eq!(
+        tool_call_contract["providerAdapterBoundary"]["argumentNormalization"]["providerHelper"],
+        "llm::normalize_provider_tool_arguments"
+    );
+    assert_eq!(
+        tool_call_contract["providerAdapterBoundary"]["argumentNormalization"]["plannerHelper"],
+        "decision_parser::parse_tool_arguments_json"
+    );
+    assert_eq!(
+        tool_call_contract["validation"]["internalToolSchemaSource"],
+        "tool_registry::internal_tool_input_schema for SynthChat-native discovery and bridge tools; MCP and plugin tools retain provider schemas"
+    );
+    assert!(tool_call_contract["validation"]["schemaCombinators"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("anyOf")));
+    assert!(tool_call_contract["validation"]["schemaCombinatorPolicy"]
+        .as_str()
+        .unwrap()
+        .contains("oneOf must contain at least one schema"));
+    assert!(tool_call_contract["validation"]["additionalPropertiesPolicy"]
+        .as_str()
+        .unwrap()
+        .contains("typed extras"));
+    assert_eq!(
+        tool_call_contract["providerAdapterBoundary"]["argumentNormalization"]["corruptionMarkerKey"],
+        TOOL_CALL_ARGUMENTS_CORRUPTION_KEY
+    );
+    assert_eq!(
+        tool_call_contract["providerAdapterBoundary"]["argumentNormalization"]
+            ["corruptionMarkerMessage"],
+        TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER
+    );
+    assert_eq!(
+        tool_call_contract["acceptedInputShapes"]["hermesMarkup"]["decisionOriginMetadataKey"],
+        DECISION_ORIGIN_META_KEY
+    );
+    assert!(tool_call_contract["acceptedInputShapes"]["plannerJson"]
+        .as_array()
+        .unwrap()
+        .contains(&json!({
+            "function_call": {"name": "tool_name", "arguments": "json-string|object"}
+        })));
+    assert!(tool_call_contract["acceptedInputShapes"]["fieldAliases"]["singleCallNameKeys"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("function_call")));
+    assert!(tool_call_contract["acceptedInputShapes"]["fieldAliases"]["singleCallArgumentKeys"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("function_call.arguments")));
+    assert!(tool_call_contract["acceptedInputShapes"]["fieldAliases"]["multiCallArrayKeys"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("function_calls")));
+    assert!(tool_call_contract["acceptedInputShapes"]["fieldAliases"]["useToolKeys"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("use_tool")));
+    assert!(tool_call_contract["bridgeToolCall"]["blockedTargets"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_call")));
+    assert!(tool_call_contract["bridgeToolCall"]["argumentAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("input")));
+    assert!(tool_call_contract["bridgeToolCall"]["argumentAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("parameters")));
+    assert!(tool_call_contract["bridgeToolCall"]["directExecutionValidation"]
+        .as_str()
+        .unwrap()
+        .contains("execute_recovery_internal_tool"));
+    assert!(tool_call_contract["bridgeToolCall"]["directContextBoundary"]
+        .as_str()
+        .unwrap()
+        .contains("tool_allowed_in_context"));
+    assert!(tool_call_contract["bridgeToolCall"]["directApprovalBoundary"]
+        .as_str()
+        .unwrap()
+        .contains("requires_approval=true"));
+    assert!(tool_call_contract["bridgeToolCall"]["directApprovalBoundary"]
+        .as_str()
+        .unwrap()
+        .contains("tool_approval_reason"));
+    assert!(tool_call_contract["bridgeToolCall"]["directApprovalBoundary"]
+        .as_str()
+        .unwrap()
+        .contains(APPROVED_TOOL_CALL_REPLAY_KEY));
+    assert!(tool_call_contract["bridgeToolCall"]["directApprovalBoundary"]
+        .as_str()
+        .unwrap()
+        .contains("stripped before target schema validation"));
+    assert!(tool_call_contract["bridgeToolCall"]["directApprovalBoundary"]
+        .as_str()
+        .unwrap()
+        .contains("never trusted as authorization"));
+    assert_eq!(
+        tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["node"],
+        "executor"
+    );
+    assert_eq!(
+        tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["stage"],
+        "tool_call_bridge_target"
+    );
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["detailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("approved_tool_call_replay")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["detailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("direct_bridge")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["detailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requested_name")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["detailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requires_approval")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["detailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("bridgeStatus")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["detailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("bridge_rejection_reason")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["bridgeStatusValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("approval_required")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["bridgeStatusValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("unavailable")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["completionCarryForward"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("lastBridgeTarget")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["completionCarryForward"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requested_name")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["completionCarryForward"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("bridge_status")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["completionCarryForward"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("last_bridge_target")));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["records"]
+        .as_str()
+        .unwrap()
+        .contains("unavailable bridge targets"));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["records"]
+        .as_str()
+        .unwrap()
+        .contains("parallel batch completion overwrites the node"));
+    assert!(tool_call_contract["bridgeToolCall"]["workflowGraphStage"]["records"]
+        .as_str()
+        .unwrap()
+        .contains("latest workflow transition"));
+    assert_eq!(
+        tool_call_contract["bridgeToolCall"]["approvedReplay"]["markerKey"],
+        APPROVED_TOOL_CALL_REPLAY_KEY
+    );
+    assert_eq!(
+        tool_call_contract["bridgeToolCall"]["approvedReplay"]["trustedContext"],
+        "ExecutorInternalToolExecutionContext.approved_tool_call_replay"
+    );
+    assert!(tool_call_contract["bridgeToolCall"]["approvedReplay"]["scope"]
+        .as_str()
+        .unwrap()
+        .contains("internal tool_call approval replay only"));
+    assert!(tool_call_contract["bridgeToolCall"]["approvedReplay"]["authorizationPolicy"]
+        .as_str()
+        .unwrap()
+        .contains("planner-supplied marker"));
+    let workflow_contract =
+        &capabilities["endpoints"]["kanban_runtime_events"]["workflowGraphRuntimeContract"];
+    let workflow_purpose = workflow_contract["purpose"].as_str().unwrap();
+    assert!(workflow_purpose.contains("API run events"));
+    assert!(workflow_purpose.contains("dashboard runtime events"));
+    assert!(workflow_purpose.contains("Tauri run snapshots"));
+    assert_eq!(
+        workflow_contract["eventSurfaces"]["apiRunEvents"]["endpoint"],
+        "/v1/runs/{run_id}/events"
+    );
+    assert_eq!(
+        workflow_contract["eventSurfaces"]["apiRunEvents"]["payloadField"],
+        "data"
+    );
+    assert_eq!(
+        workflow_contract["eventSurfaces"]["dashboardRuntimeEvents"]["endpoint"],
+        "/api/plugins/kanban/runtime-events"
+    );
+    assert_eq!(
+        workflow_contract["eventSurfaces"]["dashboardRuntimeEvents"]["payloadField"],
+        "payload"
+    );
+    assert_eq!(
+        workflow_contract["eventSurfaces"]["tauriRunEvent"]["event"],
+        "synthchat-agent-run-event"
+    );
+    assert_eq!(
+        workflow_contract["eventSurfaces"]["tauriRunEvent"]["payloadField"],
+        "workflowGraph"
+    );
+    assert!(workflow_contract["eventSurfaces"]["tauriRunEvent"]["payloadAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("workflow_graph")));
+    assert!(workflow_contract["eventSurfaces"]["tauriRunEvent"]["phaseDetailSequenceAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("event_sequence")));
+    assert_eq!(
+        workflow_contract["snapshotPayload"]["workflowSummary"],
+        "WorkflowRuntimeSummary camelCase alias"
+    );
+    assert_eq!(
+        workflow_contract["snapshotPayload"]["workflow_summary"],
+        "WorkflowRuntimeSummary snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["snapshotPayload"]["workflowGraph"],
+        "AgentRunRecord.workflowGraph camelCase alias with runtime aliases normalized"
+    );
+    assert_eq!(
+        workflow_contract["snapshotPayload"]["workflow_graph"],
+        "AgentRunRecord.workflowGraph snake_case alias with runtime aliases normalized"
+    );
+    assert_eq!(
+        workflow_contract["payloadBuilders"]["graphAliasNormalizer"],
+        "workflow_graph::workflow_graph_with_runtime_aliases"
+    );
+    assert_eq!(
+        workflow_contract["payloadBuilders"]["snapshot"],
+        "workflow_graph::workflow_graph_snapshot_runtime_payload"
+    );
+    assert_eq!(
+        workflow_contract["payloadBuilders"]["runResponseValues"],
+        "workflow_graph::workflow_graph_run_response_values"
+    );
+    assert_eq!(
+        workflow_contract["payloadBuilders"]["runResponseAliases"],
+        "workflow_graph::insert_workflow_graph_run_response_aliases"
+    );
+    assert_eq!(
+        workflow_contract["payloadBuilders"]["node"],
+        "workflow_graph::workflow_graph_node_runtime_payload"
+    );
+    assert_eq!(
+        workflow_contract["payloadBuilders"]["transition"],
+        "workflow_graph::workflow_graph_transition_runtime_payload"
+    );
+    assert_eq!(
+        workflow_contract["runtimeContractAliasBuilder"],
+        "workflow_runtime_contract::insert_agent_runtime_contract_aliases"
+    );
+    assert!(workflow_contract["runtimeContractAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("agentRuntimeContracts")));
+    assert!(workflow_contract["runtimeContractAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("agent_runtime_contracts")));
+    assert!(workflow_contract["runtimeContractAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("runtime_contracts")));
+    assert_eq!(
+        workflow_contract["runResponseAliases"]["workflowGraph"],
+        "full AgentRunRecord.workflowGraph with runtime aliases normalized"
+    );
+    assert_eq!(
+        workflow_contract["runResponseAliases"]["workflow_graph"],
+        "full AgentRunRecord.workflowGraph snake_case alias with runtime aliases normalized"
+    );
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["appliesTo"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("snapshotPayload.workflow_graph")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["rootAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("currentNode/current_node")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["nodeAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("eventSequence/event_sequence")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["transitionAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("updatedAt/updated_at")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["transitionAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("topologyEdgeKnown/topology_edge_known")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["transitionAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("topologyEdgeSource/topology_edge_source")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["detailAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requestedName/requested_name")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["detailAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("queueItemId/queue_item_id")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["detailAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpointState/checkpoint_state")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["detailAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requestedChildren/requested_children")));
+    assert!(workflow_contract["graphPayloadAliasGuarantee"]["detailAliases"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("lastBridgeTarget/last_bridge_target")));
+    assert_eq!(
+        workflow_contract["clientMergeContract"]["frontendStore"],
+        "src/lib/store.ts::mergeWorkflowGraphFromRunEvent"
+    );
+    assert_eq!(
+        workflow_contract["client_merge_contract"]["frontendStore"],
+        "src/lib/store.ts::mergeWorkflowGraphFromRunEvent"
+    );
+    assert!(workflow_contract["clientMergeContract"]["detailAliasNormalizer"]
+        .as_str()
+        .unwrap()
+        .contains("normalizeWorkflowDetailAliases"));
+    assert!(workflow_contract["clientMergeContract"]["nodeUpdatePolicy"]
+        .as_str()
+        .unwrap()
+        .contains("preserveCurrent"));
+    assert_eq!(
+        workflow_contract["runResponseAliases"]["workflow_summary"],
+        "WorkflowRuntimeSummary snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["nodePayload"]["detail"],
+        "object with runtime detail aliases normalized"
+    );
+    assert_eq!(
+        workflow_contract["nodePayload"]["event_sequence"],
+        "number|null snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["nodePayload"]["graph_summary"],
+        "WorkflowRuntimeSummary snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["transitionPayload"]["event_sequence"],
+        "number|null snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["transitionPayload"]["topology_edge_known"],
+        "boolean|null snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["transitionPayload"]["topologyEdgeSource"],
+        "string|null, source from topology.edges when known"
+    );
+    assert_eq!(
+        workflow_contract["transitionPayload"]["graph_summary"],
+        "WorkflowRuntimeSummary snake_case alias"
+    );
+    assert_eq!(
+        workflow_contract["transitionPayload"]["detail"],
+        "object with runtime detail aliases normalized"
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["checkpoint.lifecycle"]["futureWait"]
+            ["transitionReason"],
+        WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT
+    );
+    assert_eq!(workflow_contract["nodeOrder"], json!(WORKFLOW_NODE_ORDER));
+    assert_eq!(workflow_contract["statusOrder"], json!(WORKFLOW_STATUS_ORDER));
+    assert_eq!(
+        workflow_contract["transitionReasonOrder"],
+        json!(WORKFLOW_REASON_ORDER)
+    );
+    assert_eq!(
+        workflow_contract["nodeRoles"]["executor"],
+        workflow_node_role_label("executor")
+    );
+    assert_eq!(workflow_contract["topology"]["entryNode"], "queue");
+    assert_eq!(
+        workflow_contract["topology"]["bootstrapCurrentNode"],
+        "planner"
+    );
+    let topology_edges = workflow_contract["topology"]["edges"].as_array().unwrap();
+    assert!(topology_edges.iter().any(|edge| {
+        edge["from"] == "planner"
+            && edge["to"] == "executor"
+            && edge["reasons"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(WORKFLOW_REASON_TOOL_CALLS))
+    }));
+    assert!(topology_edges.iter().any(|edge| {
+        edge["from"] == "executor"
+            && edge["to"] == "group_room"
+            && edge["reasons"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(WORKFLOW_REASON_DELEGATE_TASK_STARTED))
+    }));
+    assert!(topology_edges.iter().any(|edge| {
+        edge["from"] == "current_node"
+            && edge["to"] == "checkpoint"
+            && edge["reasons"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED))
+    }));
+    assert!(topology_edges.iter().any(|edge| {
+        edge["from"] == "checkpoint"
+            && edge["to"] == "planner"
+            && edge["reasons"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED))
+    }));
+    assert!(workflow_contract["topology"]["terminalPatterns"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpoint waiting")));
+    assert!(workflow_contract["topology"]["terminalPatterns"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpoint completed after resume")));
+    assert!(workflow_contract["topology"]["terminalPatterns"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("any node canceled")));
+    assert_eq!(
+        workflow_contract["stateMachine"]["driver"],
+        "workflow_graph::WorkflowDriver"
+    );
+    assert_eq!(
+        workflow_contract["state_machine"]["driver"],
+        "workflow_graph::WorkflowDriver"
+    );
+    assert_eq!(
+        workflow_contract["stateMachine"]["layering"]["preservedInnerLoop"],
+        "agent_loop::run_chat_turn remains the planner/executor/reviewer execution loop"
+    );
+    assert_eq!(
+        workflow_contract["stateMachine"]["nodeDrivers"]["queue"]["nodeType"],
+        "WorkflowQueueNode"
+    );
+    assert_eq!(
+        workflow_contract["stateMachine"]["nodeDrivers"]["group_room"]["accessor"],
+        "WorkflowDriver::group_room"
+    );
+    assert!(workflow_contract["stateMachine"]["nodeDrivers"]["checkpoint"]["recorders"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("resume_continued_to_planner")));
+    assert!(workflow_contract["stateMachine"]["terminalPolicy"]["waitingIsTerminalForTurn"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpoint")));
+    assert!(workflow_contract["stateMachine"]["terminalPolicy"]["currentNodePolicy"]
+        .as_str()
+        .unwrap()
+        .contains("preserveCurrent"));
+    assert!(workflow_contract["stateMachine"]["edgePolicy"]["runtimeAnnotations"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("topologyEdgeKnown/topology_edge_known")));
+    assert!(workflow_contract["stateMachine"]["sourceBoundaries"]["executor"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_dispatch")));
+    assert!(workflow_contract["stateMachine"]["sourceBoundaries"]["approval"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("approval_gateway")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requestSource")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("request_source")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolContext")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_context")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("currentStatus")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("current_node")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("current_status")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("last_event_sequence")));
+    assert!(workflow_contract["graphRootFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("updated_at")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requestSource")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("request_source")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolContext")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_context")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolOrigins")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_origins")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("node_count")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("transition_count")));
+    assert!(workflow_contract["summaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("status_counts")));
+    assert!(workflow_contract["detailContracts"]["queue.admission"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("queueLifecycle")));
+    assert!(workflow_contract["detailContracts"]["queue.admission"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("queue_lifecycle")));
+    assert!(workflow_contract["detailContracts"]["queue.admission"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("queue_item_id")));
+    assert!(workflow_contract["detailContracts"]["queue.admission"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("preserveCurrent")));
+    assert!(workflow_contract["detailContracts"]["queue.admission"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("preserve_current")));
+    assert_eq!(
+        workflow_contract["detailContracts"]["queue.admission"]["queuedTurn"]["queueStatus"],
+        "claimed"
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["queue.admission"]["terminalUpdate"]
+            ["preserveCurrentByQueueStatus"]["completed"],
+        true
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["queue.admission"]["terminalUpdate"]
+            ["preserveCurrentByQueueStatus"]["canceled"],
+        false
+    );
+    assert!(workflow_contract["detailContracts"]["queue.admission"]["terminalUpdate"]
+        ["queueLifecycleValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("turn_failed")));
+    assert_eq!(
+        workflow_contract["detailContracts"]["queue.admission"]["terminalUpdate"]
+            ["nodeStatusByQueueStatus"]["canceled"],
+        "canceled"
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["group_room.context"]["completed"]
+            ["transitionReason"],
+        WORKFLOW_REASON_GROUP_CONTEXT_READY
+    );
+    assert!(workflow_contract["detailContracts"]["group_room.context"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("threadId")));
+    assert!(workflow_contract["detailContracts"]["group_room.context"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("thread_id")));
+    assert!(workflow_contract["detailContracts"]["group_room.context"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("conversation_kind")));
+    assert!(workflow_contract["detailContracts"]["bootstrap.initial_nodes"]["appliesTo"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("reviewer")));
+    assert!(workflow_contract["apiRunEventKinds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(WORKFLOW_API_EVENT_NODE_TEMPLATE)));
+    assert_eq!(
+        workflow_contract["runtimeEventKindMap"][WORKFLOW_RUNTIME_KIND_TRANSITION],
+        WORKFLOW_API_EVENT_TRANSITION
+    );
+    assert!(workflow_contract["eventKinds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(format!(
+            "{WORKFLOW_RUNTIME_NODE_KIND_PREFIX}<status>"
+        ))));
+    assert!(workflow_contract["nodePayload"]["role"]
+        .as_str()
+        .unwrap()
+        .contains("tool execution"));
+    assert!(workflow_contract["detailContracts"]["approval.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("approvalId")));
+    assert!(workflow_contract["detailContracts"]["approval.lifecycle"]["nodeStatuses"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("canceled")));
+    assert_eq!(
+        workflow_contract["detailContracts"]["approval.lifecycle"]["resolvedWithoutResume"]
+            ["statusMapping"]["denied"],
+        "canceled"
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["approval.lifecycle"]["resumed"]["transitionReason"],
+        WORKFLOW_REASON_APPROVAL_RESUMED
+    );
+    assert!(workflow_contract["detailContracts"]["checkpoint.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpointId")));
+    assert!(workflow_contract["detailContracts"]["checkpoint.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpoint_id")));
+    assert!(workflow_contract["detailContracts"]["checkpoint.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("checkpoint_state")));
+    assert!(workflow_contract["detailContracts"]["checkpoint.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("preserveCurrent")));
+    assert!(workflow_contract["detailContracts"]["checkpoint.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("value")));
+    assert!(workflow_contract["detailContracts"]["checkpoint.lifecycle"]["transitionReasons"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED)));
+    assert_eq!(
+        workflow_contract["detailContracts"]["checkpoint.lifecycle"]["resumeCheckpoint"]
+            ["requestedTransitionReason"],
+        WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["checkpoint.lifecycle"]["resumeCheckpoint"]
+            ["continuedTransitionReason"],
+        WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED
+    );
+    assert_eq!(
+        workflow_contract["detailContracts"]["checkpoint.lifecycle"]["clarifyPause"]
+            ["checkpointScope"],
+        "user_input"
+    );
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["failureKinds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_schema_validation")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["failureKinds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_approval_required")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolOrigins")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_origins")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolCallIds")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_call_ids")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolCalls")));
+    assert_eq!(
+        workflow_contract["detailContracts"]["planner.lifecycle"]["toolProtocol"],
+        "canonical_tool_call_v1"
+    );
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["toolOriginValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("provider_native")));
+    assert!(workflow_contract["detailContracts"]["planner.lifecycle"]["toolOriginValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("hermes_markup")));
+    assert!(workflow_contract["detailContracts"]["approval.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("server_id")));
+    assert!(workflow_contract["detailContracts"]["approval.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_name")));
+    assert!(workflow_contract["detailContracts"]["approval.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("source_label")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requiresApproval")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requires_approval")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requested_name")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("directBridge")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("direct_bridge")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("approved_tool_call_replay")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("bridgeStatus")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("bridge_rejection_reason")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("lastBridgeTarget")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("last_bridge_target")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("bridge_stage")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["bridgeStatusValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("context_blocked")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("toolOrigins")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_calls")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stageValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("smart_policy")));
+    assert!(workflow_contract["detailContracts"]["executor.lifecycle"]["stageValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tool_call_bridge_target")));
+    assert_eq!(
+        workflow_contract["detailContracts"]["abort.current_node"]["status"],
+        "canceled"
+    );
+    assert!(workflow_contract["detailContracts"]["abort.current_node"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("aborted")));
+    assert!(workflow_contract["detailContracts"]["abort.current_node"]["appliesTo"]
+        .as_str()
+        .unwrap()
+        .contains("failed/completed/canceled/skipped"));
+    assert!(workflow_contract["detailContracts"]["reviewer.lifecycle"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("messageId")));
+    assert!(workflow_contract["detailContracts"]["reviewer.lifecycle"]["skipReasons"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("iteration_budget_exhausted")));
+    assert_eq!(
+        workflow_contract["detailContracts"]["timeout.failure"]["errorKind"],
+        "agent_run_timeout"
+    );
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["transitionReasons"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(WORKFLOW_REASON_DELEGATE_TASK_STARTED)));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("mode")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requestedChildren")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("requested_children")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("unknownChildren")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["stableFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("unknown_children")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]["phaseValues"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("completed")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]
+        ["transitionDetailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("failedChildren")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]
+        ["transitionDetailFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("failed_children")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]
+        ["childSummaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("child_index")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]
+        ["resultSummaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("errorPreview")));
+    assert!(workflow_contract["detailContracts"]["group_room.delegate_task"]
+        ["resultSummaryFields"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("error_preview")));
 
     let json_stream = api_server_process_request(
         &store,
@@ -21279,6 +23972,12 @@ async fn api_server_exposes_kanban_runtime_events_json_and_sse_bridge() {
         .unwrap()
         .iter()
         .any(|event| event["kind"] == "run_running" && event["run_id"] == run.run_id));
+    assert!(json_stream["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|event| event["kind"] == WORKFLOW_RUNTIME_KIND_SNAPSHOT
+            && event["payload"]["summary"]["currentNode"] == "planner"));
 
     let sse = api_server_process_sse_request(
         &store,
@@ -21297,6 +23996,7 @@ async fn api_server_exposes_kanban_runtime_events_json_and_sse_bridge() {
     .unwrap();
     assert!(sse.contains("event: kanban.runtime"));
     assert!(sse.contains("\"kind\":\"queue_pending\""));
+    assert!(sse.contains("\"kind\":\"workflow_snapshot\""));
     assert!(sse.contains("event: kanban.runtime.cursor"));
 
     let _ = fs::remove_dir_all(dir);
@@ -23463,6 +26163,303 @@ fn api_server_tool_events_map_to_hermes_progress_payloads() {
         .iter()
         .any(|event| event["type"] == "tool.started"
             && event["data"]["progress"]["status"] == "running"));
+}
+
+#[test]
+fn api_server_run_response_and_events_expose_workflow_graph() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-api-run-workflow-{}",
+        new_id("test")
+    ));
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let conversation = store
+        .create_conversation(Some("Workflow API".into()), Some("persona".into()))
+        .unwrap();
+    let mut run = AgentRunRecord::new(conversation.id.clone(), "persona".into(), "agent".into());
+    run.run_id = "run-workflow-api".into();
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "requestSource": "api-test",
+        "request_source": "api-test",
+        "toolContext": "interactive",
+        "tool_context": "interactive",
+        "currentNode": "executor",
+        "currentStatus": "running",
+        "lastEventSequence": 3,
+        "updatedAt": "2026-01-01T00:00:00Z",
+        "nodes": [{
+            "node": "executor",
+            "status": "running",
+            "detail": {
+                "iteration": 2,
+                "toolOrigins": ["provider_native"],
+                "toolCallIds": ["call-api"]
+            },
+            "eventSequence": 2,
+            "updatedAt": "2026-01-01T00:00:01Z"
+        }],
+        "transitions": [{
+            "from": "planner",
+            "to": "executor",
+            "reason": WORKFLOW_REASON_TOOL_CALLS,
+            "detail": {"requestCount": 1},
+            "eventSequence": 3,
+            "updatedAt": "2026-01-01T00:00:02Z"
+        }]
+    }));
+    store.save_agent_run(run.clone()).unwrap();
+
+    let response = api_server_run_response(&store, &run, None).unwrap();
+    assert_eq!(response["workflowGraph"]["currentNode"], "executor");
+    assert_eq!(response["workflowGraph"]["current_node"], "executor");
+    assert_eq!(response["workflowGraph"]["currentStatus"], "running");
+    assert_eq!(response["workflowGraph"]["current_status"], "running");
+    assert_eq!(response["workflow_graph"]["currentNode"], "executor");
+    assert_eq!(response["workflow_graph"]["current_node"], "executor");
+    assert_eq!(
+        response["workflowGraph"]["nodes"][0]["event_sequence"],
+        json!(2)
+    );
+    assert_eq!(
+        response["workflow_graph"]["transitions"][0]["event_sequence"],
+        json!(3)
+    );
+    assert_eq!(response["workflowSummary"]["currentNode"], "executor");
+    assert_eq!(response["workflowSummary"]["currentStatus"], "running");
+    assert_eq!(response["workflowSummary"]["requestSource"], "api-test");
+    assert_eq!(response["workflowSummary"]["toolContext"], "interactive");
+    assert_eq!(
+        response["workflowSummary"]["toolOrigins"],
+        json!(["provider_native"])
+    );
+    assert_eq!(response["workflow_summary"]["currentNode"], "executor");
+    assert_eq!(response["workflow_summary"]["request_source"], "api-test");
+    assert_eq!(response["workflow_summary"]["tool_context"], "interactive");
+    assert_eq!(
+        response["workflow_summary"]["tool_origins"],
+        json!(["provider_native"])
+    );
+    assert_eq!(
+        response["synthchat"]["workflowGraph"]["lastEventSequence"],
+        3
+    );
+    assert_eq!(
+        response["synthchat"]["workflowGraph"]["last_event_sequence"],
+        3
+    );
+    assert_eq!(
+        response["synthchat"]["workflow_graph"]["lastEventSequence"],
+        3
+    );
+    assert_eq!(
+        response["synthchat"]["workflow_graph"]["last_event_sequence"],
+        3
+    );
+    assert_eq!(
+        response["synthchat"]["workflowSummary"]["lastEventSequence"],
+        3
+    );
+    assert_eq!(
+        response["synthchat"]["workflow_summary"]["lastEventSequence"],
+        3
+    );
+
+    let event_response =
+        api_server_handle_run_events(&store, "/v1/runs/run-workflow-api/events").unwrap();
+    assert_eq!(
+        event_response["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        event_response["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        event_response["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        event_response["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        event_response["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        event_response["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        event_response["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        event_response["agent_runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        event_response["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        event_response["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+
+    let events = api_server_run_events(&run);
+    assert!(events.iter().any(|event| {
+        event["type"] == WORKFLOW_API_EVENT_SNAPSHOT
+            && event["data"]["summary"]["currentNode"] == "executor"
+            && event["data"]["workflow_summary"]["currentNode"] == "executor"
+            && event["data"]["workflowGraph"]["current_node"] == "executor"
+            && event["data"]["workflow_graph"]["current_status"] == "running"
+            && event["data"]["graph"]["nodes"][0]["event_sequence"] == json!(2)
+            && event["data"]["summary"]["requestSource"] == "api-test"
+            && event["data"]["workflow_summary"]["request_source"] == "api-test"
+            && event["data"]["summary"]["toolContext"] == "interactive"
+            && event["data"]["workflow_summary"]["tool_context"] == "interactive"
+            && event["data"]["summary"]["toolOrigins"] == json!(["provider_native"])
+            && event["data"]["workflow_summary"]["tool_origins"] == json!(["provider_native"])
+            && event["data"]["summary"]["currentStatus"] == "running"
+            && event["data"]["summary"]["statusCounts"]["running"] == 1
+    }));
+    assert!(events.iter().any(|event| {
+        event["type"] == "workflow.node.running"
+            && event["data"]["node"] == "executor"
+            && event["data"]["role"] == "tool execution"
+            && event["data"]["eventSequence"] == 2
+            && event["data"]["event_sequence"] == 2
+            && event["data"]["graphSummary"]["currentNode"] == "executor"
+            && event["data"]["graph_summary"]["currentNode"] == "executor"
+    }));
+    assert!(events.iter().any(|event| {
+        event["type"] == WORKFLOW_API_EVENT_TRANSITION
+            && event["data"]["from"] == "planner"
+            && event["data"]["to"] == "executor"
+            && event["data"]["reason"] == WORKFLOW_REASON_TOOL_CALLS
+            && event["data"]["graphSummary"]["currentStatus"] == "running"
+            && event["data"]["event_sequence"] == 3
+    }));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn kanban_dashboard_run_responses_expose_workflow_graph_aliases() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-kanban-run-workflow-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let mut run = AgentRunRecord::new("conv-kanban".into(), "persona".into(), "agent".into());
+    run.run_id = "run-kanban-workflow".into();
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "requestSource": "kanban-test",
+        "request_source": "kanban-test",
+        "toolContext": "scheduled_job",
+        "tool_context": "scheduled_job",
+        "currentNode": "planner",
+        "lastEventSequence": 1,
+        "updatedAt": "2026-01-01T00:00:00Z",
+        "nodes": [{
+            "node": "planner",
+            "status": "running",
+            "detail": {"iteration": 1},
+            "eventSequence": 1,
+            "updatedAt": "2026-01-01T00:00:01Z"
+        }],
+        "transitions": []
+    }));
+    store.save_agent_run(run).unwrap();
+
+    let run_response: Value = serde_json::from_str(
+        &dashboard_plugins_tool(
+            &store,
+            &json!({"action": "kanban-run", "runId": "run-kanban-workflow"}),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(run_response["workflow_graph"]["currentNode"], "planner");
+    assert_eq!(run_response["workflow_graph"]["current_node"], "planner");
+    assert_eq!(run_response["workflowGraph"]["currentNode"], "planner");
+    assert_eq!(run_response["workflowGraph"]["current_node"], "planner");
+    assert_eq!(run_response["workflow_summary"]["currentNode"], "planner");
+    assert_eq!(run_response["workflow_summary"]["request_source"], "kanban-test");
+    assert_eq!(run_response["workflow_summary"]["tool_context"], "scheduled_job");
+    assert_eq!(run_response["workflowSummary"]["currentNode"], "planner");
+    assert_eq!(run_response["workflowSummary"]["requestSource"], "kanban-test");
+    assert_eq!(run_response["workflowSummary"]["toolContext"], "scheduled_job");
+    assert!(run_response["workflowGraph"]["nodes"].is_array());
+    assert_eq!(
+        run_response["workflowGraph"]["nodes"][0]["event_sequence"],
+        json!(1)
+    );
+    assert!(run_response["workflow_summary"]["nodes"].is_null());
+    assert_eq!(run_response["run"]["workflow_graph"]["currentNode"], "planner");
+    assert_eq!(run_response["run"]["workflow_graph"]["current_node"], "planner");
+    assert_eq!(run_response["run"]["workflowGraph"]["currentNode"], "planner");
+    assert_eq!(run_response["run"]["workflowGraph"]["current_node"], "planner");
+    assert_eq!(run_response["run"]["workflow_summary"]["currentNode"], "planner");
+    assert_eq!(run_response["run"]["workflowSummary"]["currentNode"], "planner");
+    assert!(run_response["run"]["workflowGraph"]["nodes"].is_array());
+    assert!(run_response["run"]["workflowSummary"]["nodes"].is_null());
+
+    let inspect_response: Value = serde_json::from_str(
+        &dashboard_plugins_tool(
+            &store,
+            &json!({"action": "kanban-run-inspect", "runId": "run-kanban-workflow"}),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(inspect_response["workflow_graph"]["currentNode"], "planner");
+    assert_eq!(inspect_response["workflowGraph"]["currentNode"], "planner");
+    assert_eq!(inspect_response["workflow_summary"]["currentNode"], "planner");
+    assert_eq!(
+        inspect_response["workflow_summary"]["request_source"],
+        "kanban-test"
+    );
+    assert_eq!(
+        inspect_response["workflow_summary"]["tool_context"],
+        "scheduled_job"
+    );
+    assert_eq!(inspect_response["workflowSummary"]["currentNode"], "planner");
+    assert_eq!(
+        inspect_response["workflowSummary"]["requestSource"],
+        "kanban-test"
+    );
+    assert_eq!(
+        inspect_response["workflowSummary"]["toolContext"],
+        "scheduled_job"
+    );
+    assert!(inspect_response["workflowGraph"]["nodes"].is_array());
+    assert!(inspect_response["workflow_summary"]["nodes"].is_null());
+    assert_eq!(
+        inspect_response["run"]["workflow_graph"]["currentNode"],
+        "planner"
+    );
+    assert_eq!(
+        inspect_response["run"]["workflowGraph"]["currentNode"],
+        "planner"
+    );
+    assert_eq!(
+        inspect_response["run"]["workflow_summary"]["currentNode"],
+        "planner"
+    );
+    assert_eq!(
+        inspect_response["run"]["workflowSummary"]["currentNode"],
+        "planner"
+    );
+    assert!(inspect_response["run"]["workflowGraph"]["nodes"].is_array());
+    assert!(inspect_response["run"]["workflow_summary"]["nodes"].is_null());
+
+    let _ = fs::remove_dir_all(dir);
 }
 
 #[tokio::test]
@@ -29367,9 +32364,17 @@ fn clarify_tool_result_pauses_agent_run_for_user_response() {
     .unwrap();
 
     let assistant =
-        pause_run_for_clarify_tool(&store, None, &mut run, &conversation.id, &tool_text, &event)
-            .unwrap()
-            .unwrap();
+        pause_run_for_clarify_tool(
+            &store,
+            None,
+            &mut run,
+            &conversation.id,
+            WorkflowMode::ChatTurn,
+            &tool_text,
+            &event,
+        )
+        .unwrap()
+        .unwrap();
 
     assert!(assistant
         .content
@@ -29381,6 +32386,80 @@ fn clarify_tool_result_pauses_agent_run_for_user_response() {
         saved.checkpoints[0].completed_call_ids,
         vec!["call-clarify-1"]
     );
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "checkpoint");
+    let checkpoint = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "waiting");
+    assert_eq!(checkpoint["detail"]["mode"], "chat_turn");
+    assert_eq!(checkpoint["detail"]["kind"], "clarify_pause");
+    assert_eq!(checkpoint["detail"]["checkpointScope"], "user_input");
+    let transition = graph["transitions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|transition| transition["reason"] == WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT)
+        .unwrap();
+    assert_eq!(transition["from"], "executor");
+    assert_eq!(transition["to"], "checkpoint");
+    assert_eq!(
+        transition["detail"]["checkpointId"].as_str(),
+        Some(saved.checkpoints[0].checkpoint_id.as_str())
+    );
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn clarify_tool_pause_records_approval_continuation_workflow_mode() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-clarify-approval-mode-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Clarify Approval Mode".into()), Some(persona.id.clone()))
+        .unwrap();
+    let mut run = AgentRunRecord::new(conversation.id.clone(), persona.id, conversation.agent_id);
+    run.state = "running".into();
+    run = store.save_agent_run(run).unwrap();
+    let mut event = tool_started_event(
+        &run.run_id,
+        "__internal",
+        "clarify",
+        &json!({"question": "Which branch?", "__agentProviderToolCall": {"id": "call-clarify-approval"}}),
+    );
+    event.call_id = Some("call-clarify-approval".into());
+    let tool_text = clarify_tool(&json!({"question": "Which branch?"})).unwrap();
+
+    pause_run_for_clarify_tool(
+        &store,
+        None,
+        &mut run,
+        &conversation.id,
+        WorkflowMode::ApprovalContinuation,
+        &tool_text,
+        &event,
+    )
+    .unwrap()
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let checkpoint = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "waiting");
+    assert_eq!(checkpoint["detail"]["mode"], "approval_continuation");
+
     let _ = fs::remove_dir_all(dir);
 }
 
@@ -29421,6 +32500,77 @@ fn clarification_response_context_completes_pending_clarification_run() {
         saved.checkpoints.last().unwrap().state,
         "clarification_response"
     );
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let checkpoint = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "completed");
+    assert_eq!(checkpoint["detail"]["mode"], "chat_turn");
+    assert_eq!(checkpoint["detail"]["kind"], "clarification_response");
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn clarification_response_context_preserves_pending_run_workflow_mode() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-clarify-answer-mode-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Clarify Answer Mode".into()), Some(persona.id.clone()))
+        .unwrap();
+    let mut run = AgentRunRecord::new(conversation.id.clone(), persona.id, conversation.agent_id);
+    run.user_request = "Deploy the app".into();
+    run.state = "needsClarification".into();
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "nodes": [{
+            "node": "checkpoint",
+            "status": "waiting",
+            "detail": {
+                "mode": "approval_continuation",
+                "state": "needs_clarification",
+                "kind": "clarify_pause"
+            },
+            "updatedAt": now_iso()
+        }],
+        "transitions": [],
+        "currentNode": "checkpoint",
+        "lastEventSequence": 0,
+        "updatedAt": now_iso(),
+    }));
+    run.checkpoints.push(AgentCheckpointRecord {
+        checkpoint_id: "ckpt_clarify".into(),
+        run_id: run.run_id.clone(),
+        iteration: 1,
+        created_at: now_iso(),
+        state: "needs_clarification".into(),
+        completed_call_ids: vec!["call-clarify".into()],
+        event_refs: vec!["call-clarify".into()],
+        summary: "Clarification required: Which branch?".into(),
+    });
+    run = store.save_agent_run(run).unwrap();
+
+    clarification_response_context_for_turn(&store, &conversation.id, "use main").unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let checkpoint = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "completed");
+    assert_eq!(checkpoint["detail"]["mode"], "approval_continuation");
+
     let _ = fs::remove_dir_all(dir);
 }
 
@@ -47648,6 +50798,86 @@ fn dashboard_plugins_tool_exposes_hermes_dashboard_plugin_boundaries() {
         .unwrap()
         .iter()
         .any(|plugin| plugin["name"] == "kanban" && plugin["nativeAgentToolsAdapted"] == true));
+    assert!(status["kanbanDashboard"]["nativeRuntimeEventSources"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(WORKFLOW_RUNTIME_SOURCE)));
+    assert_eq!(
+        status["kanbanDashboard"]["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["agent_runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["agentRuntimeContracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["agent_runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        status["agentRuntimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["agentRuntimeContracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["agent_runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        status["kanbanDashboard"]["toolCallProtocolContract"]["bridgeToolCall"]["targetValidation"],
+        "the bridge target must be available, must not require approval for direct bridge execution, internal risky targets must use the normal executor route, and its target payload must pass the same schema validator before execution"
+    );
     assert_eq!(status["achievements"]["catalogCount"], 60);
     assert_eq!(status["achievements"]["state"]["unlockCount"], 2);
     assert_eq!(status["achievements"]["state"]["snapshotTotalCount"], 60);
@@ -48685,6 +51915,41 @@ fn dashboard_plugins_kanban_runtime_events_merge_queue_run_tool_and_task_transit
     run.queue_item_id = Some(queued.id.clone());
     run.user_request = queued.content.clone();
     run.state = "running".into();
+    let workflow_updated_at = now_iso();
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "currentNode": "executor",
+        "currentStatus": "running",
+        "lastEventSequence": 2,
+        "updatedAt": workflow_updated_at.clone(),
+        "nodes": [
+            {
+                "node": "planner",
+                "status": "completed",
+                "detail": {"iteration": 1},
+                "eventSequence": 1,
+                "updatedAt": workflow_updated_at.clone()
+            },
+            {
+                "node": "executor",
+                "status": "running",
+                "detail": {"toolCount": 1},
+                "eventSequence": 2,
+                "updatedAt": workflow_updated_at.clone()
+            }
+        ],
+        "transitions": [
+            {
+                "from": "planner",
+                "to": "executor",
+                "reason": "tool_request",
+                "detail": {"toolCount": 1},
+                "eventSequence": 2,
+                "updatedAt": workflow_updated_at.clone()
+            }
+        ]
+    }));
     run.phase_events.push(AgentRunPhaseRecord {
         phase: "tool_started".into(),
         detail: json!({"serverId": "__internal", "toolName": "kanban-show"}),
@@ -48724,13 +51989,107 @@ fn dashboard_plugins_kanban_runtime_events_merge_queue_run_tool_and_task_transit
     assert_eq!(stream["schema"], "hermes_kanban_runtime_events_desktop_v1");
     assert_eq!(stream["nativeRuntimeEventBridge"], true);
     assert_eq!(stream["websocketEmbedded"], false);
+    assert!(stream["sources"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(WORKFLOW_RUNTIME_SOURCE)));
+    assert_eq!(
+        stream["workflowGraphRuntimeContract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        stream["workflow_graph_runtime_contract"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        stream["toolCallProtocolContract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        stream["tool_call_protocol_contract"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        stream["runtimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        stream["runtimeContracts"]["toolCallProtocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        stream["agentRuntimeContracts"]["workflowGraph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        stream["agent_runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        stream["runtime_contracts"]["workflow_graph"]["schema"],
+        WORKFLOW_RUNTIME_EVENTS_SCHEMA
+    );
+    assert_eq!(
+        stream["runtime_contracts"]["tool_call_protocol"]["schema"],
+        TOOL_CALL_PROTOCOL_SCHEMA
+    );
+    assert_eq!(
+        stream["toolCallProtocolContract"]["acceptedInputShapes"]["providerNative"]
+            ["sourceKeys"],
+        json!(provider_tool_call_metadata_source_keys())
+    );
+    assert_eq!(
+        stream["toolCallProtocolContract"]["acceptedInputShapes"]["providerNative"]
+            ["callIdLookupKeys"],
+        json!(PROVIDER_TOOL_CALL_ID_KEYS)
+    );
     let events = stream["events"].as_array().unwrap();
     assert!(events
         .iter()
         .any(|event| event["kind"] == "queue_pending" && event["queue_item_id"] == queued.id));
-    assert!(events
-        .iter()
-        .any(|event| event["kind"] == "run_running" && event["run_id"] == run.run_id));
+    assert!(events.iter().any(|event| {
+        event["kind"] == "run_running"
+            && event["run_id"] == run.run_id
+            && event["payload"]["workflowGraph"]["currentNode"] == "executor"
+            && event["payload"]["workflowGraph"]["nodes"].is_array()
+            && event["payload"]["workflowSummary"]["currentNode"] == "executor"
+            && event["payload"]["workflowSummary"]["nodes"].is_null()
+    }));
+    assert!(events.iter().any(|event| {
+        event["kind"] == WORKFLOW_RUNTIME_KIND_SNAPSHOT
+            && event["run_id"] == run.run_id
+            && event["payload"]["summary"]["currentNode"] == "executor"
+            && event["payload"]["workflowSummary"]["currentNode"] == "executor"
+            && event["payload"]["workflow_summary"]["currentNode"] == "executor"
+            && event["payload"]["workflowGraph"]["currentNode"] == "executor"
+            && event["payload"]["workflowGraph"]["current_node"] == "executor"
+            && event["payload"]["workflowGraph"]["current_status"] == "running"
+            && event["payload"]["workflow_graph"]["currentNode"] == "executor"
+            && event["payload"]["workflow_graph"]["current_node"] == "executor"
+            && event["payload"]["graph"]["currentNode"] == "executor"
+            && event["payload"]["graph"]["current_node"] == "executor"
+            && event["payload"]["graph"]["nodes"][0]["event_sequence"] == json!(2)
+            && event["payload"]["workflowGraph"]["nodes"].is_array()
+            && event["payload"]["summary"]["currentStatus"] == "running"
+    }));
+    assert!(events.iter().any(|event| {
+        event["kind"] == "workflow_node_running"
+            && event["run_id"] == run.run_id
+            && event["payload"]["role"] == "tool execution"
+            && event["payload"]["node"] == "executor"
+            && event["payload"]["event_sequence"] == 2
+            && event["payload"]["graphSummary"]["currentNode"] == "executor"
+            && event["payload"]["graph_summary"]["currentNode"] == "executor"
+    }));
+    assert!(events.iter().any(|event| {
+        event["kind"] == WORKFLOW_RUNTIME_KIND_TRANSITION
+            && event["run_id"] == run.run_id
+            && event["payload"]["from"] == "planner"
+            && event["payload"]["to"] == "executor"
+            && event["payload"]["event_sequence"] == 2
+            && event["payload"]["graphSummary"]["currentStatus"] == "running"
+            && event["payload"]["graph_summary"]["currentStatus"] == "running"
+    }));
     assert!(events.iter().any(|event| {
         event["kind"] == "run_phase_tool_started" && event["run_id"] == run.run_id
     }));
@@ -49205,6 +52564,41 @@ fn dashboard_plugins_kanban_dispatch_claims_ready_tasks_as_desktop_workers() {
     .unwrap();
     assert_eq!(run["status"], "ok");
     assert_eq!(run["run"]["task_id"], "kb-dispatch");
+    assert_eq!(run["run"]["queue_item_id"], "kb-dispatch");
+    assert_eq!(
+        run["run"]["workflowGraph"]["requestSource"],
+        "dashboard_plugins.kanban-dispatch"
+    );
+    assert_eq!(
+        run["run"]["workflowGraph"]["request_source"],
+        "dashboard_plugins.kanban-dispatch"
+    );
+    assert_eq!(run["run"]["workflowGraph"]["toolContext"], "scheduled_job");
+    assert_eq!(run["run"]["workflowGraph"]["tool_context"], "scheduled_job");
+    assert!(run["run"]["workflowGraph"]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|node| node["node"] == "queue"
+            && node["status"] == "completed"
+            && node["detail"]["queueItemId"] == "kb-dispatch"));
+    let inspect: Value = serde_json::from_str(
+        &dashboard_plugins_tool(
+            &store,
+            &json!({"action": "kanban-run-inspect", "runId": run_id}),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        inspect["run"]["workflowGraph"]["requestSource"],
+        "dashboard_plugins.kanban-dispatch"
+    );
+    assert_eq!(
+        inspect["run"]["workflowGraph"]["request_source"],
+        "dashboard_plugins.kanban-dispatch"
+    );
+    assert_eq!(inspect["run"]["workflow_summary"]["currentNode"], "planner");
 
     let events: Value = serde_json::from_str(
         &dashboard_plugins_tool(
@@ -51622,6 +55016,7 @@ async fn teams_pipeline_summarize_execute_uses_agent_llm_and_parser_fallback() {
         }),
         ToolExecutionContext::Interactive,
         None,
+        false,
     )
     .await
     .unwrap();
@@ -51678,6 +55073,7 @@ async fn teams_pipeline_summarize_execute_uses_agent_llm_and_parser_fallback() {
         }),
         ToolExecutionContext::Interactive,
         None,
+        false,
     )
     .await
     .unwrap();
@@ -53108,6 +56504,46 @@ fn tool_search_and_describe_expose_available_tool_catalog() {
         .as_str()
         .unwrap()
         .contains("arguments"));
+    assert_eq!(call_description["payloadSchema"]["properties"]["name"]["type"], "string");
+    assert_eq!(
+        call_description["schema"],
+        call_description["payloadSchema"]
+    );
+    let visible_tools =
+        visible_tool_definitions_for_agent(&store, &agent, ToolExecutionContext::Interactive)
+            .unwrap();
+    assert!(visible_tools.iter().any(|tool| {
+        tool.name == "ai.exa/exa.search-docs"
+            && tool.source == "mcp"
+            && tool.tool_name == "search-docs"
+    }));
+    let mcp_decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"ai.exa/exa.search-docs","payload":{"query":"planner validation"}}"#,
+    );
+    assert!(
+        validated_tool_requests_from_decision_with_error(&mcp_decision, &visible_tools).is_ok()
+    );
+    let bridge_definition = visible_tools
+        .iter()
+        .find(|tool| tool.name == "tool_call")
+        .unwrap();
+    assert_eq!(
+        bridge_definition.input_schema["properties"]["arguments"]["type"][0],
+        "object"
+    );
+    let bridge_error = validated_tool_requests_from_decision_with_error(
+        &parse_agent_decision(
+            r#"{"action":"tool","tool":"tool_call","payload":{"arguments":{}}}"#,
+        ),
+        &visible_tools,
+    )
+    .unwrap_err();
+    assert_eq!(
+        bridge_error.kind(),
+        ToolCallValidationErrorKind::SchemaValidation
+    );
+    assert!(bridge_error.message().contains("anyOf"));
+    assert!(bridge_error.message().contains("payload.name is required"));
     assert_eq!(tool_event_kind("__internal", "tool_search", None), "search");
     assert_eq!(tool_event_kind("__internal", "tool_describe", None), "read");
     assert_eq!(tool_event_kind("__internal", "tool_call", None), "execute");
@@ -53264,6 +56700,18 @@ fn tool_call_payload_resolves_arguments_and_risk() {
     }))
     .unwrap();
     assert_eq!(empty_args, json!({}));
+    let (_, input_args) = resolve_tool_call_payload(&json!({
+        "tool": "read_file",
+        "input": {"path": "README.md"}
+    }))
+    .unwrap();
+    assert_eq!(input_args["path"], "README.md");
+    let (_, parameter_args) = resolve_tool_call_payload(&json!({
+        "name": "read_file",
+        "parameters": "{\"path\":\"src/main.rs\"}"
+    }))
+    .unwrap();
+    assert_eq!(parameter_args["path"], "src/main.rs");
     assert!(resolve_tool_call_payload(&json!({"name": "tool_search"})).is_err());
     assert!(!is_risky_tool_call(
         "tool_call",
@@ -53281,14 +56729,25 @@ async fn tool_call_bridge_preserves_provider_call_id_for_target_event() {
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("notes.txt"), "bridge call id\n").unwrap();
     let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Tool Call Bridge".into()), Some(persona.id.clone()))
+        .unwrap();
+    let run = store
+        .save_agent_run(AgentRunRecord::new(
+            conversation.id.clone(),
+            persona.id,
+            conversation.agent_id.clone(),
+        ))
+        .unwrap();
     let mut agent = AgentDefinition::default();
     agent.workspace_dir = dir.to_string_lossy().to_string();
 
     let (_text, event) = execute_recovery_internal_tool(
         &store,
         &agent,
-        "conv-tool-call-bridge",
-        "run-tool-call-bridge",
+        &conversation.id,
+        &run.run_id,
         "tool_call",
         json!({
             "name": "read_file",
@@ -53297,6 +56756,7 @@ async fn tool_call_bridge_preserves_provider_call_id_for_target_event() {
         }),
         ToolExecutionContext::Interactive,
         None,
+        false,
     )
     .await
     .unwrap();
@@ -53304,6 +56764,351 @@ async fn tool_call_bridge_preserves_provider_call_id_for_target_event() {
     assert_eq!(event.tool_name, "read_file");
     assert_eq!(event.call_id.as_deref(), Some("tc-bridge"));
     assert_eq!(event.status.as_deref(), Some("completed"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn tool_call_bridge_direct_execution_validates_mcp_target_schema() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-call-bridge-schema-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Tool Call Bridge Schema".into()), Some(persona.id.clone()))
+        .unwrap();
+    let run = store
+        .save_agent_run(AgentRunRecord::new(
+            conversation.id.clone(),
+            persona.id,
+            conversation.agent_id.clone(),
+        ))
+        .unwrap();
+    store
+        .set_tool_definitions(vec![ToolDefinition {
+            name: "mcp_demo_search".into(),
+            display_name: "search".into(),
+            description: "Search demo docs".into(),
+            source: "mcp".into(),
+            server_id: "demo".into(),
+            tool_name: "search".into(),
+            input_schema: json!({
+                "type": "object",
+                "required": ["query"],
+                "properties": {"query": {"type": "string"}},
+                "additionalProperties": false
+            }),
+            requires_approval: false,
+        }])
+        .unwrap();
+    let mut agent = AgentDefinition::default();
+    agent.mcp_enabled = true;
+    agent.workspace_dir = dir.to_string_lossy().to_string();
+
+    let error = execute_recovery_internal_tool(
+        &store,
+        &agent,
+        &conversation.id,
+        &run.run_id,
+        "tool_call",
+        json!({
+            "name": "mcp_demo_search",
+            "arguments": {}
+        }),
+        ToolExecutionContext::Interactive,
+        None,
+        false,
+    )
+    .await
+    .unwrap_err()
+    .to_string();
+
+    assert!(error.contains("payload.query is required"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn tool_call_bridge_direct_execution_rejects_mcp_target_requiring_approval() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-call-bridge-approval-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Tool Call Bridge Approval".into()), Some(persona.id.clone()))
+        .unwrap();
+    let run = store
+        .save_agent_run(AgentRunRecord::new(
+            conversation.id.clone(),
+            persona.id,
+            conversation.agent_id.clone(),
+        ))
+        .unwrap();
+    store
+        .set_tool_definitions(vec![ToolDefinition {
+            name: "mcp_demo_mutate".into(),
+            display_name: "mutate".into(),
+            description: "Mutate demo docs".into(),
+            source: "mcp".into(),
+            server_id: "demo".into(),
+            tool_name: "mutate".into(),
+            input_schema: json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {"path": {"type": "string"}},
+                "additionalProperties": false
+            }),
+            requires_approval: true,
+        }])
+        .unwrap();
+    let mut agent = AgentDefinition::default();
+    agent.mcp_enabled = true;
+    agent.workspace_dir = dir.to_string_lossy().to_string();
+
+    let error = execute_recovery_internal_tool(
+        &store,
+        &agent,
+        &conversation.id,
+        &run.run_id,
+        "tool_call",
+        json!({
+            "name": "mcp_demo_mutate",
+            "arguments": {"path": "notes.txt"}
+        }),
+        ToolExecutionContext::Interactive,
+        None,
+        false,
+    )
+    .await
+    .unwrap_err()
+    .to_string();
+
+    assert!(error.contains("requires approval"));
+    let run = store.agent_run(&run.run_id).unwrap();
+    let graph = run.workflow_graph.as_ref().unwrap();
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["detail"]["stage"], "tool_call_bridge_target");
+    assert_eq!(executor["detail"]["requestedName"], "mcp_demo_mutate");
+    assert_eq!(executor["detail"]["serverId"], "demo");
+    assert_eq!(executor["detail"]["toolName"], "mutate");
+    assert_eq!(executor["detail"]["toolKind"], "mcp");
+    assert_eq!(executor["detail"]["requiresApproval"], true);
+    assert_eq!(executor["detail"]["bridgeStatus"], "approval_required");
+    assert_eq!(executor["detail"]["bridge_status"], "approval_required");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn tool_call_bridge_direct_execution_rejects_internal_target_requiring_approval() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-call-bridge-internal-approval-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(
+            Some("Tool Call Bridge Internal Approval".into()),
+            Some(persona.id.clone()),
+        )
+        .unwrap();
+    let run = store
+        .save_agent_run(AgentRunRecord::new(
+            conversation.id.clone(),
+            persona.id,
+            conversation.agent_id.clone(),
+        ))
+        .unwrap();
+    let mut agent = AgentDefinition::default();
+    agent.workspace_dir = dir.to_string_lossy().to_string();
+
+    let error = execute_recovery_internal_tool(
+        &store,
+        &agent,
+        &conversation.id,
+        &run.run_id,
+        "tool_call",
+        json!({
+            "name": "terminal",
+            "arguments": {"command": "echo hi"}
+        }),
+        ToolExecutionContext::Interactive,
+        None,
+        false,
+    )
+    .await
+    .unwrap_err()
+    .to_string();
+
+    assert!(error.contains("requires approval"));
+    assert!(error.contains("terminal"));
+    let run = store.agent_run(&run.run_id).unwrap();
+    let graph = run.workflow_graph.as_ref().unwrap();
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["detail"]["stage"], "tool_call_bridge_target");
+    assert_eq!(executor["detail"]["requestedName"], "terminal");
+    assert_eq!(executor["detail"]["requiresApproval"], true);
+    assert_eq!(executor["detail"]["approvedToolCallReplay"], false);
+    assert_eq!(executor["detail"]["bridgeStatus"], "approval_required");
+    assert_eq!(executor["detail"]["bridge_status"], "approval_required");
+    assert_eq!(
+        executor["detail"]["bridgeRejectionReason"],
+        "target requires approval before direct bridge dispatch"
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn tool_call_bridge_direct_execution_records_unavailable_target() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-call-bridge-unavailable-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(
+            Some("Tool Call Bridge Unavailable".into()),
+            Some(persona.id.clone()),
+        )
+        .unwrap();
+    let run = store
+        .save_agent_run(AgentRunRecord::new(
+            conversation.id.clone(),
+            persona.id,
+            conversation.agent_id.clone(),
+        ))
+        .unwrap();
+    let mut agent = AgentDefinition::default();
+    agent.workspace_dir = dir.to_string_lossy().to_string();
+
+    let error = execute_recovery_internal_tool(
+        &store,
+        &agent,
+        &conversation.id,
+        &run.run_id,
+        "tool_call",
+        json!({
+            "name": "missing_bridge_target",
+            "arguments": {}
+        }),
+        ToolExecutionContext::Interactive,
+        None,
+        false,
+    )
+    .await
+    .unwrap_err()
+    .to_string();
+
+    assert!(error.contains("tool not found: missing_bridge_target"));
+    let run = store.agent_run(&run.run_id).unwrap();
+    let graph = run.workflow_graph.as_ref().unwrap();
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["detail"]["stage"], "tool_call_bridge_target");
+    assert_eq!(executor["detail"]["requestedName"], "missing_bridge_target");
+    assert_eq!(executor["detail"]["serverId"], "<missing>");
+    assert_eq!(executor["detail"]["toolKind"], "unavailable");
+    assert_eq!(executor["detail"]["requiresApproval"], false);
+    assert_eq!(executor["detail"]["bridgeStatus"], "unavailable");
+    assert_eq!(executor["detail"]["bridge_status"], "unavailable");
+    assert_eq!(
+        executor["detail"]["bridgeRejectionReason"],
+        "target tool is not available"
+    );
+    assert_eq!(
+        executor["detail"]["bridge_rejection_reason"],
+        "target tool is not available"
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn tool_call_bridge_direct_execution_does_not_trust_spoofed_approval_marker() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-tool-call-bridge-spoofed-marker-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(
+            Some("Tool Call Bridge Spoofed Marker".into()),
+            Some(persona.id.clone()),
+        )
+        .unwrap();
+    let run = store
+        .save_agent_run(AgentRunRecord::new(
+            conversation.id.clone(),
+            persona.id,
+            conversation.agent_id.clone(),
+        ))
+        .unwrap();
+    let mut agent = AgentDefinition::default();
+    agent.workspace_dir = dir.to_string_lossy().to_string();
+    let mut payload = json!({
+        "name": "terminal",
+        "arguments": {"command": "echo hi"}
+    });
+    payload
+        .as_object_mut()
+        .unwrap()
+        .insert(APPROVED_TOOL_CALL_REPLAY_KEY.into(), json!(true));
+
+    let error = execute_recovery_internal_tool(
+        &store,
+        &agent,
+        &conversation.id,
+        &run.run_id,
+        "tool_call",
+        payload,
+        ToolExecutionContext::Interactive,
+        None,
+        false,
+    )
+    .await
+    .unwrap_err()
+    .to_string();
+
+    assert!(error.contains("requires approval"));
+    assert!(error.contains("terminal"));
+    let run = store.agent_run(&run.run_id).unwrap();
+    let graph = run.workflow_graph.as_ref().unwrap();
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["detail"]["approvedToolCallReplay"], false);
+    assert_eq!(executor["detail"]["approved_tool_call_replay"], false);
+    assert_eq!(executor["detail"]["bridgeStatus"], "approval_required");
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -58224,29 +62029,310 @@ fn workflow_graph_bootstrap_marks_queue_and_group_room_nodes() {
     );
 
     let graph = run.workflow_graph.as_ref().unwrap();
-    assert_eq!(graph["schema"], "synthgraph_workflow_v1");
+    assert_eq!(graph["schema"], SYNTHGRAPH_WORKFLOW_SCHEMA);
+    assert_eq!(graph["requestSource"], "matrix");
+    assert_eq!(graph["request_source"], "matrix");
+    assert_eq!(graph["toolContext"], "interactive");
+    assert_eq!(graph["tool_context"], "interactive");
     assert_eq!(graph["currentNode"], "planner");
-    assert!(graph["transitions"].as_array().unwrap().is_empty());
+    assert_eq!(graph["current_node"], "planner");
+    assert_eq!(graph["currentStatus"], "pending");
+    assert_eq!(graph["current_status"], "pending");
+    assert_eq!(graph["lastEventSequence"], 0);
+    assert_eq!(graph["last_event_sequence"], 0);
+    let transitions = graph["transitions"].as_array().unwrap();
+    assert_eq!(transitions.len(), 2);
+    assert_eq!(transitions[0]["from"], "queue");
+    assert_eq!(transitions[0]["to"], "group_room");
+    assert_eq!(transitions[0]["reason"], WORKFLOW_REASON_QUEUED_TURN);
+    assert_eq!(transitions[0]["detail"]["mode"], "chat_turn");
+    assert_eq!(transitions[0]["detail"]["requestSource"], "matrix");
+    assert_eq!(transitions[0]["detail"]["request_source"], "matrix");
+    assert_eq!(transitions[0]["detail"]["toolContext"], "interactive");
+    assert_eq!(transitions[0]["detail"]["tool_context"], "interactive");
+    assert_eq!(transitions[0]["detail"]["queueItemId"], "queue-1");
+    assert_eq!(
+        transitions[0]["detail"]["admission"],
+        WORKFLOW_REASON_QUEUED_TURN
+    );
+    assert_eq!(transitions[0]["detail"]["queueStatus"], "claimed");
+    assert_eq!(
+        transitions[0]["detail"]["queueLifecycle"],
+        "dequeued_for_run"
+    );
+    assert_eq!(transitions[0]["eventSequence"], 0);
+    assert_eq!(transitions[1]["from"], "group_room");
+    assert_eq!(transitions[1]["to"], "planner");
+    assert_eq!(
+        transitions[1]["reason"],
+        WORKFLOW_REASON_GROUP_CONTEXT_READY
+    );
+    assert_eq!(transitions[1]["detail"]["groupRoom"], "context_ready");
+    assert_eq!(transitions[1]["eventSequence"], 0);
 
     let event = run.phase_events.last().unwrap();
-    assert_eq!(event.phase, "workflow_graph_initialized");
-    assert_eq!(event.detail["schema"], "synthgraph_workflow_v1");
+    assert_eq!(event.phase, WORKFLOW_PHASE_INITIALIZED);
+    assert_eq!(event.detail["schema"], SYNTHGRAPH_WORKFLOW_SCHEMA);
+    assert_eq!(event.detail["transitions"].as_array().unwrap().len(), 2);
 
     let nodes = event.detail["nodes"].as_array().unwrap();
     let queue = nodes.iter().find(|node| node["node"] == "queue").unwrap();
     assert_eq!(queue["status"], "completed");
+    assert_eq!(queue["eventSequence"], 0);
+    assert_eq!(queue["detail"]["mode"], "chat_turn");
+    assert_eq!(queue["detail"]["requestSource"], "matrix");
+    assert_eq!(queue["detail"]["request_source"], "matrix");
+    assert_eq!(queue["detail"]["toolContext"], "interactive");
+    assert_eq!(queue["detail"]["tool_context"], "interactive");
     assert_eq!(queue["detail"]["queueItemId"], "queue-1");
+    assert_eq!(queue["detail"]["admission"], WORKFLOW_REASON_QUEUED_TURN);
+    assert_eq!(queue["detail"]["queueStatus"], "claimed");
+    assert_eq!(queue["detail"]["queueLifecycle"], "dequeued_for_run");
 
     let group_room = nodes
         .iter()
         .find(|node| node["node"] == "group_room")
         .unwrap();
     assert_eq!(group_room["status"], "completed");
+    assert_eq!(group_room["eventSequence"], 0);
+    assert_eq!(group_room["detail"]["mode"], "chat_turn");
+    assert_eq!(group_room["detail"]["requestSource"], "matrix");
+    assert_eq!(group_room["detail"]["request_source"], "matrix");
+    assert_eq!(group_room["detail"]["toolContext"], "interactive");
+    assert_eq!(group_room["detail"]["tool_context"], "interactive");
     assert_eq!(group_room["detail"]["roomId"], "!room:example.org");
     assert_eq!(group_room["detail"]["threadId"], "thread-1");
 
+    let planner = nodes.iter().find(|node| node["node"] == "planner").unwrap();
+    assert_eq!(planner["status"], "pending");
+    assert_eq!(planner["eventSequence"], 0);
+    assert_eq!(planner["detail"]["mode"], "chat_turn");
+    assert_eq!(planner["detail"]["requestSource"], "matrix");
+    assert_eq!(planner["detail"]["request_source"], "matrix");
+    assert_eq!(planner["detail"]["toolContext"], "interactive");
+    assert_eq!(planner["detail"]["tool_context"], "interactive");
+
     let reviewer = nodes.iter().find(|node| node["node"] == "reviewer").unwrap();
     assert_eq!(reviewer["status"], "pending");
+    assert_eq!(reviewer["eventSequence"], 0);
+    assert_eq!(reviewer["detail"]["mode"], "chat_turn");
+    assert_eq!(reviewer["detail"]["requestSource"], "matrix");
+    assert_eq!(reviewer["detail"]["request_source"], "matrix");
+    assert_eq!(reviewer["detail"]["toolContext"], "interactive");
+    assert_eq!(reviewer["detail"]["tool_context"], "interactive");
+}
+
+#[test]
+fn queue_terminal_workflow_update_preserves_current_node() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-queue-terminal-workflow-{}",
+        new_id("test")
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let message = ChatMessage::new("conv".into(), "user", "queued terminal".into(), "test");
+    let mut queue_item = AgentQueuedRequest::new("conv".into(), "persona".into(), &message);
+    queue_item.id = "queue-terminal".into();
+    queue_item.status = "completed".into();
+    queue_item.completed_at = Some(now_iso());
+
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.queue_item_id = Some(queue_item.id.clone());
+    let request = SendChatRequest {
+        conversation_id: Some("conv".into()),
+        persona_id: Some("persona".into()),
+        agent_id: None,
+        content: "queued terminal".into(),
+        provider_data: None,
+        queue_item_id: Some(queue_item.id.clone()),
+    };
+    push_workflow_graph_bootstrap(
+        &mut run,
+        &request,
+        "desktop",
+        ToolExecutionContext::Interactive,
+        WorkflowMode::ChatTurn,
+    );
+    let run = store.save_agent_run(run).unwrap();
+    WorkflowDriver::new(WorkflowMode::ChatTurn)
+        .reviewer()
+        .completed(
+            &store,
+            &run.run_id,
+            "msg-final",
+            Some("model"),
+            Some("provider"),
+        )
+        .unwrap();
+
+    record_agent_queue_workflow_terminal(&store, &queue_item).unwrap();
+    let updated = store.agent_run(&run.run_id).unwrap();
+    let graph = updated.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "reviewer");
+    assert_eq!(graph["currentStatus"], "completed");
+    let queue = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "queue")
+        .unwrap();
+    assert_eq!(queue["status"], "completed");
+    assert_eq!(queue["detail"]["queueItemId"], "queue-terminal");
+    assert_eq!(queue["detail"]["queueStatus"], "completed");
+    assert_eq!(queue["detail"]["queueLifecycle"], "turn_completed");
+    assert_eq!(queue["detail"]["preserveCurrent"], true);
+
+    queue_item.status = "failed".into();
+    queue_item.error = Some("queue failed".into());
+    record_agent_queue_workflow_terminal(&store, &queue_item).unwrap();
+    let failed = store.agent_run(&run.run_id).unwrap();
+    let graph = failed.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "reviewer");
+    let queue = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "queue")
+        .unwrap();
+    assert_eq!(queue["status"], "failed");
+    assert_eq!(queue["detail"]["queueStatus"], "failed");
+    assert_eq!(queue["detail"]["queueLifecycle"], "turn_failed");
+    assert_eq!(queue["detail"]["preserveCurrent"], true);
+    assert_eq!(queue["detail"]["error"], "queue failed");
+
+    queue_item.status = "canceled".into();
+    queue_item.error = Some("Canceled by user.".into());
+    record_agent_queue_workflow_terminal(&store, &queue_item).unwrap();
+    let canceled = store.agent_run(&run.run_id).unwrap();
+    let graph = canceled.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "queue");
+    assert_eq!(graph["currentStatus"], "canceled");
+    let queue = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "queue")
+        .unwrap();
+    assert_eq!(queue["status"], "canceled");
+    assert_eq!(queue["detail"]["queueStatus"], "canceled");
+    assert_eq!(queue["detail"]["queueLifecycle"], "canceled");
+    assert_eq!(queue["detail"]["preserveCurrent"], false);
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_driver_exposes_queue_group_room_and_checkpoint_nodes() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-driver-all-nodes-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let driver = WorkflowDriver::new(WorkflowMode::ChatTurn);
+    driver
+        .queue()
+        .completed(&store, &run.run_id, "queue-node-1")
+        .unwrap();
+    driver
+        .group_room()
+        .completed(
+            &store,
+            &run.run_id,
+            json!({"roomId": "!room:example.org", "threadId": "thread-1"}),
+        )
+        .unwrap();
+    driver
+        .checkpoint()
+        .future_wait_from_executor(
+            &store,
+            &run.run_id,
+            "future_checkpoint_wait",
+            "waiting for scheduled continuation",
+            json!({"kind": "manual_test_waiting_checkpoint", "checkpointScope": "future"}),
+        )
+        .unwrap();
+    driver
+        .checkpoint()
+        .completed(
+            &store,
+            &run.run_id,
+            "pre_file_mutation",
+            "checkpoint before write_file",
+            json!({"kind": "manual_test_checkpoint"}),
+        )
+        .unwrap();
+    driver
+        .queue()
+        .skipped(&store, &run.run_id, "already_dequeued")
+        .unwrap();
+    driver
+        .group_room()
+        .skipped(&store, &run.run_id, "not_group_context")
+        .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let nodes = graph["nodes"].as_array().unwrap();
+    let queue = nodes.iter().find(|node| node["node"] == "queue").unwrap();
+    assert_eq!(queue["status"], "skipped");
+    assert_eq!(queue["detail"]["mode"], "chat_turn");
+    assert_eq!(queue["detail"]["reason"], "already_dequeued");
+    let group_room = nodes
+        .iter()
+        .find(|node| node["node"] == "group_room")
+        .unwrap();
+    assert_eq!(group_room["status"], "skipped");
+    assert_eq!(group_room["detail"]["reason"], "not_group_context");
+    let checkpoint = nodes
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "completed");
+    assert_eq!(checkpoint["detail"]["mode"], "chat_turn");
+    assert_eq!(checkpoint["detail"]["state"], "pre_file_mutation");
+    assert_eq!(checkpoint["detail"]["kind"], "manual_test_checkpoint");
+    assert_eq!(graph["currentNode"], "checkpoint");
+    assert_eq!(graph["currentStatus"], "completed");
+    let checkpoint_waiting_event = saved
+        .phase_events
+        .iter()
+        .find(|event| {
+            event.phase == WORKFLOW_PHASE_NODE
+                && event.detail["node"] == "checkpoint"
+                && event.detail["status"] == "waiting"
+        })
+        .unwrap();
+    assert_eq!(
+        checkpoint_waiting_event.detail["detail"]["kind"],
+        "manual_test_waiting_checkpoint"
+    );
+    assert_eq!(
+        checkpoint_waiting_event.detail["detail"]["state"],
+        "future_checkpoint_wait"
+    );
+    assert_eq!(
+        checkpoint_waiting_event.detail["detail"]["checkpointScope"],
+        "future"
+    );
+    let future_transition = graph["transitions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|transition| transition["reason"] == WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT)
+        .unwrap();
+    assert_eq!(future_transition["from"], "executor");
+    assert_eq!(future_transition["to"], "checkpoint");
+    assert_eq!(
+        future_transition["detail"]["summary"],
+        "waiting for scheduled continuation"
+    );
+
+    let _ = fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -58264,6 +62350,8 @@ fn workflow_planner_route_to_executor_updates_graph_snapshot() {
         2,
         WorkflowMode::ChatTurn,
         3,
+        &["terminal".into(), "read_file".into(), "write_file".into()],
+        &[],
     )
     .unwrap();
 
@@ -58271,24 +62359,147 @@ fn workflow_planner_route_to_executor_updates_graph_snapshot() {
     assert_eq!(saved.phase_events.len(), 3);
     let graph = saved.workflow_graph.as_ref().unwrap();
     assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["currentStatus"], "running");
     let nodes = graph["nodes"].as_array().unwrap();
     let planner = nodes.iter().find(|node| node["node"] == "planner").unwrap();
     assert_eq!(planner["status"], "completed");
     assert_eq!(planner["detail"]["action"], "tool");
     assert_eq!(planner["detail"]["toolCount"], 3);
+    assert_eq!(
+        planner["detail"]["tools"],
+        json!(["terminal", "read_file", "write_file"])
+    );
     let executor = nodes
         .iter()
         .find(|node| node["node"] == "executor")
         .unwrap();
     assert_eq!(executor["status"], "running");
     assert_eq!(executor["detail"]["toolCount"], 3);
+    assert_eq!(
+        executor["detail"]["tools"],
+        json!(["terminal", "read_file", "write_file"])
+    );
     let transitions = graph["transitions"].as_array().unwrap();
     assert_eq!(transitions.len(), 1);
     assert_eq!(transitions[0]["from"], "planner");
     assert_eq!(transitions[0]["to"], "executor");
-    assert_eq!(transitions[0]["reason"], "tool_calls");
+    assert_eq!(transitions[0]["reason"], WORKFLOW_REASON_TOOL_CALLS);
+    assert_eq!(
+        transitions[0]["detail"]["tools"],
+        json!(["terminal", "read_file", "write_file"])
+    );
 
     let _ = fs::remove_dir_all(dir);
+}
+
+fn assert_workflow_planner_route_records_tool_call_origin(
+    decision_text: &str,
+    expected_origin: &str,
+    expected_call_id: Option<&str>,
+) {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-origin-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let decision = parse_agent_decision(decision_text);
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        1,
+        WorkflowMode::ChatTurn,
+        &decision,
+        decision_text,
+        &[test_internal_tool("terminal")],
+    )
+    .unwrap();
+
+    match route {
+        WorkflowPlannerRoute::ExecuteTools {
+            request_count,
+            requests,
+        } => {
+            assert_eq!(request_count, 1);
+            assert_eq!(requests[0].0, "terminal");
+        }
+        other => panic!("expected execute tools route, got {other:?}"),
+    }
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let nodes = graph["nodes"].as_array().unwrap();
+    let planner = nodes.iter().find(|node| node["node"] == "planner").unwrap();
+    assert_eq!(planner["detail"]["toolProtocol"], "canonical_tool_call_v1");
+    assert_eq!(planner["detail"]["tool_protocol"], "canonical_tool_call_v1");
+    assert_eq!(planner["detail"]["toolOrigins"], json!([expected_origin]));
+    assert_eq!(planner["detail"]["tool_origins"], json!([expected_origin]));
+    assert_eq!(planner["detail"]["toolCalls"][0]["name"], "terminal");
+    assert_eq!(
+        planner["detail"]["tool_calls"][0]["origin"],
+        expected_origin
+    );
+
+    let executor = nodes
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor["detail"]["toolOrigins"], json!([expected_origin]));
+    let transition = graph["transitions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|transition| transition["reason"] == WORKFLOW_REASON_TOOL_CALLS)
+        .unwrap();
+    assert_eq!(transition["detail"]["toolOrigins"], json!([expected_origin]));
+
+    match expected_call_id {
+        Some(call_id) => {
+            assert_eq!(planner["detail"]["toolCallIds"], json!([call_id]));
+            assert_eq!(planner["detail"]["tool_call_ids"], json!([call_id]));
+            assert_eq!(planner["detail"]["toolCalls"][0]["id"], call_id);
+            assert_eq!(planner["detail"]["toolCalls"][0]["providerNative"], true);
+            assert_eq!(planner["detail"]["tool_calls"][0]["provider_native"], true);
+        }
+        None => {
+            assert_eq!(planner["detail"]["toolCallIds"], json!([]));
+            assert_eq!(planner["detail"]["tool_call_ids"], json!([]));
+            assert!(planner["detail"]["toolCalls"][0].get("id").is_none());
+        }
+    }
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_route_records_provider_native_tool_origin() {
+    assert_workflow_planner_route_records_tool_call_origin(
+        r#"{"tool_calls":[{"id":"call_openai","type":"function","function":{"name":"terminal","arguments":"{\"command\":\"pwd\"}"}}]}"#,
+        "provider_native",
+        Some("call_openai"),
+    );
+}
+
+#[test]
+fn workflow_planner_route_records_planner_json_tool_origin() {
+    assert_workflow_planner_route_records_tool_call_origin(
+        r#"{"action":"tool","tool":"terminal","payload":{"command":"pwd"}}"#,
+        "planner_json",
+        None,
+    );
+}
+
+#[test]
+fn workflow_planner_route_records_hermes_markup_tool_origin() {
+    assert_workflow_planner_route_records_tool_call_origin(
+        "我先查一下。\n<thread><tool_name>terminal</tool_name><parameters>{\"command\":\"pwd\"}</parameters></thread>",
+        "hermes_markup",
+        None,
+    );
 }
 
 #[test]
@@ -58388,6 +62599,352 @@ fn workflow_planner_route_driver_recovers_from_schema_error() {
 }
 
 #[test]
+fn workflow_planner_node_records_runtime_failures() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-runtime-failure-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    WorkflowDriver::new(WorkflowMode::ChatTurn)
+        .planner()
+        .failed(
+            &store,
+            &run.run_id,
+            Some(7),
+            WorkflowPlannerErrorKind::LlmError,
+            "provider timed out",
+        )
+        .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["mode"], "chat_turn");
+    assert_eq!(planner["detail"]["iteration"], 7);
+    assert_eq!(planner["detail"]["errorKind"], "llm_error");
+    assert_eq!(planner["detail"]["error"], "provider timed out");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_failure_survives_terminal_run_save() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-failure-terminal-save-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    WorkflowDriver::new(WorkflowMode::ChatTurn)
+        .planner()
+        .failed(
+            &store,
+            &run.run_id,
+            None,
+            WorkflowPlannerErrorKind::ContextCompression,
+            "summary failed",
+        )
+        .unwrap();
+    let mut terminal_run = store.agent_run(&run.run_id).unwrap();
+    terminal_run.state = "failed".into();
+    terminal_run.error = Some("summary failed".into());
+    store.save_agent_run(terminal_run).unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "context_compression");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_success_graph_survives_completed_run_save() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-success-terminal-save-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let decision = parse_agent_decision(r#"{"action":"final","content":"done"}"#);
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        1,
+        WorkflowMode::ChatTurn,
+        &decision,
+        "fallback",
+        &[],
+    )
+    .unwrap();
+    assert_eq!(
+        route,
+        WorkflowPlannerRoute::ReviewFinal {
+            content: "done".into()
+        }
+    );
+
+    let mut terminal_run = store.agent_run(&run.run_id).unwrap();
+    terminal_run.state = "completed".into();
+    store.save_agent_run(terminal_run).unwrap();
+    resolve_workflow_reviewer_completed_route(
+        &store,
+        &run.run_id,
+        WorkflowMode::ChatTurn,
+        "msg-final",
+        Some("model"),
+        Some("provider"),
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let nodes = graph["nodes"].as_array().unwrap();
+    let planner = nodes
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    let reviewer = nodes
+        .iter()
+        .find(|node| node["node"] == "reviewer")
+        .unwrap();
+    assert_eq!(planner["status"], "completed");
+    assert_eq!(planner["detail"]["action"], "final");
+    assert_eq!(reviewer["status"], "completed");
+    assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
+        transition["from"] == "planner"
+            && transition["to"] == "reviewer"
+            && transition["reason"] == WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+    }));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_route_driver_marks_unavailable_tool_error_kind() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-unavailable-tool-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"missing_tool","payload":{"query":"x"}}"#,
+    );
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        2,
+        WorkflowMode::ChatTurn,
+        &decision,
+        "fallback",
+        &[],
+    )
+    .unwrap();
+
+    match route {
+        WorkflowPlannerRoute::Recover { observation } => {
+            assert!(observation.contains("Iteration 2 tool unavailable error"));
+        }
+        other => panic!("expected recover route, got {other:?}"),
+    }
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "tool_unavailable");
+    assert!(planner["detail"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("tool is not available: missing_tool"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_route_driver_marks_schema_validation_error_kind() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-schema-tool-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let tool = ToolDefinition {
+        name: "ai.exa/exa.search-docs".into(),
+        display_name: "search-docs".into(),
+        description: "Search docs".into(),
+        source: "mcp".into(),
+        server_id: "ai.exa/exa".into(),
+        tool_name: "search-docs".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {"query": {"type": "string"}},
+            "additionalProperties": false
+        }),
+        requires_approval: false,
+    };
+    let decision = parse_agent_decision(
+        r#"{"tool_calls":[{"id":"provider_call","name":"mcp_ai_exa_exa_search_docs","arguments":"{}"}]}"#,
+    );
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        3,
+        WorkflowMode::ChatTurn,
+        &decision,
+        "fallback",
+        &[tool],
+    )
+    .unwrap();
+
+    match route {
+        WorkflowPlannerRoute::Recover { observation } => {
+            assert!(observation.contains("Iteration 3 tool schema error"));
+            assert!(observation.contains("provider_call"));
+        }
+        other => panic!("expected recover route, got {other:?}"),
+    }
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "tool_schema_validation");
+    assert!(planner["detail"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("payload.query is required"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_route_driver_marks_bridge_approval_required_error_kind() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-bridge-approval-tool-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let bridge = ToolDefinition {
+        name: "tool_call".into(),
+        display_name: "tool_call".into(),
+        description: "Invoke a discovered tool".into(),
+        source: "internal".into(),
+        server_id: "__internal".into(),
+        tool_name: "tool_call".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+                "name": {"type": "string"},
+                "arguments": {"type": "object"}
+            }
+        }),
+        requires_approval: false,
+    };
+    let target = ToolDefinition {
+        name: "browser.delete_profile".into(),
+        display_name: "delete_profile".into(),
+        description: "Delete browser profile".into(),
+        source: "mcp".into(),
+        server_id: "browser".into(),
+        tool_name: "delete_profile".into(),
+        input_schema: json!({
+            "type": "object",
+            "required": ["profileId"],
+            "properties": {"profileId": {"type": "string"}}
+        }),
+        requires_approval: true,
+    };
+    let decision = parse_agent_decision(
+        r#"{"action":"tool","tool":"tool_call","payload":{"name":"browser.delete_profile","arguments":{"profileId":"default"}}}"#,
+    );
+    let route = resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        4,
+        WorkflowMode::ChatTurn,
+        &decision,
+        "fallback",
+        &[bridge, target],
+    )
+    .unwrap();
+
+    match route {
+        WorkflowPlannerRoute::Recover { observation } => {
+            assert!(observation.contains("Iteration 4 tool approval required"));
+            assert!(observation.contains("normal executor approval route"));
+        }
+        other => panic!("expected recover route, got {other:?}"),
+    }
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let planner = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "tool_approval_required");
+    assert!(planner["detail"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("target tool requires approval"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
 fn workflow_executor_continue_route_updates_graph_snapshot() {
     let dir = std::env::temp_dir().join(format!("synthchat-workflow-exec-{}", new_id("test")));
     let path = dir.join("state.json");
@@ -58395,6 +62952,21 @@ fn workflow_executor_continue_route_updates_graph_snapshot() {
     let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
     run.state = "running".into();
     store.save_agent_run(run.clone()).unwrap();
+    WorkflowDriver::new(WorkflowMode::ChatTurn)
+        .executor()
+        .tool_call_bridge_target(
+            &store,
+            &run.run_id,
+            "read_file",
+            "__internal",
+            "read_file",
+            "internal",
+            false,
+            false,
+            "dispatch_ready",
+            None,
+        )
+        .unwrap();
 
     let route = resolve_workflow_executor_continue_route(
         &store,
@@ -58425,8 +62997,56 @@ fn workflow_executor_continue_route_updates_graph_snapshot() {
     assert_eq!(executor["status"], "completed");
     assert_eq!(executor["detail"]["toolCount"], 2);
     assert_eq!(executor["detail"]["parallel"], false);
+    assert_eq!(executor["detail"]["directBridge"], true);
+    assert_eq!(executor["detail"]["direct_bridge"], true);
+    assert_eq!(executor["detail"]["requestedName"], "read_file");
+    assert_eq!(executor["detail"]["requested_name"], "read_file");
+    assert_eq!(executor["detail"]["server_id"], "__internal");
+    assert_eq!(executor["detail"]["tool_name"], "read_file");
+    assert_eq!(executor["detail"]["tool_kind"], "internal");
+    assert_eq!(executor["detail"]["bridgeStatus"], "dispatch_ready");
+    assert_eq!(executor["detail"]["bridge_status"], "dispatch_ready");
+    assert_eq!(executor["detail"]["bridgeStage"], "tool_call_bridge_target");
+    assert_eq!(
+        executor["detail"]["lastBridgeTarget"]["stage"],
+        "tool_call_bridge_target"
+    );
+    assert_eq!(
+        executor["detail"]["lastBridgeTarget"]["requested_name"],
+        "read_file"
+    );
+    assert_eq!(
+        executor["detail"]["last_bridge_target"]["requestedName"],
+        "read_file"
+    );
+    assert_eq!(
+        executor["detail"]["last_bridge_target"]["tool_name"],
+        "read_file"
+    );
     assert_eq!(graph["transitions"][0]["from"], "executor");
     assert_eq!(graph["transitions"][0]["to"], "planner");
+
+    resolve_workflow_executor_continue_route(
+        &store,
+        &run.run_id,
+        5,
+        WorkflowMode::ChatTurn,
+        1,
+        None,
+    )
+    .unwrap();
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let executor = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    let executor_detail = executor["detail"].as_object().unwrap();
+    assert!(executor_detail.get("lastBridgeTarget").is_none());
+    assert!(executor_detail.get("last_bridge_target").is_none());
+    assert!(executor_detail.get("bridgeStatus").is_none());
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -58467,10 +63087,15 @@ fn workflow_executor_approval_route_updates_graph_snapshot() {
         .unwrap();
     assert_eq!(approval["status"], "waiting");
     assert_eq!(approval["detail"]["serverId"], "mcp.files");
+    assert_eq!(approval["detail"]["server_id"], "mcp.files");
     assert_eq!(approval["detail"]["toolName"], "write_file");
+    assert_eq!(approval["detail"]["tool_name"], "write_file");
     assert_eq!(graph["transitions"][0]["from"], "executor");
     assert_eq!(graph["transitions"][0]["to"], "approval");
-    assert_eq!(graph["transitions"][0]["reason"], "approval_required");
+    assert_eq!(
+        graph["transitions"][0]["reason"],
+        WORKFLOW_REASON_APPROVAL_REQUIRED
+    );
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -58518,12 +63143,126 @@ fn workflow_executor_node_records_typed_approval_wait_detail() {
     assert_eq!(approval["detail"]["approvalId"], "approval-123");
     assert_eq!(approval["detail"]["reason"], "工具调用会写入文件");
     assert_eq!(approval["detail"]["requestedName"], "mcp_files_write");
+    assert_eq!(approval["detail"]["requested_name"], "mcp_files_write");
     assert_eq!(approval["detail"]["serverId"], "mcp.files");
+    assert_eq!(approval["detail"]["server_id"], "mcp.files");
     assert_eq!(approval["detail"]["toolName"], "write_file");
+    assert_eq!(approval["detail"]["tool_name"], "write_file");
     assert_eq!(approval["detail"]["toolKind"], "mcp");
+    assert_eq!(approval["detail"]["tool_kind"], "mcp");
     assert_eq!(approval["detail"]["sourceLabel"], "mcp.files:write_file");
+    assert_eq!(approval["detail"]["source_label"], "mcp.files:write_file");
 
     let _ = fs::remove_dir_all(dir);
+}
+
+fn workflow_test_tool_approval(
+    id: &str,
+    server_id: &str,
+    tool_name: &str,
+) -> ToolApprovalRequest {
+    let now = now_iso();
+    ToolApprovalRequest {
+        id: id.into(),
+        created_at: now.clone(),
+        updated_at: now,
+        status: "pending".into(),
+        conversation_id: Some("conv".into()),
+        persona_id: Some("persona".into()),
+        agent_id: Some("agent".into()),
+        run_id: Some("run".into()),
+        server_id: server_id.into(),
+        tool_name: tool_name.into(),
+        payload: json!({}),
+        reason: "test approval".into(),
+        result: None,
+        error: None,
+    }
+}
+
+#[test]
+fn workflow_graph_approval_iteration_prefers_exact_approval_id_over_newer_target_fallback() {
+    let approval = workflow_test_tool_approval("approval-target", "mcp.files", "write_file");
+    let graph = json!({
+        "transitions": [
+            {
+                "detail": {
+                    "approvalId": "approval-target",
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "iteration": 4
+                }
+            },
+            {
+                "detail": {
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "iteration": 8
+                }
+            },
+            {
+                "detail": {
+                    "approvalId": "approval-target",
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "status": "approved"
+                }
+            }
+        ],
+        "nodes": [
+            {
+                "detail": {
+                    "approvalId": "approval-target",
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "iteration": 3
+                }
+            }
+        ]
+    });
+
+    assert_eq!(
+        workflow_graph_approval_iteration(Some(&graph), &approval),
+        Some(4)
+    );
+}
+
+#[test]
+fn workflow_graph_approval_iteration_uses_latest_tool_target_fallback() {
+    let approval =
+        workflow_test_tool_approval("approval-missing-in-graph", "mcp.files", "write_file");
+    let graph = json!({
+        "transitions": [
+            {
+                "detail": {
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "iteration": 2
+                }
+            },
+            {
+                "detail": {
+                    "server_id": "mcp.files",
+                    "tool_name": "write_file",
+                    "iteration": 5
+                }
+            }
+        ],
+        "nodes": [
+            {
+                "detail": {
+                    "serverId": "mcp.files",
+                    "toolName": "write_file",
+                    "iteration": 1
+                }
+            }
+        ]
+    });
+
+    assert_eq!(
+        workflow_graph_approval_iteration(Some(&graph), &approval),
+        Some(5)
+    );
 }
 
 #[test]
@@ -58567,7 +63306,10 @@ fn workflow_approval_node_records_resume_detail() {
     assert_eq!(approval_node["detail"]["toolName"], "write_file");
     assert_eq!(graph["transitions"][0]["from"], "approval");
     assert_eq!(graph["transitions"][0]["to"], "planner");
-    assert_eq!(graph["transitions"][0]["reason"], "approval_resumed");
+    assert_eq!(
+        graph["transitions"][0]["reason"],
+        WORKFLOW_REASON_APPROVAL_RESUMED
+    );
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -58612,6 +63354,126 @@ fn workflow_reviewer_completed_route_updates_graph_snapshot() {
     assert_eq!(reviewer["detail"]["messageId"], "msg-1");
     assert_eq!(reviewer["detail"]["model"], "gpt-test");
     assert_eq!(reviewer["detail"]["providerId"], "provider-test");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_reviewer_skipped_route_updates_graph_snapshot() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-review-skipped-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let route = resolve_workflow_reviewer_skipped_route(
+        &store,
+        &run.run_id,
+        WorkflowMode::ChatTurn,
+        "msg-fallback",
+        "iteration_budget_exhausted",
+        Some("gpt-test"),
+        Some("provider-test"),
+    )
+    .unwrap();
+
+    assert_eq!(
+        route,
+        WorkflowReviewerRoute::Skipped {
+            message_id: "msg-fallback".into(),
+            reason: "iteration_budget_exhausted".into(),
+            model: Some("gpt-test".into()),
+            provider_id: Some("provider-test".into())
+        }
+    );
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "reviewer");
+    assert_eq!(graph["currentStatus"], "skipped");
+    let reviewer = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "reviewer")
+        .unwrap();
+    assert_eq!(reviewer["status"], "skipped");
+    assert_eq!(reviewer["detail"]["mode"], "chat_turn");
+    assert_eq!(reviewer["detail"]["messageId"], "msg-fallback");
+    assert_eq!(reviewer["detail"]["reason"], "iteration_budget_exhausted");
+    assert_eq!(reviewer["detail"]["model"], "gpt-test");
+    assert_eq!(reviewer["detail"]["providerId"], "provider-test");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_planner_fallback_failure_overrides_stale_final_candidate() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-planner-fallback-failure-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    let decision = parse_agent_decision(r#"{"action":"final","content":""}"#);
+    resolve_workflow_planner_route(
+        &store,
+        &run.run_id,
+        4,
+        WorkflowMode::ChatTurn,
+        &decision,
+        "",
+        &[],
+    )
+    .unwrap();
+    WorkflowDriver::new(WorkflowMode::ChatTurn)
+        .planner()
+        .failed(
+            &store,
+            &run.run_id,
+            None,
+            WorkflowPlannerErrorKind::LlmRecoveryExhausted,
+            "LLM recovery exhausted before a final answer: empty_response_after_tools.",
+        )
+        .unwrap();
+    resolve_workflow_reviewer_skipped_route(
+        &store,
+        &run.run_id,
+        WorkflowMode::ChatTurn,
+        "msg-fallback",
+        "no_final_answer",
+        None,
+        None,
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    let nodes = graph["nodes"].as_array().unwrap();
+    let planner = nodes
+        .iter()
+        .find(|node| node["node"] == "planner")
+        .unwrap();
+    let reviewer = nodes
+        .iter()
+        .find(|node| node["node"] == "reviewer")
+        .unwrap();
+    assert_eq!(planner["status"], "failed");
+    assert_eq!(planner["detail"]["errorKind"], "llm_recovery_exhausted");
+    assert!(planner["detail"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("empty_response_after_tools"));
+    assert_eq!(reviewer["status"], "skipped");
+    assert_eq!(reviewer["detail"]["reason"], "no_final_answer");
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -58784,11 +63646,17 @@ fn workflow_executor_records_tool_resolution_detail() {
     assert_eq!(executor_node["status"], "running");
     assert_eq!(executor_node["detail"]["resolution"], "mcp");
     assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+    assert_eq!(executor_node["detail"]["requested_name"], "mcp_browser_snapshot");
     assert_eq!(executor_node["detail"]["serverId"], "browser");
+    assert_eq!(executor_node["detail"]["server_id"], "browser");
     assert_eq!(executor_node["detail"]["toolName"], "snapshot");
+    assert_eq!(executor_node["detail"]["tool_name"], "snapshot");
     assert_eq!(executor_node["detail"]["toolKind"], "mcp");
+    assert_eq!(executor_node["detail"]["tool_kind"], "mcp");
     assert_eq!(executor_node["detail"]["sourceLabel"], "browser:snapshot");
+    assert_eq!(executor_node["detail"]["source_label"], "browser:snapshot");
     assert_eq!(executor_node["detail"]["requiresApproval"], true);
+    assert_eq!(executor_node["detail"]["requires_approval"], true);
 
     let unavailable = executor.resolve_tool("missing_tool", &[]);
     executor
@@ -58806,6 +63674,7 @@ fn workflow_executor_records_tool_resolution_detail() {
     assert_eq!(executor_node["detail"]["resolution"], "unavailable");
     assert_eq!(executor_node["detail"]["available"], false);
     assert_eq!(executor_node["detail"]["requestedName"], "missing_tool");
+    assert_eq!(executor_node["detail"]["requested_name"], "missing_tool");
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -58847,7 +63716,9 @@ fn executor_core_resolves_records_and_routes_approval_waits() {
         .unwrap();
     assert_eq!(executor_node["status"], "running");
     assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+    assert_eq!(executor_node["detail"]["requested_name"], "mcp_browser_snapshot");
     assert_eq!(executor_node["detail"]["sourceLabel"], "browser:snapshot");
+    assert_eq!(executor_node["detail"]["source_label"], "browser:snapshot");
 
     let staged_policy_cases: [(WorkflowExecutorApprovalPolicyStage, Option<&str>, bool); 4] = [
         (
@@ -58885,11 +63756,16 @@ fn executor_core_resolves_records_and_routes_approval_waits() {
             executor_node["detail"]["requiresApproval"],
             requires_approval
         );
+        assert_eq!(
+            executor_node["detail"]["requires_approval"],
+            requires_approval
+        );
         match reason {
             Some(reason) => assert_eq!(executor_node["detail"]["reason"], reason),
             None => assert!(executor_node["detail"].get("reason").is_none()),
         }
         assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+        assert_eq!(executor_node["detail"]["requested_name"], "mcp_browser_snapshot");
     }
 
     executor_core
@@ -58908,6 +63784,116 @@ fn executor_core_resolves_records_and_routes_approval_waits() {
     assert_eq!(executor_node["detail"]["requiresApproval"], true);
     assert_eq!(executor_node["detail"]["reason"], "needs review");
     assert_eq!(executor_node["detail"]["requestedName"], "mcp_browser_snapshot");
+
+    let started_run = executor_core
+        .start_tool_execution(
+            &store,
+            None,
+            &run.run_id,
+            &identity,
+            &json!({"target": "visible-page"}),
+            4,
+        )
+        .unwrap();
+    let started_event = started_run.tool_events.last().unwrap();
+    assert_eq!(started_event["status"], "running");
+    assert_eq!(started_event["serverId"], "browser");
+    assert_eq!(started_event["toolName"], "snapshot");
+    assert!(started_run.phase_events.iter().any(|event| {
+        event.phase == "tool_started"
+            && event.detail["iteration"] == 4
+            && event.detail["serverId"] == "browser"
+            && event.detail["toolName"] == "snapshot"
+    }));
+    let mut completed_event = tool_started_event(
+        &run.run_id,
+        "browser",
+        "snapshot",
+        &json!({"target": "visible-page"}),
+    );
+    completed_event.status = Some("completed".into());
+    completed_event.ok = true;
+    completed_event.text = Some("snapshot ok".into());
+    let completed_run = executor_core
+        .record_tool_event(&store, None, "conv", &run.run_id, completed_event)
+        .unwrap();
+    assert_eq!(completed_run.tool_events.len(), started_run.tool_events.len());
+    assert_eq!(completed_run.tool_events.last().unwrap()["status"], "completed");
+    assert_eq!(
+        completed_run
+            .phase_events
+            .last()
+            .unwrap()
+            .phase
+            .as_str(),
+        "tool_message_recorded"
+    );
+
+    executor_core
+        .start_parallel_batch(
+            &store,
+            &run.run_id,
+            5,
+            2,
+            &["terminal".into(), "read_file".into()],
+        )
+        .unwrap();
+    WorkflowDriver::new(WorkflowMode::ChatTurn)
+        .executor()
+        .tool_call_bridge_target(
+            &store,
+            &run.run_id,
+            "read_file",
+            "__internal",
+            "read_file",
+            "internal",
+            false,
+            false,
+            "dispatch_ready",
+            None,
+        )
+        .unwrap();
+    executor_core
+        .complete_parallel_batch(
+            &store,
+            &run.run_id,
+            5,
+            2,
+            &["terminal".into(), "read_file".into()],
+            1,
+            1,
+            false,
+        )
+        .unwrap();
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let executor_node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "executor")
+        .unwrap();
+    assert_eq!(executor_node["status"], "completed");
+    assert_eq!(executor_node["detail"]["stage"], "parallel_batch_completed");
+    assert_eq!(executor_node["detail"]["parallel"], true);
+    assert_eq!(
+        executor_node["detail"]["tools"],
+        json!(["terminal", "read_file"])
+    );
+    assert_eq!(
+        executor_node["detail"]["lastBridgeTarget"]["requestedName"],
+        "read_file"
+    );
+    assert_eq!(
+        executor_node["detail"]["last_bridge_target"]["requested_name"],
+        "read_file"
+    );
+    assert_eq!(
+        executor_node["detail"]["bridgeStatus"],
+        "dispatch_ready"
+    );
+    assert_eq!(executor_node["detail"]["succeeded"], 1);
+    assert_eq!(executor_node["detail"]["failed"], 1);
 
     let approval = ToolApprovalRequest {
         id: "approval-abc".into(),
@@ -58951,6 +63937,384 @@ fn executor_core_resolves_records_and_routes_approval_waits() {
 }
 
 #[test]
+fn executor_core_records_failed_tool_event() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-executor-core-failed-event-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let conversation = store
+        .create_conversation(None, Some("default".into()))
+        .unwrap();
+    let run = AgentRunRecord::new(conversation.id.clone(), "default".into(), "default".into());
+    let run_id = run.run_id.clone();
+    store.save_agent_run(run).unwrap();
+
+    let executor_core = ExecutorCore::new(WorkflowDriver::new(WorkflowMode::ChatTurn).executor());
+    executor_core
+        .record_tool_failed(
+            &store,
+            None,
+            &conversation.id,
+            &run_id,
+            "terminal",
+            &[],
+            &json!({"command": "pwd", "__agentProviderToolCall": {"id": "tc-executor-failed"}}),
+            &AppError::BadRequest("executor blocked terminal".into()),
+        )
+        .unwrap();
+
+    let messages = store.messages(&conversation.id, None).unwrap();
+    let failed = messages
+        .iter()
+        .find(|message| message.role == "tool")
+        .and_then(|message| serde_json::from_str::<Value>(&message.content).ok())
+        .expect("executor failure should create a visible tool event");
+    assert_eq!(failed["type"], "toolEvent");
+    assert_eq!(failed["event"]["serverId"], "__internal");
+    assert_eq!(failed["event"]["toolName"], "terminal");
+    assert_eq!(failed["event"]["status"], "failed");
+    assert_eq!(failed["event"]["callId"], "tc-executor-failed");
+    assert!(failed["event"]["error"]
+        .as_str()
+        .unwrap()
+        .contains("executor blocked terminal"));
+
+    let saved_run = store.agent_run(&run_id).unwrap();
+    assert_eq!(saved_run.tool_events.len(), 1);
+    assert_eq!(saved_run.tool_events[0]["status"], "failed");
+    assert_eq!(saved_run.tool_events[0]["callId"], "tc-executor-failed");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn executor_core_resolves_and_records_approval_policy_flow() {
+    let dir =
+        std::env::temp_dir().join(format!("synthchat-executor-policy-{}", new_id("test")));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let persona = store.persona(None).unwrap();
+    let providers = Vec::new();
+    let mut config = store.config().unwrap();
+    config.chat.tool_approval_mode = "always".into();
+    store.set_config(config).unwrap();
+
+    let mut chat_run =
+        AgentRunRecord::new("conv".into(), persona.id.clone(), persona.agent_id.clone());
+    chat_run.state = "running".into();
+    store.save_agent_run(chat_run.clone()).unwrap();
+    let chat_executor = ExecutorCore::new(WorkflowDriver::new(WorkflowMode::ChatTurn).executor());
+    let chat_resolution = chat_executor
+        .resolve_tool(&store, &chat_run.run_id, 1, "terminal", &[])
+        .unwrap();
+    let chat_identity = match chat_resolution {
+        WorkflowExecutorToolResolution::Internal(identity) => identity,
+        other => panic!("expected internal terminal resolution, got {other:?}"),
+    };
+    let approval_reason = chat_executor
+        .resolve_approval_policy(
+            &store,
+            ExecutorApprovalPolicyContext::chat_turn(
+                &chat_run.run_id,
+                &providers,
+                &persona,
+                ToolExecutionContext::Interactive,
+                None,
+            ),
+            1,
+            &chat_identity,
+            "terminal",
+            &json!({"command": "pwd"}),
+            false,
+        )
+        .await
+        .unwrap();
+    assert_eq!(approval_reason.as_deref(), Some("审批模式为全部审批"));
+    let chat_saved = store.agent_run(&chat_run.run_id).unwrap();
+    let chat_stages = chat_saved
+        .phase_events
+        .iter()
+        .filter_map(|event| event.detail["detail"]["stage"].as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        chat_stages,
+        vec![
+            "base_policy",
+            "scheduled_policy",
+            "smart_policy",
+            "subagent_policy",
+            "approval_policy"
+        ]
+    );
+
+    let mut continuation_run =
+        AgentRunRecord::new("conv".into(), persona.id.clone(), persona.agent_id.clone());
+    continuation_run.state = "running".into();
+    store.save_agent_run(continuation_run.clone()).unwrap();
+    let continuation_executor =
+        ExecutorCore::new(WorkflowDriver::new(WorkflowMode::ApprovalContinuation).executor());
+    let continuation_resolution = continuation_executor
+        .resolve_tool(&store, &continuation_run.run_id, 1, "terminal", &[])
+        .unwrap();
+    let continuation_identity = match continuation_resolution {
+        WorkflowExecutorToolResolution::Internal(identity) => identity,
+        other => panic!("expected internal terminal resolution, got {other:?}"),
+    };
+    continuation_executor
+        .resolve_approval_policy(
+            &store,
+            ExecutorApprovalPolicyContext::approval_continuation(
+                &continuation_run.run_id,
+                &providers,
+                &persona,
+            ),
+            1,
+            &continuation_identity,
+            "terminal",
+            &json!({"command": "pwd"}),
+            false,
+        )
+        .await
+        .unwrap();
+    let continuation_saved = store.agent_run(&continuation_run.run_id).unwrap();
+    let continuation_stages = continuation_saved
+        .phase_events
+        .iter()
+        .filter_map(|event| event.detail["detail"]["stage"].as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        continuation_stages,
+        vec!["base_policy", "smart_policy", "approval_policy"]
+    );
+
+    let aborted_run = store
+        .save_agent_run(AgentRunRecord::new(
+            "conv".into(),
+            persona.id.clone(),
+            persona.agent_id.clone(),
+        ))
+        .unwrap();
+    store
+        .abort_agent_run(&aborted_run.run_id, Some("executor wrapper test".into()))
+        .unwrap();
+    let agent = AgentDefinition::default();
+    let execution_error = chat_executor
+        .execute_internal_tool(
+            &store,
+            ExecutorInternalToolExecutionContext {
+                agent: &agent,
+                conversation_id: "conv",
+                run_id: &aborted_run.run_id,
+                tool_context: ToolExecutionContext::Interactive,
+                app: None,
+                approved_tool_call_replay: false,
+            },
+            "read_file",
+            json!({"path": "missing.txt"}),
+        )
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(execution_error.contains("already terminal: aborted"));
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_runtime_payloads_normalize_detail_aliases() {
+    let graph = json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "nodes": [{
+            "node": "executor",
+            "status": "running",
+            "detail": {
+                "queueItemId": "queue-1",
+                "checkpointState": "waiting",
+                "requestedName": "read_file",
+                "serverId": "__internal",
+                "toolName": "read_file",
+                "toolKind": "internal",
+                "sourceLabel": "read_file",
+                "requiresApproval": false,
+                "bridgeStatus": "dispatch_ready",
+                "lastBridgeTarget": {
+                    "requestedName": "read_file",
+                    "toolName": "read_file"
+                },
+                "children": [{
+                    "childIndex": 0,
+                    "taskPreview": "inspect workflow"
+                }]
+            },
+            "eventSequence": 7
+        }],
+        "transitions": [{
+            "from": "executor",
+            "to": "planner",
+            "reason": WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED,
+            "topology_edge_known": true,
+            "topology_reason_known": true,
+            "topology_edge_source": "executor route",
+            "topology_edge_label": "executor -> planner (tool_observations_recorded)",
+            "detail": {
+                "queue_item_id": "queue-2",
+                "checkpoint_state": "resumed",
+                "requested_children": 2,
+                "requested_name": "terminal",
+                "server_id": "__internal",
+                "tool_name": "terminal",
+                "tool_kind": "internal",
+                "requires_approval": true,
+                "last_bridge_target": {
+                    "requested_name": "terminal",
+                    "bridge_status": "approval_required"
+                }
+            },
+            "event_sequence": 8
+        }]
+    });
+    let aliased_graph = workflow_graph_with_runtime_aliases(&graph);
+    assert_eq!(
+        aliased_graph["nodes"][0]["detail"]["requested_name"],
+        "read_file"
+    );
+    assert_eq!(
+        aliased_graph["nodes"][0]["detail"]["queue_item_id"],
+        "queue-1"
+    );
+    assert_eq!(
+        aliased_graph["nodes"][0]["detail"]["checkpoint_state"],
+        "waiting"
+    );
+    assert_eq!(
+        aliased_graph["nodes"][0]["detail"]["children"][0]["child_index"],
+        0
+    );
+    assert_eq!(
+        aliased_graph["nodes"][0]["detail"]["last_bridge_target"]["tool_name"],
+        "read_file"
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["detail"]["requestedName"],
+        "terminal"
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["topologyEdgeKnown"],
+        true
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["topologyEdgeSource"],
+        "executor route"
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["detail"]["queueItemId"],
+        "queue-2"
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["detail"]["checkpointState"],
+        "resumed"
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["detail"]["requestedChildren"],
+        2
+    );
+    assert_eq!(
+        aliased_graph["transitions"][0]["detail"]["lastBridgeTarget"]["bridgeStatus"],
+        "approval_required"
+    );
+
+    let summary = workflow_graph_runtime_summary(Some(&graph));
+    let node_payload = workflow_graph_node_runtime_payload(&graph["nodes"][0], &summary);
+    assert_eq!(node_payload["detail"]["queue_item_id"], "queue-1");
+    assert_eq!(node_payload["detail"]["checkpoint_state"], "waiting");
+    assert_eq!(node_payload["detail"]["children"][0]["task_preview"], "inspect workflow");
+    assert_eq!(node_payload["detail"]["server_id"], "__internal");
+    assert_eq!(node_payload["detail"]["tool_name"], "read_file");
+    assert_eq!(node_payload["detail"]["requires_approval"], false);
+    assert_eq!(
+        node_payload["detail"]["last_bridge_target"]["requested_name"],
+        "read_file"
+    );
+
+    let transition_payload =
+        workflow_graph_transition_runtime_payload(&graph["transitions"][0], &summary);
+    assert_eq!(transition_payload["topologyEdgeKnown"], true);
+    assert_eq!(transition_payload["topology_edge_known"], true);
+    assert_eq!(transition_payload["topologyEdgeSource"], "executor route");
+    assert_eq!(transition_payload["detail"]["queueItemId"], "queue-2");
+    assert_eq!(transition_payload["detail"]["checkpointState"], "resumed");
+    assert_eq!(transition_payload["detail"]["requestedChildren"], 2);
+    assert_eq!(transition_payload["detail"]["serverId"], "__internal");
+    assert_eq!(transition_payload["detail"]["toolName"], "terminal");
+    assert_eq!(transition_payload["detail"]["requiresApproval"], true);
+    assert_eq!(
+        transition_payload["detail"]["lastBridgeTarget"]["bridgeStatus"],
+        "approval_required"
+    );
+
+    let legacy_graph = json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "nodes": [],
+        "transitions": [{
+            "from": "planner",
+            "to": "executor",
+            "reason": WORKFLOW_REASON_TOOL_CALLS,
+            "detail": {
+                "requested_name": "terminal"
+            },
+            "event_sequence": 9
+        }]
+    });
+    let legacy_aliased_graph = workflow_graph_with_runtime_aliases(&legacy_graph);
+    assert_eq!(
+        legacy_aliased_graph["transitions"][0]["topologyEdgeKnown"],
+        true
+    );
+    assert_eq!(
+        legacy_aliased_graph["transitions"][0]["topology_edge_known"],
+        true
+    );
+    assert_eq!(
+        legacy_aliased_graph["transitions"][0]["topologyReasonKnown"],
+        true
+    );
+    assert_eq!(
+        legacy_aliased_graph["transitions"][0]["topologyEdgeSource"],
+        "planner route"
+    );
+    assert_eq!(
+        legacy_aliased_graph["transitions"][0]["topologyEdgeLabel"],
+        "planner -> executor (tool_calls)"
+    );
+
+    let legacy_summary = workflow_graph_runtime_summary(Some(&legacy_graph));
+    let legacy_transition_payload = workflow_graph_transition_runtime_payload(
+        &legacy_graph["transitions"][0],
+        &legacy_summary,
+    );
+    assert_eq!(legacy_transition_payload["topologyEdgeKnown"], true);
+    assert_eq!(legacy_transition_payload["topology_edge_known"], true);
+    assert_eq!(legacy_transition_payload["topologyReasonKnown"], true);
+    assert_eq!(legacy_transition_payload["topology_reason_known"], true);
+    assert_eq!(
+        legacy_transition_payload["topologyEdgeSource"],
+        "planner route"
+    );
+    assert_eq!(
+        legacy_transition_payload["topology_edge_source"],
+        "planner route"
+    );
+    assert_eq!(
+        legacy_transition_payload["topologyEdgeLabel"],
+        "planner -> executor (tool_calls)"
+    );
+}
+
+#[test]
 fn workflow_graph_persists_node_and_transition_events() {
     let dir = std::env::temp_dir().join(format!("synthchat-workflow-graph-{}", new_id("test")));
     let path = dir.join("state.json");
@@ -58972,7 +64336,7 @@ fn workflow_graph_persists_node_and_transition_events() {
         &run.run_id,
         WorkflowNodeName::Planner,
         WorkflowNodeName::Executor,
-        "tool_calls",
+        WORKFLOW_REASON_TOOL_CALLS,
         json!({"iteration": 1, "toolCount": 2}),
     )
     .unwrap();
@@ -58981,17 +64345,240 @@ fn workflow_graph_persists_node_and_transition_events() {
     assert_eq!(saved.phase_events.len(), 2);
     let graph = saved.workflow_graph.as_ref().unwrap();
     assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["current_node"], "executor");
+    assert_eq!(graph["currentStatus"], "running");
+    assert_eq!(graph["current_status"], "running");
     assert_eq!(graph["nodes"][0]["node"], "planner");
+    assert_eq!(graph["nodes"][0]["role"], "decision planning");
     assert_eq!(graph["nodes"][0]["status"], "running");
+    assert_eq!(graph["nodes"][0]["eventSequence"], 1);
+    assert_eq!(graph["nodes"][0]["event_sequence"], 1);
     assert_eq!(graph["transitions"].as_array().unwrap().len(), 1);
-    assert_eq!(saved.phase_events[0].phase, "workflow_node");
-    assert_eq!(saved.phase_events[0].detail["schema"], "synthgraph_workflow_v1");
+    assert_eq!(graph["transitions"][0]["eventSequence"], 2);
+    assert_eq!(graph["transitions"][0]["event_sequence"], 2);
+    assert_eq!(graph["transitions"][0]["topologyEdgeKnown"], true);
+    assert_eq!(graph["transitions"][0]["topology_edge_known"], true);
+    assert_eq!(graph["transitions"][0]["topologyReasonKnown"], true);
+    assert_eq!(graph["transitions"][0]["topologyEdgeSource"], "planner route");
+    assert_eq!(graph["lastEventSequence"], 2);
+    assert_eq!(graph["last_event_sequence"], 2);
+    assert_eq!(saved.phase_events[0].phase, WORKFLOW_PHASE_NODE);
+    assert_eq!(saved.phase_events[0].detail["eventSequence"], 1);
+    assert_eq!(saved.phase_events[0].detail["event_sequence"], 1);
+    assert_eq!(
+        saved.phase_events[0].detail["schema"],
+        SYNTHGRAPH_WORKFLOW_SCHEMA
+    );
     assert_eq!(saved.phase_events[0].detail["node"], "planner");
+    assert_eq!(saved.phase_events[0].detail["role"], "decision planning");
     assert_eq!(saved.phase_events[0].detail["status"], "running");
-    assert_eq!(saved.phase_events[1].phase, "workflow_transition");
+    assert_eq!(saved.phase_events[1].phase, WORKFLOW_PHASE_TRANSITION);
+    assert_eq!(saved.phase_events[1].detail["eventSequence"], 2);
+    assert_eq!(saved.phase_events[1].detail["event_sequence"], 2);
     assert_eq!(saved.phase_events[1].detail["from"], "planner");
     assert_eq!(saved.phase_events[1].detail["to"], "executor");
-    assert_eq!(saved.phase_events[1].detail["reason"], "tool_calls");
+    assert_eq!(
+        saved.phase_events[1].detail["reason"],
+        WORKFLOW_REASON_TOOL_CALLS
+    );
+    assert_eq!(saved.phase_events[1].detail["topologyEdgeKnown"], true);
+    assert_eq!(
+        saved.phase_events[1].detail["topologyEdgeSource"],
+        "planner route"
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_event_sequence_uses_graph_snapshot_after_phase_event_pruning() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-sequence-snapshot-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "nodes": [],
+        "transitions": [],
+        "currentNode": "planner",
+        "lastEventSequence": 41,
+    }));
+    store.save_agent_run(run.clone()).unwrap();
+
+    append_workflow_node_event(
+        &store,
+        &run.run_id,
+        WorkflowNodeName::Executor,
+        WorkflowNodeStatus::Running,
+        json!({"iteration": 2}),
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    assert_eq!(saved.phase_events.len(), 1);
+    assert_eq!(saved.phase_events[0].detail["eventSequence"], 42);
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["lastEventSequence"], 42);
+    assert_eq!(graph["nodes"][0]["eventSequence"], 42);
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn workflow_initialized_snapshot_infers_missing_current_status() {
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+
+    apply_workflow_graph_event(
+        &mut run,
+        WORKFLOW_PHASE_INITIALIZED,
+        &json!({
+            "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+            "mode": "chat_turn",
+            "currentNode": "executor",
+            "nodes": [{
+                "node": "executor",
+                "status": "running",
+                "detail": {"iteration": 1}
+            }],
+            "transitions": []
+        }),
+        "2026-01-01T00:00:00Z",
+    );
+
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["currentStatus"], "running");
+    assert_eq!(graph["schema"], SYNTHGRAPH_WORKFLOW_SCHEMA);
+    assert_eq!(graph["lastEventSequence"], 0);
+}
+
+#[test]
+fn workflow_event_replay_preserves_sequence_and_current_node_for_legacy_events() {
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.workflow_graph = Some(json!({
+        "schema": SYNTHGRAPH_WORKFLOW_SCHEMA,
+        "mode": "chat_turn",
+        "nodes": [],
+        "transitions": [],
+        "currentNode": "planner",
+        "lastEventSequence": 7,
+        "updatedAt": "2026-01-01T00:00:00Z"
+    }));
+
+    apply_workflow_graph_event(
+        &mut run,
+        WORKFLOW_PHASE_NODE,
+        &json!({
+            "node": "",
+            "status": "running",
+            "eventSequence": 8,
+            "detail": {"iteration": 1}
+        }),
+        "2026-01-01T00:00:01Z",
+    );
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    assert_eq!(graph["currentStatus"], Value::Null);
+    assert_eq!(graph["lastEventSequence"], 8);
+    assert!(graph["nodes"].as_array().unwrap().is_empty());
+
+    apply_workflow_graph_event(
+        &mut run,
+        WORKFLOW_PHASE_NODE,
+        &json!({"node": "executor", "status": "running", "detail": {"iteration": 1}}),
+        "2026-01-01T00:00:02Z",
+    );
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["currentStatus"], "running");
+    assert_eq!(graph["lastEventSequence"], 8);
+    assert_eq!(graph["nodes"][0]["eventSequence"], Value::Null);
+
+    apply_workflow_graph_event(
+        &mut run,
+        WORKFLOW_PHASE_TRANSITION,
+        &json!({"from": "executor", "to": "", "reason": WORKFLOW_REASON_TOOL_CALLS}),
+        "2026-01-01T00:00:03Z",
+    );
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["currentStatus"], "running");
+    assert_eq!(graph["lastEventSequence"], 8);
+    assert_eq!(graph["transitions"][0]["eventSequence"], Value::Null);
+}
+
+#[test]
+fn workflow_event_replay_accepts_snake_case_sequence_alias() {
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+
+    apply_workflow_graph_event(
+        &mut run,
+        WORKFLOW_PHASE_NODE,
+        &json!({
+            "node": "planner",
+            "status": "running",
+            "event_sequence": 5,
+            "detail": {"iteration": 1}
+        }),
+        "2026-01-01T00:00:01Z",
+    );
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "planner");
+    assert_eq!(graph["currentStatus"], "running");
+    assert_eq!(graph["lastEventSequence"], 5);
+    assert_eq!(graph["nodes"][0]["eventSequence"], 5);
+
+    apply_workflow_graph_event(
+        &mut run,
+        WORKFLOW_PHASE_TRANSITION,
+        &json!({
+            "from": "planner",
+            "to": "executor",
+            "reason": WORKFLOW_REASON_TOOL_CALLS,
+            "event_sequence": 6
+        }),
+        "2026-01-01T00:00:02Z",
+    );
+    let graph = run.workflow_graph.as_ref().unwrap();
+    assert_eq!(graph["currentNode"], "executor");
+    assert_eq!(graph["lastEventSequence"], 6);
+    assert_eq!(graph["transitions"][0]["eventSequence"], 6);
+
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-snake-sequence-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut saved_run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    saved_run.state = "running".into();
+    saved_run.phase_events.push(AgentRunPhaseRecord {
+        phase: WORKFLOW_PHASE_NODE.into(),
+        detail: json!({"node": "planner", "status": "running", "event_sequence": 12}),
+        updated_at: "2026-01-01T00:00:03Z".into(),
+    });
+    store.save_agent_run(saved_run.clone()).unwrap();
+
+    append_workflow_node_event(
+        &store,
+        &saved_run.run_id,
+        WorkflowNodeName::Executor,
+        WorkflowNodeStatus::Running,
+        json!({"iteration": 2}),
+    )
+    .unwrap();
+
+    let saved_run = store.agent_run(&saved_run.run_id).unwrap();
+    assert_eq!(saved_run.phase_events[1].detail["eventSequence"], 13);
+    assert_eq!(
+        saved_run.workflow_graph.as_ref().unwrap()["lastEventSequence"],
+        13
+    );
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -59018,12 +64605,13 @@ fn automatic_mutation_checkpoint_emits_workflow_checkpoint_event() {
         .phase_events
         .iter()
         .find(|event| {
-            event.phase == "workflow_node"
+            event.phase == WORKFLOW_PHASE_NODE
                 && event.detail["node"] == "checkpoint"
                 && event.detail["detail"]["kind"] == "automatic_mutation_checkpoint"
         })
         .unwrap();
     assert_eq!(workflow_checkpoint.detail["status"], "completed");
+    assert_eq!(workflow_checkpoint.detail["detail"]["mode"], "chat_turn");
     assert_eq!(
         workflow_checkpoint.detail["detail"]["checkpointScope"],
         "pre_mutation"
@@ -59038,8 +64626,44 @@ fn automatic_mutation_checkpoint_emits_workflow_checkpoint_event() {
     assert_eq!(graph["currentNode"], "checkpoint");
     assert_eq!(graph["nodes"][0]["node"], "checkpoint");
     assert_eq!(graph["nodes"][0]["detail"]["kind"], "automatic_mutation_checkpoint");
+    assert_eq!(graph["nodes"][0]["detail"]["mode"], "chat_turn");
     assert_eq!(graph["nodes"][0]["detail"]["checkpointScope"], "pre_mutation");
     assert_eq!(graph["nodes"][0]["detail"]["targetSummary"], "path=src/main.rs");
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn manual_checkpoint_tool_emits_typed_workflow_checkpoint_event() {
+    let dir = std::env::temp_dir().join(format!(
+        "synthchat-workflow-manual-ckpt-{}",
+        new_id("test")
+    ));
+    let path = dir.join("state.json");
+    let store = AppStore::new(path).unwrap();
+    let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+    run.state = "running".into();
+    store.save_agent_run(run.clone()).unwrap();
+
+    checkpoint_tool(
+        &store,
+        &run.run_id,
+        &json!({"state": "manual_review", "summary": "Review the edits"}),
+    )
+    .unwrap();
+
+    let saved = store.agent_run(&run.run_id).unwrap();
+    let graph = saved.workflow_graph.as_ref().unwrap();
+    let checkpoint = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "checkpoint")
+        .unwrap();
+    assert_eq!(checkpoint["status"], "completed");
+    assert_eq!(checkpoint["detail"]["mode"], "chat_turn");
+    assert_eq!(checkpoint["detail"]["state"], "manual_review");
+    assert_eq!(checkpoint["detail"]["kind"], "manual_checkpoint");
 
     let _ = fs::remove_dir_all(dir);
 }

@@ -67,7 +67,22 @@ use super::{
     skills::skill_manage_tool,
     spawn_background_chat_turn_for_job, string_arg, subscribe_agent_run_record,
     teams_pipeline_tool, tool_toolsets, truncate_output, ToolExecutionContext,
+    workflow_graph::{
+        workflow_graph_node_runtime_payload, workflow_graph_run_response_values,
+        workflow_graph_runtime_summary, workflow_graph_runtime_timestamp,
+        workflow_graph_snapshot_runtime_payload, workflow_graph_transition_runtime_payload,
+        WORKFLOW_API_EVENT_NODE_PREFIX, WORKFLOW_API_EVENT_NODE_TEMPLATE,
+        WORKFLOW_API_EVENT_SNAPSHOT, WORKFLOW_API_EVENT_TRANSITION,
+        WORKFLOW_RUNTIME_KIND_SNAPSHOT, WORKFLOW_RUNTIME_KIND_TRANSITION,
+        WORKFLOW_RUNTIME_NODE_KIND_PREFIX,
+    },
+    workflow_runtime_contract::{
+        agent_runtime_contracts, insert_agent_runtime_contract_aliases,
+        kanban_runtime_event_sources_value, tool_call_protocol_contract,
+        workflow_graph_runtime_contract,
+    },
 };
+
 pub(super) async fn weather_tool(store: &AppStore, payload: &Value) -> AppResult<String> {
     let config = store.config()?.weather;
     let settings = qweather_settings(&config)?;
@@ -25700,13 +25715,17 @@ fn api_server_handle_get_run(store: &AppStore, path: &str) -> AppResult<Value> {
 fn api_server_handle_run_events(store: &AppStore, path: &str) -> AppResult<Value> {
     let run_id = api_server_run_path_id(path, Some("/events"))?;
     let run = store.agent_run(&run_id)?;
-    Ok(json!({
+    let mut response = json!({
         "object": "list",
         "run_id": run.run_id,
         "data": api_server_run_events(&run),
         "streaming": true,
-        "sse": true,
-    }))
+        "sse": true
+    });
+    if let Some(object) = response.as_object_mut() {
+        insert_agent_runtime_contract_aliases(object);
+    }
+    Ok(response)
 }
 
 fn api_server_handle_kanban_runtime_events(store: &AppStore, path: &str) -> AppResult<Value> {
@@ -26656,6 +26675,8 @@ fn api_server_run_response(
             }])
         })
         .unwrap_or_else(|| json!([]));
+    let (workflow_graph, workflow_summary) =
+        workflow_graph_run_response_values(run.workflow_graph.as_ref());
     Ok(json!({
         "id": run.run_id,
         "object": "hermes.run",
@@ -26670,6 +26691,10 @@ fn api_server_run_response(
         "events_url": format!("/v1/runs/{}/events", run.run_id),
         "approval_url": format!("/v1/runs/{}/approval", run.run_id),
         "stop_url": format!("/v1/runs/{}/stop", run.run_id),
+        "workflow_graph": workflow_graph.clone(),
+        "workflowGraph": workflow_graph.clone(),
+        "workflow_summary": workflow_summary.clone(),
+        "workflowSummary": workflow_summary.clone(),
         "output": output,
         "synthchat": {
             "runId": run.run_id,
@@ -26677,6 +26702,10 @@ fn api_server_run_response(
             "personaId": run.persona_id,
             "agentId": run.agent_id,
             "queueItemId": run.queue_item_id,
+            "workflow_graph": workflow_graph.clone(),
+            "workflowGraph": workflow_graph,
+            "workflow_summary": workflow_summary.clone(),
+            "workflowSummary": workflow_summary,
             "source": "api_server",
         }
     }))
@@ -26696,6 +26725,7 @@ pub(super) fn api_server_run_events(run: &AgentRunRecord) -> Vec<Value> {
             "input": run.user_request,
         }
     }));
+    events.extend(api_server_workflow_run_events(run));
     for (index, phase) in run.phase_events.iter().enumerate() {
         events.push(json!({
             "id": format!("{}_phase_{}", run.run_id, index + 1),
@@ -26763,6 +26793,94 @@ pub(super) fn api_server_run_events(run: &AgentRunRecord) -> Vec<Value> {
         }
     }));
     events
+}
+
+fn api_server_workflow_run_events(run: &AgentRunRecord) -> Vec<Value> {
+    let Some(graph) = run.workflow_graph.as_ref() else {
+        return vec![];
+    };
+    let mut events = Vec::new();
+    let summary = workflow_graph_runtime_summary(Some(graph));
+    let graph_created_at = workflow_graph_runtime_timestamp(graph, graph, &run.updated_at);
+    events.push(json!({
+        "id": format!("{}_{}", run.run_id, WORKFLOW_RUNTIME_KIND_SNAPSHOT),
+        "object": "hermes.run.event",
+        "run_id": run.run_id.clone(),
+        "type": WORKFLOW_API_EVENT_SNAPSHOT,
+        "created_at": graph_created_at,
+        "data": workflow_graph_snapshot_runtime_payload(graph)
+    }));
+    for (index, node) in graph
+        .get("nodes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
+        let status = node
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        let name = node
+            .get("node")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        events.push(json!({
+            "id": format!(
+                "{}_{}{}_{}_{}",
+                run.run_id,
+                WORKFLOW_RUNTIME_NODE_KIND_PREFIX,
+                index + 1,
+                api_server_workflow_event_id_component(name),
+                api_server_workflow_event_id_component(status)
+            ),
+            "object": "hermes.run.event",
+            "run_id": run.run_id.clone(),
+            "type": format!("{WORKFLOW_API_EVENT_NODE_PREFIX}{status}"),
+            "created_at": workflow_graph_runtime_timestamp(node, graph, &run.updated_at),
+            "data": workflow_graph_node_runtime_payload(node, &summary)
+        }));
+    }
+    for (index, transition) in graph
+        .get("transitions")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
+        let reason = transition
+            .get("reason")
+            .and_then(Value::as_str)
+            .unwrap_or("transition");
+        events.push(json!({
+            "id": format!(
+                "{}_{}_{}_{}",
+                run.run_id,
+                WORKFLOW_RUNTIME_KIND_TRANSITION,
+                index + 1,
+                api_server_workflow_event_id_component(reason)
+            ),
+            "object": "hermes.run.event",
+            "run_id": run.run_id.clone(),
+            "type": WORKFLOW_API_EVENT_TRANSITION,
+            "created_at": workflow_graph_runtime_timestamp(transition, graph, &run.updated_at),
+            "data": workflow_graph_transition_runtime_payload(transition, &summary)
+        }));
+    }
+    events
+}
+
+fn api_server_workflow_event_id_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn api_server_tool_event_type(event: &Value) -> &'static str {
@@ -30210,12 +30328,7 @@ fn api_server_error(message: &str, code: &str) -> Value {
 }
 
 pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Value {
-    let mut value = json!({
-        "object": "api.capabilities",
-        "model": settings.model_name,
-        "adapter": "synthchat-native-api-server",
-        "desktopAdaptation": true,
-        "endpoints": {
+    let endpoints = json!({
             "health": {"method": "GET", "path": "/health", "native": true},
             "health_detailed": {"method": "GET", "path": "/health/detailed", "native": true},
             "models": {"method": "GET", "path": "/v1/models", "native": true},
@@ -30232,7 +30345,20 @@ pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Val
             "response_delete": {"method": "DELETE", "path": "/v1/responses/{response_id}", "native": true},
             "runs": {"method": "POST", "path": "/v1/runs", "native": true, "streaming": true},
             "run_status": {"method": "GET", "path": "/v1/runs/{run_id}", "native": true},
-            "run_events": {"method": "GET", "path": "/v1/runs/{run_id}/events", "native": true, "streaming": true, "sse": true, "live": true},
+            "run_events": {
+                "method": "GET",
+                "path": "/v1/runs/{run_id}/events",
+                "native": true,
+                "streaming": true,
+                "sse": true,
+                "live": true,
+                "workflowGraphEvents": true,
+                "workflowGraphEventKinds": [
+                    WORKFLOW_API_EVENT_SNAPSHOT,
+                    WORKFLOW_API_EVENT_NODE_TEMPLATE,
+                    WORKFLOW_API_EVENT_TRANSITION
+                ]
+            },
             "run_approval": {"method": "POST", "path": "/v1/runs/{run_id}/approval", "native": true},
             "run_stop": {"method": "POST", "path": "/v1/runs/{run_id}/stop", "native": true},
             "dashboard_auth_gate": {"method": "middleware-contract", "path": "/login|/auth/*|/api/*", "native": true},
@@ -30247,8 +30373,8 @@ pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Val
             "dashboard_themes": {"method": "GET", "path": "/api/dashboard/themes", "native": true},
             "dashboard_theme": {"method": "PUT", "path": "/api/dashboard/theme", "native": true},
             "dashboard_plugin_assets": {"method": "GET", "path": "/dashboard-plugins/{plugin}/{file_path}", "native": true, "staticAssets": true}
-        },
-        "capabilityMatrix": {
+    });
+    let capability_matrix = json!({
             "health": true,
             "models": true,
             "capabilities": true,
@@ -30280,11 +30406,24 @@ pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Val
             "run_stop": true,
             "runEventsSse": true,
             "run_events_sse": true,
+            "workflowGraphEvents": true,
+            "workflow_graph_events": true,
+            "workflowGraphRuntimeContract": true,
+            "workflow_graph_runtime_contract": true,
+            "toolCallProtocolContract": true,
+            "tool_call_protocol_contract": true,
             "runStreaming": true,
             "run_streaming": true,
             "liveStreaming": false,
             "live_streaming": false
-        }
+    });
+    let mut value = json!({
+        "object": "api.capabilities",
+        "model": settings.model_name,
+        "adapter": "synthchat-native-api-server",
+        "desktopAdaptation": true,
+        "endpoints": endpoints,
+        "capabilityMatrix": capability_matrix
     });
     value["endpoints"]["media_attachments"] = json!({
         "method": "GET",
@@ -30296,6 +30435,16 @@ pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Val
     value["capabilityMatrix"]["mediaAttachments"] = json!(true);
     value["capabilityMatrix"]["media_attachments"] = json!(true);
     value["dashboardAuthGate"] = dashboard_auth_gate_contract_summary();
+    if let Some(object) = value.as_object_mut() {
+        insert_agent_runtime_contract_aliases(object);
+    }
+    if let Some(run_events) = value
+        .get_mut("endpoints")
+        .and_then(|endpoints| endpoints.get_mut("run_events"))
+        .and_then(Value::as_object_mut)
+    {
+        insert_agent_runtime_contract_aliases(run_events);
+    }
     value["endpoints"]["msgraph_webhook"] = json!({
         "method": "GET/POST",
         "path": "/msgraph/webhook",
@@ -30697,6 +30846,12 @@ pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Val
     value["capabilityMatrix"]["tool_progress_events"] = json!(true);
     value["capabilityMatrix"]["kanbanRuntimeEvents"] = json!(true);
     value["capabilityMatrix"]["kanban_runtime_events"] = json!(true);
+    value["capabilityMatrix"]["workflowGraphRuntimeEvents"] = json!(true);
+    value["capabilityMatrix"]["workflow_graph_runtime_events"] = json!(true);
+    value["capabilityMatrix"]["workflowGraphRuntimeContract"] = json!(true);
+    value["capabilityMatrix"]["workflow_graph_runtime_contract"] = json!(true);
+    value["capabilityMatrix"]["toolCallProtocolContract"] = json!(true);
+    value["capabilityMatrix"]["tool_call_protocol_contract"] = json!(true);
     value["capabilityMatrix"]["kanbanRuntimeEventsSse"] = json!(true);
     value["capabilityMatrix"]["kanban_runtime_events_sse"] = json!(true);
     value["capabilityMatrix"]["kanbanEventHttpRoutes"] = json!(true);
@@ -30814,14 +30969,32 @@ pub(super) fn api_server_capabilities_value(settings: &ApiServerSettings) -> Val
         "method": "GET",
         "path": "/api/plugins/kanban/runtime-events",
         "native": true,
-        "streaming": true
+        "streaming": true,
+        "sources": kanban_runtime_event_sources_value(),
+        "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+        "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+        "toolCallProtocolContract": tool_call_protocol_contract(),
+        "tool_call_protocol_contract": tool_call_protocol_contract(),
+        "agentRuntimeContracts": agent_runtime_contracts(),
+        "agent_runtime_contracts": agent_runtime_contracts(),
+        "runtimeContracts": agent_runtime_contracts(),
+        "runtime_contracts": agent_runtime_contracts()
     });
     value["endpoints"]["kanban_runtime_events_sse"] = json!({
         "method": "GET",
         "path": "/api/plugins/kanban/runtime-events/stream",
         "native": true,
         "streaming": true,
-        "sse": true
+        "sse": true,
+        "sources": kanban_runtime_event_sources_value(),
+        "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+        "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+        "toolCallProtocolContract": tool_call_protocol_contract(),
+        "tool_call_protocol_contract": tool_call_protocol_contract(),
+        "agentRuntimeContracts": agent_runtime_contracts(),
+        "agent_runtime_contracts": agent_runtime_contracts(),
+        "runtimeContracts": agent_runtime_contracts(),
+        "runtime_contracts": agent_runtime_contracts()
     });
     value["endpoints"]["kanban_events"] = json!({
         "method": "GET",
@@ -42667,48 +42840,55 @@ fn api_server_adapter_state(
         .get("status")
         .and_then(Value::as_str)
         .is_some_and(|status| matches!(status, "running" | "starting"));
-    let mut capability_matrix = json!({
-        "send": false,
-        "receive": false,
-        "lifecycle": true,
-        "attachments": false,
-        "directory": false,
-        "health": true,
-        "models": true,
-        "capabilities": true,
-        "chatCompletions": true,
-        "chat_completions": true,
-        "chatCompletionsStreaming": true,
-        "chat_completions_streaming": true,
-        "sessions": true,
-        "sessionCrud": true,
-        "session_crud": true,
-        "sessionMessages": true,
-        "session_messages": true,
-        "sessionFork": true,
-        "session_fork": true,
-        "responsesApi": true,
-        "responses_api": true,
-        "responsesStreaming": true,
-        "responses_streaming": true,
-        "sessionChat": true,
-        "session_chat": true,
-        "sessionChatStreaming": true,
-        "session_chat_streaming": true,
-        "runs": true,
-        "runEvents": true,
-        "run_events": true,
-        "runApproval": true,
-        "run_approval": true,
-        "runStop": true,
-        "run_stop": true,
-        "runEventsSse": true,
-        "run_events_sse": true,
-        "runStreaming": true,
-        "run_streaming": true,
-        "liveStreaming": false,
-        "live_streaming": false
-    });
+    let mut capability_matrix = json!({});
+    for (key, enabled) in [
+        ("send", false),
+        ("receive", false),
+        ("lifecycle", true),
+        ("attachments", false),
+        ("directory", false),
+        ("health", true),
+        ("models", true),
+        ("capabilities", true),
+        ("chatCompletions", true),
+        ("chat_completions", true),
+        ("chatCompletionsStreaming", true),
+        ("chat_completions_streaming", true),
+        ("sessions", true),
+        ("sessionCrud", true),
+        ("session_crud", true),
+        ("sessionMessages", true),
+        ("session_messages", true),
+        ("sessionFork", true),
+        ("session_fork", true),
+        ("responsesApi", true),
+        ("responses_api", true),
+        ("responsesStreaming", true),
+        ("responses_streaming", true),
+        ("sessionChat", true),
+        ("session_chat", true),
+        ("sessionChatStreaming", true),
+        ("session_chat_streaming", true),
+        ("runs", true),
+        ("runEvents", true),
+        ("run_events", true),
+        ("runApproval", true),
+        ("run_approval", true),
+        ("runStop", true),
+        ("run_stop", true),
+        ("runEventsSse", true),
+        ("run_events_sse", true),
+        ("workflowGraphEvents", true),
+        ("workflow_graph_events", true),
+        ("workflowGraphRuntimeContract", true),
+        ("workflow_graph_runtime_contract", true),
+        ("runStreaming", true),
+        ("run_streaming", true),
+        ("liveStreaming", false),
+        ("live_streaming", false),
+    ] {
+        capability_matrix[key] = Value::Bool(enabled);
+    }
     capability_matrix["chatCompletionsProviderDeltas"] = json!(true);
     capability_matrix["chat_completions_provider_deltas"] = json!(true);
     capability_matrix["chatCompletionsLiveHttp"] = json!(true);
@@ -42721,6 +42901,12 @@ fn api_server_adapter_state(
     capability_matrix["tool_progress_events"] = json!(true);
     capability_matrix["kanbanRuntimeEvents"] = json!(true);
     capability_matrix["kanban_runtime_events"] = json!(true);
+    capability_matrix["workflowGraphRuntimeEvents"] = json!(true);
+    capability_matrix["workflow_graph_runtime_events"] = json!(true);
+    capability_matrix["workflowGraphRuntimeContract"] = json!(true);
+    capability_matrix["workflow_graph_runtime_contract"] = json!(true);
+    capability_matrix["toolCallProtocolContract"] = json!(true);
+    capability_matrix["tool_call_protocol_contract"] = json!(true);
     capability_matrix["kanbanRuntimeEventsSse"] = json!(true);
     capability_matrix["kanban_runtime_events_sse"] = json!(true);
     capability_matrix["kanbanEventHttpRoutes"] = json!(true);
@@ -42784,7 +42970,24 @@ fn api_server_adapter_state(
         "session_chat_stream": {"method": "POST", "path": "/api/sessions/{session_id}/chat/stream"},
         "runs": {"method": "POST", "path": "/v1/runs"},
         "run_status": {"method": "GET", "path": "/v1/runs/{run_id}"},
-        "run_events": {"method": "GET", "path": "/v1/runs/{run_id}/events"},
+        "run_events": {
+            "method": "GET",
+            "path": "/v1/runs/{run_id}/events",
+            "workflowGraphEvents": true,
+            "workflowGraphEventKinds": [
+                WORKFLOW_API_EVENT_SNAPSHOT,
+                WORKFLOW_API_EVENT_NODE_TEMPLATE,
+                WORKFLOW_API_EVENT_TRANSITION
+            ],
+            "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+            "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+            "toolCallProtocolContract": tool_call_protocol_contract(),
+            "tool_call_protocol_contract": tool_call_protocol_contract(),
+            "agentRuntimeContracts": agent_runtime_contracts(),
+            "agent_runtime_contracts": agent_runtime_contracts(),
+            "runtimeContracts": agent_runtime_contracts(),
+            "runtime_contracts": agent_runtime_contracts()
+        },
         "run_approval": {"method": "POST", "path": "/v1/runs/{run_id}/approval"},
         "run_stop": {"method": "POST", "path": "/v1/runs/{run_id}/stop"},
         "dashboard_auth_ws_ticket": {"method": "POST", "path": "/api/auth/ws-ticket"},
@@ -42794,10 +42997,32 @@ fn api_server_adapter_state(
         "health": {"method": "GET", "path": "/health"},
         "health_detailed": {"method": "GET", "path": "/health/detailed"}
     });
-    endpoints["kanban_runtime_events"] =
-        json!({"method": "GET", "path": "/api/plugins/kanban/runtime-events"});
-    endpoints["kanban_runtime_events_sse"] =
-        json!({"method": "GET", "path": "/api/plugins/kanban/runtime-events/stream"});
+    endpoints["kanban_runtime_events"] = json!({
+        "method": "GET",
+        "path": "/api/plugins/kanban/runtime-events",
+        "sources": kanban_runtime_event_sources_value(),
+        "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+        "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+        "toolCallProtocolContract": tool_call_protocol_contract(),
+        "tool_call_protocol_contract": tool_call_protocol_contract(),
+        "agentRuntimeContracts": agent_runtime_contracts(),
+        "agent_runtime_contracts": agent_runtime_contracts(),
+        "runtimeContracts": agent_runtime_contracts(),
+        "runtime_contracts": agent_runtime_contracts()
+    });
+    endpoints["kanban_runtime_events_sse"] = json!({
+        "method": "GET",
+        "path": "/api/plugins/kanban/runtime-events/stream",
+        "sources": kanban_runtime_event_sources_value(),
+        "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+        "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+        "toolCallProtocolContract": tool_call_protocol_contract(),
+        "tool_call_protocol_contract": tool_call_protocol_contract(),
+        "agentRuntimeContracts": agent_runtime_contracts(),
+        "agent_runtime_contracts": agent_runtime_contracts(),
+        "runtimeContracts": agent_runtime_contracts(),
+        "runtime_contracts": agent_runtime_contracts()
+    });
     endpoints["kanban_events"] = json!({"method": "GET", "path": "/api/plugins/kanban/events"});
     endpoints["kanban_events_websocket"] = json!({
         "method": "WebSocket",
@@ -42910,6 +43135,14 @@ fn api_server_adapter_state(
         "capabilityMatrix": capability_matrix.clone(),
         "capability_matrix": capability_matrix,
         "endpoints": endpoints,
+        "workflowGraphRuntimeContract": workflow_graph_runtime_contract(),
+        "workflow_graph_runtime_contract": workflow_graph_runtime_contract(),
+        "toolCallProtocolContract": tool_call_protocol_contract(),
+        "tool_call_protocol_contract": tool_call_protocol_contract(),
+        "agentRuntimeContracts": agent_runtime_contracts(),
+        "agent_runtime_contracts": agent_runtime_contracts(),
+        "runtimeContracts": agent_runtime_contracts(),
+        "runtime_contracts": agent_runtime_contracts(),
         "hermesApiServerDaemonLifecycle": hermes_api_server_daemon_lifecycle_contract(),
         "hermes_api_server_daemon_lifecycle": hermes_api_server_daemon_lifecycle_contract_snake(),
         "boundary": "SynthChat now exposes a native OpenAI-compatible API surface for health, models, capabilities, Chat Completions live HTTP SSE with provider deltas where the selected transport emits deltas, Responses create/get/delete with live HTTP text-delta SSE plus snapshot fallback, session list/create/get/patch/delete/messages/fork/chat plus live HTTP chat stream, and runs/status/live HTTP SSE events/approval/stop. The remaining Hermes boundary is the external Python api_server.py daemon/service lifecycle, not the native desktop HTTP/SSE surface.",

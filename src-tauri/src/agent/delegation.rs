@@ -6,7 +6,8 @@ use serde_json::{json, Value};
 use crate::{
     error::{AppError, AppResult},
     models::{
-        new_id, now_iso, AgentDefinition, AgentRunRecord, ChatMessage, SendChatRequest, ToolEvent,
+        new_id, now_iso, AgentDefinition, AgentRunRecord, ChatConfig, ChatMessage,
+        SendChatRequest, ToolEvent,
     },
     store::AppStore,
 };
@@ -77,6 +78,11 @@ pub(super) use super::delegation_request::{
 use super::delegation_run_state::{latest_run_for_conversation, mark_run_as_subagent};
 pub(super) use super::delegation_scope::{acp_mcp_servers_for_agent, delegation_child_toolsets};
 use super::delegation_synthchat::execute_synthchat_delegate_task_request;
+use super::workflow_graph::{
+    append_workflow_transition_event, workflow_mode_for_run, WorkflowDriver, WorkflowMode,
+    WorkflowNodeName, WORKFLOW_REASON_DELEGATE_TASK_COMPLETED,
+    WORKFLOW_REASON_DELEGATE_TASK_FAILED, WORKFLOW_REASON_DELEGATE_TASK_STARTED,
+};
 
 pub(super) async fn delegate_task_tool(
     store: &AppStore,
@@ -125,6 +131,19 @@ pub(super) async fn delegate_task_tool(
         )));
     }
 
+    let workflow_mode = workflow_mode_for_run(&parent);
+    record_parent_delegation_group_room_started(
+        store,
+        parent_run_id,
+        workflow_mode,
+        agent,
+        &chat_config,
+        parent_depth,
+        child_count,
+        is_batch,
+        &requests,
+    )?;
+
     let delegation_started_at = now_iso();
     let results = if is_batch {
         let futures = requests.iter().enumerate().map(|(offset, request)| {
@@ -144,28 +163,59 @@ pub(super) async fn delegate_task_tool(
         });
         let resolved = join_all(futures).await;
         let mut results = Vec::with_capacity(resolved.len());
+        let mut first_error = None;
         for result in resolved {
-            results.push(result?);
+            match result {
+                Ok(value) => results.push(value),
+                Err(error) => {
+                    if first_error.is_none() {
+                        first_error = Some(error);
+                    }
+                }
+            }
         }
-        results
+        match first_error {
+            Some(error) => Err((error, results)),
+            None => Ok(results),
+        }
     } else {
-        vec![
-            execute_delegate_task_request(
+        execute_delegate_task_request(
+            store,
+            agent,
+            parent_run_id,
+            parent_depth,
+            child_count + 1,
+            requests
+                .first()
+                .ok_or_else(|| AppError::BadRequest("delegate_task produced no request".into()))?,
+            &chat_config.delegation_subagent_provider_id,
+            &chat_config.delegation_subagent_model,
+            chat_config.delegation_subagent_auto_approve,
+            chat_config.delegation_inherit_mcp_toolsets,
+        )
+        .await
+        .map(|result| vec![result])
+        .map_err(|error| (error, Vec::new()))
+    };
+    let results = match results {
+        Ok(results) => results,
+        Err((error, partial_results)) => {
+            let error_text = error.to_string();
+            record_parent_delegation_group_room_failed(
                 store,
-                agent,
                 parent_run_id,
+                workflow_mode,
+                agent,
+                &chat_config,
                 parent_depth,
-                child_count + 1,
-                requests.first().ok_or_else(|| {
-                    AppError::BadRequest("delegate_task produced no request".into())
-                })?,
-                &chat_config.delegation_subagent_provider_id,
-                &chat_config.delegation_subagent_model,
-                chat_config.delegation_subagent_auto_approve,
-                chat_config.delegation_inherit_mcp_toolsets,
-            )
-            .await?,
-        ]
+                child_count,
+                is_batch,
+                &requests,
+                &partial_results,
+                Some(&error_text),
+            )?;
+            return Err(error);
+        }
     };
     if !is_batch {
         let result = results
@@ -173,14 +223,38 @@ pub(super) async fn delegate_task_tool(
             .next()
             .ok_or_else(|| AppError::BadRequest("delegate_task produced no result".into()))?;
         if result.get("status").and_then(Value::as_str) == Some("failed") {
-            return Err(AppError::BadRequest(
-                result
-                    .get("error")
-                    .and_then(Value::as_str)
-                    .unwrap_or("delegate_task failed")
-                    .to_string(),
-            ));
+            let error_text = result
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("delegate_task failed")
+                .to_string();
+            record_parent_delegation_group_room_failed(
+                store,
+                parent_run_id,
+                workflow_mode,
+                agent,
+                &chat_config,
+                parent_depth,
+                child_count,
+                is_batch,
+                &requests,
+                std::slice::from_ref(&result),
+                Some(&error_text),
+            )?;
+            return Err(AppError::BadRequest(error_text));
         }
+        record_parent_delegation_group_room_completed(
+            store,
+            parent_run_id,
+            workflow_mode,
+            agent,
+            &chat_config,
+            parent_depth,
+            child_count,
+            is_batch,
+            &requests,
+            std::slice::from_ref(&result),
+        )?;
         let mut response = json!({
             "childRunId": result["childRunId"],
             "role": result["role"],
@@ -198,6 +272,18 @@ pub(super) async fn delegate_task_tool(
     let ok = results
         .iter()
         .all(|result| result.get("status").and_then(Value::as_str) == Some("completed"));
+    record_parent_delegation_group_room_completed(
+        store,
+        parent_run_id,
+        workflow_mode,
+        agent,
+        &chat_config,
+        parent_depth,
+        child_count,
+        is_batch,
+        &requests,
+        &results,
+    )?;
     let mut response = json!({
         "ok": ok,
         "count": results.len(),
@@ -209,6 +295,309 @@ pub(super) async fn delegate_task_tool(
         response["fileStateReminder"] = reminder;
     }
     Ok(serde_json::to_string_pretty(&response)?)
+}
+
+fn record_parent_delegation_group_room_started(
+    store: &AppStore,
+    parent_run_id: &str,
+    workflow_mode: WorkflowMode,
+    agent: &AgentDefinition,
+    chat_config: &ChatConfig,
+    parent_depth: u32,
+    existing_child_count: u32,
+    is_batch: bool,
+    requests: &[DelegateTaskRequest],
+) -> AppResult<()> {
+    let detail = delegation_group_room_started_detail(
+        agent,
+        chat_config,
+        parent_depth,
+        existing_child_count,
+        is_batch,
+        requests,
+    );
+    append_workflow_transition_event(
+        store,
+        parent_run_id,
+        WorkflowNodeName::Executor,
+        WorkflowNodeName::GroupRoom,
+        WORKFLOW_REASON_DELEGATE_TASK_STARTED,
+        delegation_group_room_transition_detail(&detail),
+    )?;
+    WorkflowDriver::new(workflow_mode).group_room().running(
+        store,
+        parent_run_id,
+        detail,
+    )
+}
+
+fn record_parent_delegation_group_room_completed(
+    store: &AppStore,
+    parent_run_id: &str,
+    workflow_mode: WorkflowMode,
+    agent: &AgentDefinition,
+    chat_config: &ChatConfig,
+    parent_depth: u32,
+    existing_child_count: u32,
+    is_batch: bool,
+    requests: &[DelegateTaskRequest],
+    results: &[Value],
+) -> AppResult<()> {
+    let detail = delegation_group_room_finished_detail(
+        agent,
+        chat_config,
+        parent_depth,
+        existing_child_count,
+        is_batch,
+        requests,
+        results,
+        "completed",
+        None,
+    );
+    WorkflowDriver::new(workflow_mode).group_room().completed(
+        store,
+        parent_run_id,
+        detail.clone(),
+    )?;
+    append_workflow_transition_event(
+        store,
+        parent_run_id,
+        WorkflowNodeName::GroupRoom,
+        WorkflowNodeName::Executor,
+        WORKFLOW_REASON_DELEGATE_TASK_COMPLETED,
+        delegation_group_room_transition_detail(&detail),
+    )
+}
+
+fn record_parent_delegation_group_room_failed(
+    store: &AppStore,
+    parent_run_id: &str,
+    workflow_mode: WorkflowMode,
+    agent: &AgentDefinition,
+    chat_config: &ChatConfig,
+    parent_depth: u32,
+    existing_child_count: u32,
+    is_batch: bool,
+    requests: &[DelegateTaskRequest],
+    results: &[Value],
+    error: Option<&str>,
+) -> AppResult<()> {
+    let detail = delegation_group_room_finished_detail(
+        agent,
+        chat_config,
+        parent_depth,
+        existing_child_count,
+        is_batch,
+        requests,
+        results,
+        "failed",
+        error,
+    );
+    append_workflow_transition_event(
+        store,
+        parent_run_id,
+        WorkflowNodeName::GroupRoom,
+        WorkflowNodeName::Executor,
+        WORKFLOW_REASON_DELEGATE_TASK_FAILED,
+        delegation_group_room_transition_detail(&detail),
+    )?;
+    WorkflowDriver::new(workflow_mode).group_room().failed(
+        store,
+        parent_run_id,
+        detail,
+    )
+}
+
+fn delegation_group_room_started_detail(
+    agent: &AgentDefinition,
+    chat_config: &ChatConfig,
+    parent_depth: u32,
+    existing_child_count: u32,
+    is_batch: bool,
+    requests: &[DelegateTaskRequest],
+) -> Value {
+    delegation_group_room_base_detail(
+        agent,
+        chat_config,
+        parent_depth,
+        existing_child_count,
+        is_batch,
+        requests,
+        "started",
+    )
+}
+
+fn delegation_group_room_finished_detail(
+    agent: &AgentDefinition,
+    chat_config: &ChatConfig,
+    parent_depth: u32,
+    existing_child_count: u32,
+    is_batch: bool,
+    requests: &[DelegateTaskRequest],
+    results: &[Value],
+    phase: &str,
+    error: Option<&str>,
+) -> Value {
+    let mut detail = delegation_group_room_base_detail(
+        agent,
+        chat_config,
+        parent_depth,
+        existing_child_count,
+        is_batch,
+        requests,
+        phase,
+    );
+    let completed_children = delegation_result_status_count(results, "completed");
+    let failed_children = delegation_result_status_count(results, "failed");
+    let aborted_children = delegation_result_status_count(results, "aborted");
+    let known_children = completed_children + failed_children + aborted_children;
+    detail["ok"] = json!(!results.is_empty() && failed_children == 0 && aborted_children == 0);
+    detail["completedChildren"] = json!(completed_children);
+    detail["failedChildren"] = json!(failed_children);
+    detail["abortedChildren"] = json!(aborted_children);
+    detail["unknownChildren"] = json!(results.len().saturating_sub(known_children));
+    detail["results"] = json!(delegation_group_room_result_summaries(results));
+    if let Some(error) = error {
+        detail["error"] = json!(delegation_summary_text(error, 500));
+    }
+    detail
+}
+
+fn delegation_group_room_base_detail(
+    agent: &AgentDefinition,
+    chat_config: &ChatConfig,
+    parent_depth: u32,
+    existing_child_count: u32,
+    is_batch: bool,
+    requests: &[DelegateTaskRequest],
+    phase: &str,
+) -> Value {
+    json!({
+        "source": "delegate_task",
+        "phase": phase,
+        "batch": is_batch,
+        "requestedChildren": requests.len(),
+        "existingChildren": existing_child_count,
+        "parentDepth": parent_depth,
+        "childDepth": parent_depth.saturating_add(1),
+        "maxSubagents": agent.max_subagents,
+        "maxSubagentDepth": agent.max_subagent_depth,
+        "maxConcurrentChildren": chat_config.delegation_max_concurrent_children.max(1),
+        "strategy": chat_config.delegation_strategy.clone(),
+        "orchestratorEnabled": chat_config.delegation_orchestrator_enabled,
+        "subagentAutoApprove": chat_config.delegation_subagent_auto_approve,
+        "inheritMcpToolsets": chat_config.delegation_inherit_mcp_toolsets,
+        "children": delegation_group_room_request_summaries(existing_child_count, requests)
+    })
+}
+
+fn delegation_group_room_transition_detail(detail: &Value) -> Value {
+    let mut transition = json!({
+        "source": detail.get("source").cloned().unwrap_or_else(|| json!("delegate_task")),
+        "phase": detail.get("phase").cloned().unwrap_or(Value::Null),
+        "batch": detail.get("batch").cloned().unwrap_or(Value::Null),
+        "requestedChildren": detail
+            .get("requestedChildren")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "existingChildren": detail
+            .get("existingChildren")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "parentDepth": detail.get("parentDepth").cloned().unwrap_or(Value::Null),
+    });
+    for key in [
+        "ok",
+        "completedChildren",
+        "failedChildren",
+        "abortedChildren",
+        "unknownChildren",
+    ] {
+        if let Some(value) = detail.get(key) {
+            transition[key] = value.clone();
+        }
+    }
+    if let Some(error) = detail.get("error") {
+        transition["error"] = error.clone();
+    }
+    transition
+}
+
+fn delegation_group_room_request_summaries(
+    existing_child_count: u32,
+    requests: &[DelegateTaskRequest],
+) -> Vec<Value> {
+    requests
+        .iter()
+        .enumerate()
+        .map(|(offset, request)| {
+            let mut summary = json!({
+                "childIndex": existing_child_count + offset as u32 + 1,
+                "role": &request.role,
+                "taskPreview": delegation_summary_text(&request.task, 240),
+                "toolsets": &request.toolsets,
+                "canDelegate": request.can_delegate,
+                "maxIterations": request.max_iterations,
+                "transport": if request.acp_command.is_empty() { "synthchat" } else { "acp" },
+            });
+            if !request.acp_command.is_empty() {
+                summary["acpCommand"] = json!(delegation_summary_text(&request.acp_command, 120));
+            }
+            if !request.acp_session_mode.is_empty() {
+                summary["acpSessionMode"] = json!(&request.acp_session_mode);
+            }
+            summary
+        })
+        .collect()
+}
+
+fn delegation_group_room_result_summaries(results: &[Value]) -> Vec<Value> {
+    results
+        .iter()
+        .map(|result| {
+            let mut summary = json!({
+                "status": result
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown"),
+            });
+            for key in ["childRunId", "childConversationId", "role", "maxIterations", "transport"] {
+                if let Some(value) = result.get(key) {
+                    summary[key] = value.clone();
+                }
+            }
+            if let Some(task) = result.get("task").and_then(Value::as_str) {
+                summary["taskPreview"] = json!(delegation_summary_text(task, 240));
+            }
+            if let Some(output) = result.get("result").and_then(Value::as_str) {
+                summary["resultPreview"] = json!(delegation_summary_text(output, 500));
+            }
+            if let Some(error) = result.get("error").and_then(Value::as_str) {
+                summary["errorPreview"] = json!(delegation_summary_text(error, 500));
+            }
+            if result.get("diagnosticArtifactPath").is_some() {
+                summary["hasDiagnosticArtifact"] = json!(true);
+            }
+            summary
+        })
+        .collect()
+}
+
+fn delegation_result_status_count(results: &[Value], status: &str) -> usize {
+    results
+        .iter()
+        .filter(|result| result.get("status").and_then(Value::as_str) == Some(status))
+        .count()
+}
+
+fn delegation_summary_text(value: &str, max_chars: usize) -> String {
+    let redacted = redact_sensitive_text(value).replace('\r', "");
+    let mut chars = redacted.chars();
+    let mut summary = chars.by_ref().take(max_chars).collect::<String>();
+    if chars.next().is_some() {
+        summary.push_str("...");
+    }
+    summary
 }
 
 pub(super) fn ensure_parent_run_accepts_delegation(
@@ -290,6 +679,259 @@ mod tests {
     use super::super::acp_history::acp_session_history_updates;
     use super::*;
     use std::fs;
+
+    #[test]
+    fn delegation_group_room_started_marks_parent_graph_running() {
+        let dir =
+            std::env::temp_dir().join(format!("synthchat-delegation-room-start-{}", new_id("test")));
+        fs::create_dir_all(&dir).unwrap();
+        let store = AppStore::new(dir.join("state.json")).unwrap();
+        let persona = store.persona(None).unwrap();
+        let conversation = store
+            .create_conversation(Some("delegation room".into()), Some(persona.id.clone()))
+            .unwrap();
+        let parent = store
+            .save_agent_run(AgentRunRecord::new(
+                conversation.id,
+                persona.id,
+                "default".into(),
+            ))
+            .unwrap();
+        let mut agent = AgentDefinition::default();
+        agent.max_subagents = 5;
+        agent.max_subagent_depth = 3;
+        let mut chat_config = ChatConfig::default();
+        chat_config.delegation_strategy = "planner_executor".into();
+        let requests = delegate_task_requests(&json!({
+            "tasks": [
+                {"task": "inspect parser", "role": "reader", "toolsets": ["file"]},
+                {"task": "summarize runtime", "role": "reviewer", "acpCommand": "codex-acp"}
+            ]
+        }))
+        .unwrap();
+
+        record_parent_delegation_group_room_started(
+            &store,
+            &parent.run_id,
+            WorkflowMode::ChatTurn,
+            &agent,
+            &chat_config,
+            1,
+            2,
+            true,
+            &requests,
+        )
+        .unwrap();
+
+        let saved = store.agent_run(&parent.run_id).unwrap();
+        let graph = saved.workflow_graph.as_ref().unwrap();
+        assert_eq!(graph["currentNode"], "group_room");
+        assert_eq!(graph["transitions"][0]["from"], "executor");
+        assert_eq!(graph["transitions"][0]["to"], "group_room");
+        assert_eq!(
+            graph["transitions"][0]["reason"],
+            WORKFLOW_REASON_DELEGATE_TASK_STARTED
+        );
+        let group_room = graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["node"] == "group_room")
+            .unwrap();
+        assert_eq!(group_room["status"], "running");
+        assert_eq!(group_room["detail"]["phase"], "started");
+        assert_eq!(group_room["detail"]["requestedChildren"], 2);
+        assert_eq!(group_room["detail"]["existingChildren"], 2);
+        assert_eq!(group_room["detail"]["parentDepth"], 1);
+        assert_eq!(group_room["detail"]["strategy"], "planner_executor");
+        assert_eq!(group_room["detail"]["children"][0]["childIndex"], 3);
+        assert_eq!(group_room["detail"]["children"][0]["transport"], "synthchat");
+        assert_eq!(group_room["detail"]["children"][1]["transport"], "acp");
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn delegation_group_room_completed_summarizes_successful_results() {
+        let dir = std::env::temp_dir().join(format!(
+            "synthchat-delegation-room-complete-{}",
+            new_id("test")
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let store = AppStore::new(dir.join("state.json")).unwrap();
+        let persona = store.persona(None).unwrap();
+        let conversation = store
+            .create_conversation(Some("delegation room complete".into()), Some(persona.id.clone()))
+            .unwrap();
+        let parent = store
+            .save_agent_run(AgentRunRecord::new(
+                conversation.id,
+                persona.id,
+                "default".into(),
+            ))
+            .unwrap();
+        let mut agent = AgentDefinition::default();
+        agent.max_subagents = 4;
+        let chat_config = ChatConfig::default();
+        let requests = delegate_task_requests(&json!({
+            "tasks": [
+                {"task": "inspect parser", "role": "reader"},
+                {"task": "summarize runtime", "role": "reviewer", "toolsets": ["file", "web"]}
+            ]
+        }))
+        .unwrap();
+        let results = vec![
+            json!({
+                "status": "completed",
+                "childRunId": "run-child-parser",
+                "childConversationId": "child-conv-parser",
+                "role": "reader",
+                "task": "inspect parser",
+                "result": "parser summary"
+            }),
+            json!({
+                "status": "completed",
+                "childRunId": "run-child-runtime",
+                "role": "reviewer",
+                "task": "summarize runtime",
+                "result": "runtime summary"
+            }),
+        ];
+
+        record_parent_delegation_group_room_completed(
+            &store,
+            &parent.run_id,
+            WorkflowMode::ChatTurn,
+            &agent,
+            &chat_config,
+            0,
+            1,
+            true,
+            &requests,
+            &results,
+        )
+        .unwrap();
+
+        let saved = store.agent_run(&parent.run_id).unwrap();
+        let graph = saved.workflow_graph.as_ref().unwrap();
+        assert_eq!(graph["currentNode"], "executor");
+        assert_eq!(graph["transitions"][0]["from"], "group_room");
+        assert_eq!(graph["transitions"][0]["to"], "executor");
+        assert_eq!(
+            graph["transitions"][0]["reason"],
+            WORKFLOW_REASON_DELEGATE_TASK_COMPLETED
+        );
+        assert_eq!(graph["transitions"][0]["detail"]["completedChildren"], 2);
+        assert_eq!(graph["transitions"][0]["detail"]["failedChildren"], 0);
+        let group_room = graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["node"] == "group_room")
+            .unwrap();
+        assert_eq!(group_room["status"], "completed");
+        assert_eq!(group_room["detail"]["phase"], "completed");
+        assert_eq!(group_room["detail"]["ok"], true);
+        assert_eq!(group_room["detail"]["completedChildren"], 2);
+        assert_eq!(group_room["detail"]["failedChildren"], 0);
+        assert_eq!(group_room["detail"]["children"][0]["childIndex"], 2);
+        assert_eq!(
+            group_room["detail"]["results"][0]["childConversationId"],
+            "child-conv-parser"
+        );
+        assert_eq!(
+            group_room["detail"]["results"][1]["resultPreview"],
+            "runtime summary"
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn delegation_group_room_failed_summarizes_partial_results() {
+        let dir =
+            std::env::temp_dir().join(format!("synthchat-delegation-room-fail-{}", new_id("test")));
+        fs::create_dir_all(&dir).unwrap();
+        let store = AppStore::new(dir.join("state.json")).unwrap();
+        let persona = store.persona(None).unwrap();
+        let conversation = store
+            .create_conversation(Some("delegation room fail".into()), Some(persona.id.clone()))
+            .unwrap();
+        let parent = store
+            .save_agent_run(AgentRunRecord::new(
+                conversation.id,
+                persona.id,
+                "default".into(),
+            ))
+            .unwrap();
+        let agent = AgentDefinition::default();
+        let chat_config = ChatConfig::default();
+        let requests = delegate_task_requests(&json!({
+            "tasks": [
+                {"task": "inspect parser", "role": "reader"},
+                {"task": "summarize runtime", "role": "reviewer"}
+            ]
+        }))
+        .unwrap();
+        let partial_results = vec![
+            json!({
+                "status": "completed",
+                "childRunId": "run-child-ok",
+                "role": "reader",
+                "task": "inspect parser",
+                "result": "parser summary"
+            }),
+            json!({
+                "status": "failed",
+                "childRunId": "run-child-failed",
+                "role": "reviewer",
+                "task": "summarize runtime",
+                "error": "child failed while summarizing runtime"
+            }),
+        ];
+
+        record_parent_delegation_group_room_failed(
+            &store,
+            &parent.run_id,
+            WorkflowMode::ChatTurn,
+            &agent,
+            &chat_config,
+            0,
+            0,
+            true,
+            &requests,
+            &partial_results,
+            Some("delegate_task batch failed"),
+        )
+        .unwrap();
+
+        let saved = store.agent_run(&parent.run_id).unwrap();
+        let graph = saved.workflow_graph.as_ref().unwrap();
+        assert_eq!(graph["transitions"][0]["from"], "group_room");
+        assert_eq!(graph["transitions"][0]["to"], "executor");
+        assert_eq!(
+            graph["transitions"][0]["reason"],
+            WORKFLOW_REASON_DELEGATE_TASK_FAILED
+        );
+        let group_room = graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["node"] == "group_room")
+            .unwrap();
+        assert_eq!(group_room["status"], "failed");
+        assert_eq!(group_room["detail"]["phase"], "failed");
+        assert_eq!(group_room["detail"]["ok"], false);
+        assert_eq!(group_room["detail"]["completedChildren"], 1);
+        assert_eq!(group_room["detail"]["failedChildren"], 1);
+        assert_eq!(group_room["detail"]["results"][0]["childRunId"], "run-child-ok");
+        assert_eq!(
+            group_room["detail"]["results"][1]["errorPreview"],
+            "child failed while summarizing runtime"
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn acp_live_tool_event_maps_cancelled_to_completed_with_prefix() {

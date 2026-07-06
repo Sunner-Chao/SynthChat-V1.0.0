@@ -19,6 +19,7 @@ use super::{
     acp_history::acp_session_history_updates_for_store,
     acp_queue::acp_queue_update_notification,
     acp_server::{AcpListSessionsResponse, AcpSessionInfo},
+    record_agent_queue_workflow_terminal,
     shell_hooks::{list_python_plugin_commands, spawn_session_finished_hooks},
 };
 
@@ -760,7 +761,9 @@ pub(super) fn acp_server_cancel_session(
             item.conversation_id == session_id
                 && matches!(item.status.as_str(), "pending" | "running")
         }) {
-            cancelled_queue_items.push(store.cancel_agent_queue_item(&item.id)?);
+            let canceled = store.cancel_agent_queue_item(&item.id)?;
+            record_agent_queue_workflow_terminal(store, &canceled)?;
+            cancelled_queue_items.push(canceled);
         }
     }
     let notifications = cancelled_queue_items

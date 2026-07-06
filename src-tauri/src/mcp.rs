@@ -5082,6 +5082,16 @@ fn mcp_sampling_tool_result_message(
         .get("isError")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let mut raw_payload = json!({ "input": input });
+    if let Some(payload) = raw_payload.as_object_mut() {
+        payload.insert(
+            llm::PROVIDER_TOOL_CALL_META_KEY.into(),
+            json!({
+                "id": call_id
+            }),
+        );
+    }
+
     Some(crate::models::ChatMessage::new(
         "__mcp_sampling__".into(),
         "tool",
@@ -5093,12 +5103,7 @@ fn mcp_sampling_tool_result_message(
                 "ok": ok,
                 "text": text,
                 "raw": {
-                    "payload": {
-                        "__agentProviderToolCall": {
-                            "id": call_id
-                        },
-                        "input": input
-                    }
+                    "payload": raw_payload
                 }
             }
         })

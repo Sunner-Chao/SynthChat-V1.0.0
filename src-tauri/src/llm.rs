@@ -626,15 +626,7 @@ pub(super) fn tool_replay_message(item: &ChatMessage) -> Option<ToolReplayMessag
     let provider_tool_call = remove_provider_tool_call_metadata(&mut arguments);
     let call_id = provider_tool_call
         .as_ref()
-        .and_then(|metadata| {
-            metadata
-                .get("id")
-                .or_else(|| metadata.get("call_id"))
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|id| !id.is_empty())
-                .map(str::to_string)
-        })
+        .and_then(provider_tool_call_id_from_metadata)
         .or_else(|| {
             event
                 .get("callId")
@@ -647,7 +639,7 @@ pub(super) fn tool_replay_message(item: &ChatMessage) -> Option<ToolReplayMessag
         .unwrap_or_else(|| item.id.clone());
     let extra_content = provider_tool_call
         .as_ref()
-        .and_then(|metadata| metadata.get("extra_content").cloned());
+        .and_then(|metadata| metadata.get(PROVIDER_TOOL_CALL_EXTRA_CONTENT_KEY).cloned());
     let ok = event.get("ok").and_then(Value::as_bool).unwrap_or(true);
     let content = event
         .get("text")
@@ -673,10 +665,45 @@ pub(super) fn tool_replay_message(item: &ChatMessage) -> Option<ToolReplayMessag
     })
 }
 
-const PROVIDER_TOOL_CALL_META_KEY: &str = "__agentProviderToolCall";
-const TOOL_CALL_ARGUMENTS_CORRUPTION_KEY: &str = "__agentToolArgumentsCorruption";
-const TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER: &str =
+pub(crate) const PROVIDER_TOOL_CALL_META_KEY: &str = "__agentProviderToolCall";
+pub(crate) const PROVIDER_TOOL_CALL_EXTRA_CONTENT_KEY: &str = "extra_content";
+pub(crate) const PROVIDER_TOOL_CALL_ID_KEYS: &[&str] = &[
+    "id",
+    "call_id",
+    "tool_call_id",
+    "toolCallId",
+    "response_item_id",
+];
+pub(crate) const TOOL_CALL_ARGUMENTS_CORRUPTION_KEY: &str = "__agentToolArgumentsCorruption";
+pub(crate) const TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER: &str =
     "Tool call arguments were corrupted and replaced with an empty object. Reissue the tool call with valid JSON arguments.";
+
+pub(crate) fn provider_tool_call_metadata_source_keys() -> Vec<&'static str> {
+    PROVIDER_TOOL_CALL_ID_KEYS
+        .iter()
+        .copied()
+        .chain(std::iter::once(PROVIDER_TOOL_CALL_EXTRA_CONTENT_KEY))
+        .collect()
+}
+
+pub(crate) fn provider_tool_call_id_from_metadata(metadata: &Value) -> Option<String> {
+    PROVIDER_TOOL_CALL_ID_KEYS
+        .iter()
+        .filter_map(|key| metadata.get(*key))
+        .find_map(|value| {
+            value
+                .as_str()
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(str::to_string)
+        })
+}
+
+pub(crate) fn provider_tool_call_id_from_payload(payload: &Value) -> Option<String> {
+    payload
+        .get(PROVIDER_TOOL_CALL_META_KEY)
+        .and_then(provider_tool_call_id_from_metadata)
+}
 
 fn remove_provider_tool_call_metadata(arguments: &mut Value) -> Option<Value> {
     arguments
@@ -844,7 +871,7 @@ pub(super) fn openai_assistant_tool_call_message(tool: &ToolReplayMessage) -> Va
         }]
     });
     if let Some(extra_content) = tool.extra_content.as_ref() {
-        message["tool_calls"][0]["extra_content"] = extra_content.clone();
+        message["tool_calls"][0][PROVIDER_TOOL_CALL_EXTRA_CONTENT_KEY] = extra_content.clone();
     }
     message
 }
@@ -2897,12 +2924,9 @@ mod tests {
             .as_str()
             .unwrap();
         let arguments = serde_json::from_str::<Value>(raw_arguments).unwrap();
-        assert_eq!(
-            arguments["__agentToolArgumentsCorruption"]["tool"],
-            "terminal"
-        );
+        assert_eq!(arguments[TOOL_CALL_ARGUMENTS_CORRUPTION_KEY]["tool"], "terminal");
         assert!(
-            arguments["__agentToolArgumentsCorruption"]["originalPreview"]
+            arguments[TOOL_CALL_ARGUMENTS_CORRUPTION_KEY]["originalPreview"]
                 .as_str()
                 .unwrap()
                 .contains("not-json")

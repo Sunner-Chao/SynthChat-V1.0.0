@@ -324,6 +324,627 @@ export interface ToolEventEnvelope {
   event: ToolEvent;
 }
 
+export type WorkflowNodeName =
+  | "queue"
+  | "group_room"
+  | "planner"
+  | "executor"
+  | "approval"
+  | "checkpoint"
+  | "reviewer"
+  | (string & {});
+
+export type WorkflowNodeStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "waiting"
+  | "failed"
+  | "canceled"
+  | "skipped"
+  | (string & {});
+
+export const WORKFLOW_REASON_QUEUED_TURN = "queued_turn" as const;
+export const WORKFLOW_REASON_DIRECT_TURN = "direct_turn" as const;
+export const WORKFLOW_REASON_GROUP_CONTEXT_READY = "group_context_ready" as const;
+export const WORKFLOW_REASON_NO_GROUP_ROOM_CONTEXT = "no_group_room_context" as const;
+export const WORKFLOW_REASON_TOOL_CALLS = "tool_calls" as const;
+export const WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED = "tool_observations_recorded" as const;
+export const WORKFLOW_REASON_APPROVAL_REQUIRED = "approval_required" as const;
+export const WORKFLOW_REASON_APPROVAL_RESUMED = "approval_resumed" as const;
+export const WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT = "clarify_requires_user_input" as const;
+export const WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT = "future_checkpoint_wait" as const;
+export const WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED = "resume_checkpoint_requested" as const;
+export const WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED = "resume_checkpoint_continued" as const;
+export const WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE = "final_answer_candidate" as const;
+export const WORKFLOW_REASON_DELEGATE_TASK_STARTED = "delegate_task_started" as const;
+export const WORKFLOW_REASON_DELEGATE_TASK_COMPLETED = "delegate_task_completed" as const;
+export const WORKFLOW_REASON_DELEGATE_TASK_FAILED = "delegate_task_failed" as const;
+
+export type WorkflowTransitionReason =
+  | typeof WORKFLOW_REASON_QUEUED_TURN
+  | typeof WORKFLOW_REASON_DIRECT_TURN
+  | typeof WORKFLOW_REASON_GROUP_CONTEXT_READY
+  | typeof WORKFLOW_REASON_NO_GROUP_ROOM_CONTEXT
+  | typeof WORKFLOW_REASON_TOOL_CALLS
+  | typeof WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED
+  | typeof WORKFLOW_REASON_APPROVAL_REQUIRED
+  | typeof WORKFLOW_REASON_APPROVAL_RESUMED
+  | typeof WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT
+  | typeof WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT
+  | typeof WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED
+  | typeof WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED
+  | typeof WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+  | typeof WORKFLOW_REASON_DELEGATE_TASK_STARTED
+  | typeof WORKFLOW_REASON_DELEGATE_TASK_COMPLETED
+  | typeof WORKFLOW_REASON_DELEGATE_TASK_FAILED
+  | (string & {});
+
+export const WORKFLOW_TRANSITION_REASON_ORDER: readonly WorkflowTransitionReason[] = [
+  WORKFLOW_REASON_QUEUED_TURN,
+  WORKFLOW_REASON_DIRECT_TURN,
+  WORKFLOW_REASON_GROUP_CONTEXT_READY,
+  WORKFLOW_REASON_NO_GROUP_ROOM_CONTEXT,
+  WORKFLOW_REASON_TOOL_CALLS,
+  WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED,
+  WORKFLOW_REASON_APPROVAL_REQUIRED,
+  WORKFLOW_REASON_APPROVAL_RESUMED,
+  WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT,
+  WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT,
+  WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED,
+  WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED,
+  WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+  WORKFLOW_REASON_DELEGATE_TASK_STARTED,
+  WORKFLOW_REASON_DELEGATE_TASK_COMPLETED,
+  WORKFLOW_REASON_DELEGATE_TASK_FAILED
+];
+
+export const WORKFLOW_GRAPH_SCHEMA = "synthgraph_workflow_v1" as const;
+export const WORKFLOW_RUNTIME_EVENTS_SCHEMA = "synthgraph_workflow_runtime_events_v1" as const;
+export const TOOL_CALL_PROTOCOL_SCHEMA = "synthgraph_tool_call_protocol_v1" as const;
+export const WORKFLOW_RUNTIME_SOURCE = "agent_run.workflow_graph" as const;
+export const WORKFLOW_PHASE_INITIALIZED = "workflow_graph_initialized" as const;
+export const WORKFLOW_PHASE_NODE = "workflow_node" as const;
+export const WORKFLOW_PHASE_TRANSITION = "workflow_transition" as const;
+export const WORKFLOW_RUNTIME_KIND_PREFIX = "workflow_" as const;
+export const WORKFLOW_RUNTIME_KIND_SNAPSHOT = "workflow_snapshot" as const;
+export const WORKFLOW_RUNTIME_KIND_TRANSITION = WORKFLOW_PHASE_TRANSITION;
+export const WORKFLOW_RUNTIME_NODE_KIND_PREFIX = "workflow_node_" as const;
+export const WORKFLOW_NODE_ORDER: readonly string[] = ["queue", "group_room", "planner", "executor", "approval", "checkpoint", "reviewer"];
+export const WORKFLOW_STATUS_ORDER: readonly string[] = ["failed", "canceled", "waiting", "running", "pending", "completed", "skipped"];
+export const WORKFLOW_STATUS_LABELS: Record<string, string> = {
+  pending: "pending",
+  running: "running",
+  completed: "completed",
+  waiting: "waiting",
+  failed: "failed",
+  canceled: "canceled",
+  skipped: "skipped"
+};
+export const WORKFLOW_NODE_ROLE_LABELS: Record<string, string> = {
+  queue: "queue admission",
+  group_room: "group context",
+  planner: "decision planning",
+  executor: "tool execution",
+  approval: "human approval gate",
+  checkpoint: "state checkpoint",
+  reviewer: "final review"
+};
+
+export function workflowNodeRoleLabel(node?: string | null): string {
+  if (!node) return "";
+  return WORKFLOW_NODE_ROLE_LABELS[node] ?? "custom workflow node";
+}
+
+export function workflowNodeDisplayLabel(node?: string | null): string {
+  return node ? node.replace(/_/g, " ") : "-";
+}
+
+export function workflowStatusDisplayLabel(status?: string | null): string {
+  if (!status) return "";
+  return WORKFLOW_STATUS_LABELS[status] ?? status.replace(/_/g, " ");
+}
+
+export const WORKFLOW_TRANSITION_REASON_LABELS: Record<string, string> = {
+  queued_turn: "queued turn",
+  direct_turn: "direct turn",
+  group_context_ready: "group context ready",
+  no_group_room_context: "no group context",
+  tool_calls: "tool calls",
+  tool_observations_recorded: "tool observations recorded",
+  approval_required: "approval required",
+  approval_resumed: "approval resumed",
+  clarify_requires_user_input: "clarify requires user input",
+  future_checkpoint_wait: "future checkpoint wait",
+  resume_checkpoint_requested: "resume checkpoint requested",
+  resume_checkpoint_continued: "resume checkpoint continued",
+  final_answer_candidate: "final answer candidate",
+  delegate_task_started: "delegate task started",
+  delegate_task_completed: "delegate task completed",
+  delegate_task_failed: "delegate task failed"
+};
+
+export function workflowTransitionReasonLabel(reason?: string | null): string {
+  if (!reason) return "transition";
+  return WORKFLOW_TRANSITION_REASON_LABELS[reason] ?? reason.replace(/_/g, " ");
+}
+
+export interface WorkflowGraphNode {
+  node: WorkflowNodeName;
+  role?: string | null;
+  status: WorkflowNodeStatus;
+  detail?: unknown;
+  eventSequence?: number | null;
+  event_sequence?: number | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+}
+
+export interface WorkflowGraphTransition {
+  from?: WorkflowNodeName | null;
+  to?: WorkflowNodeName | null;
+  reason?: WorkflowTransitionReason | null;
+  topologyEdgeKnown?: boolean | null;
+  topology_edge_known?: boolean | null;
+  topologyReasonKnown?: boolean | null;
+  topology_reason_known?: boolean | null;
+  topologyEdgeSource?: string | null;
+  topology_edge_source?: string | null;
+  topologyEdgeLabel?: string | null;
+  topology_edge_label?: string | null;
+  detail?: unknown;
+  eventSequence?: number | null;
+  event_sequence?: number | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+}
+
+export interface WorkflowGraph {
+  schema?: typeof WORKFLOW_GRAPH_SCHEMA | (string & {});
+  mode?: "chat_turn" | "approval_continuation" | "recovered" | string;
+  requestSource?: string;
+  request_source?: string;
+  toolContext?: string;
+  tool_context?: string;
+  currentNode?: WorkflowNodeName | null;
+  current_node?: WorkflowNodeName | null;
+  currentStatus?: WorkflowNodeStatus | null;
+  current_status?: WorkflowNodeStatus | null;
+  nodes?: WorkflowGraphNode[];
+  transitions?: WorkflowGraphTransition[];
+  lastEventSequence?: number | null;
+  last_event_sequence?: number | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+}
+
+export interface WorkflowDetailContract {
+  nodeStatuses?: string[];
+  entryPoints?: string[];
+  transitionReasons?: WorkflowTransitionReason[];
+  stableFields?: string[];
+  phaseValues?: string[];
+  childSummaryFields?: string[];
+  resultSummaryFields?: string[];
+  transitionDetailFields?: string[];
+  [key: string]: unknown;
+}
+
+export interface WorkflowApiRunEventSurface {
+  endpoint?: "/v1/runs/{run_id}/events" | string;
+  streaming?: boolean;
+  sse?: boolean;
+  object?: "hermes.run.event" | string;
+  types?: string[];
+  envelopeFields?: string[];
+  payloadField?: "data" | string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowDashboardRuntimeEventSurface {
+  endpoint?: "/api/plugins/kanban/runtime-events" | string;
+  sseEndpoint?: "/api/plugins/kanban/runtime-events/stream" | string;
+  schema?: "hermes_kanban_runtime_events_desktop_v1" | string;
+  source?: typeof WORKFLOW_RUNTIME_SOURCE | (string & {});
+  kinds?: string[];
+  envelopeFields?: string[];
+  payloadField?: "payload" | string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowTauriRunEventSurface {
+  event?: "synthchat-agent-run-event" | string;
+  payloadField?: "workflowGraph" | string;
+  payloadAliases?: string[];
+  phaseDetailSequenceAliases?: string[];
+  mergeStrategy?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowRuntimeEventSurfaces {
+  apiRunEvents?: WorkflowApiRunEventSurface;
+  dashboardRuntimeEvents?: WorkflowDashboardRuntimeEventSurface;
+  tauriRunEvent?: WorkflowTauriRunEventSurface;
+  [key: string]: unknown;
+}
+
+export interface WorkflowTopologyEdgeContract {
+  from?: WorkflowNodeName | string;
+  to?: WorkflowNodeName | string;
+  reasons?: WorkflowTransitionReason[];
+  source?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowTopologyContract {
+  entryNode?: WorkflowNodeName | string;
+  bootstrapCurrentNode?: WorkflowNodeName | string;
+  terminalPatterns?: string[];
+  edges?: WorkflowTopologyEdgeContract[];
+  purpose?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowStateMachineNodeDriverContract {
+  accessor?: string;
+  nodeType?: string;
+  recorders?: string[];
+  statusWrites?: string[];
+  [key: string]: unknown;
+}
+
+export interface WorkflowStateMachineContract {
+  driver?: string;
+  modeSource?: string;
+  layering?: Record<string, unknown>;
+  nodeDrivers?: Record<string, WorkflowStateMachineNodeDriverContract>;
+  statusSemantics?: Record<string, string>;
+  terminalPolicy?: Record<string, unknown>;
+  edgePolicy?: Record<string, unknown>;
+  sourceBoundaries?: Record<string, string[]>;
+  clientMergeContract?: string;
+  purpose?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowGraphPayloadAliasGuarantee {
+  appliesTo?: string[];
+  rootAliases?: string[];
+  nodeAliases?: string[];
+  transitionAliases?: string[];
+  detailAliases?: string[];
+  purpose?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowClientMergeContract {
+  frontendStore?: string;
+  snapshotStrategy?: string;
+  detailAliasNormalizer?: string;
+  nodeUpdatePolicy?: string;
+  transitionPolicy?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowGraphRuntimeContract {
+  schema?: typeof WORKFLOW_RUNTIME_EVENTS_SCHEMA | (string & {});
+  source?: typeof WORKFLOW_RUNTIME_SOURCE | (string & {});
+  nodeOrder?: string[];
+  statusOrder?: string[];
+  transitionReasonOrder?: WorkflowTransitionReason[];
+  nodeRoles?: Record<string, string>;
+  topology?: WorkflowTopologyContract | null;
+  stateMachine?: WorkflowStateMachineContract | null;
+  state_machine?: WorkflowStateMachineContract | null;
+  eventKinds?: string[];
+  apiRunEventKinds?: string[];
+  runtimeEventKindMap?: Record<string, string>;
+  eventSurfaces?: WorkflowRuntimeEventSurfaces | null;
+  graphRootFields?: string[];
+  summaryFields?: string[];
+  payloadBuilders?: Record<string, string>;
+  runtimeContractAliasBuilder?: string;
+  runtimeContractAliases?: string[];
+  runResponseAliases?: Record<string, string>;
+  snapshotPayload?: Record<string, unknown>;
+  graphPayloadAliasGuarantee?: WorkflowGraphPayloadAliasGuarantee;
+  clientMergeContract?: WorkflowClientMergeContract;
+  client_merge_contract?: WorkflowClientMergeContract;
+  nodePayload?: Record<string, unknown>;
+  transitionPayload?: Record<string, unknown>;
+  detailContracts?: Record<string, WorkflowDetailContract>;
+  ordering?: string;
+  purpose?: string;
+}
+
+export interface ToolCallArgumentNormalizationContract {
+  providerHelper?: string;
+  plannerHelper?: string;
+  emptyString?: "{}" | string;
+  noneLiteral?: "{}" | string;
+  repairPolicy?: string;
+  corruptionMarkerKey?: string;
+  corruptionMarkerMessage?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallProviderAdapterBoundary {
+  llmReplyContentBridge?: boolean;
+  plannerEntryPoints?: string[];
+  normalizedProviders?: string[];
+  normalizedContentShape?: Record<string, unknown>;
+  argumentNormalization?: ToolCallArgumentNormalizationContract;
+  providerDataRole?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallProviderNativeInputShape {
+  sourceKeys?: string[];
+  normalizedMetadataKey?: string;
+  callIdLookupKeys?: string[];
+  metadataPolicy?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallHermesMarkupInputShape {
+  shape?: string;
+  decisionOriginMetadataKey?: string;
+  originValue?: "hermes_markup" | string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallPlannerFieldAliases {
+  actionKeys?: string[];
+  toolActionValues?: string[];
+  useToolKeys?: string[];
+  singleCallNameKeys?: string[];
+  singleCallArgumentKeys?: string[];
+  multiCallArrayKeys?: string[];
+  functionObjectKeys?: string[];
+  [key: string]: unknown;
+}
+
+export interface ToolCallAcceptedInputShapes {
+  plannerJson?: Record<string, unknown>[];
+  fieldAliases?: ToolCallPlannerFieldAliases;
+  providerNative?: ToolCallProviderNativeInputShape;
+  hermesMarkup?: ToolCallHermesMarkupInputShape;
+  [key: string]: unknown;
+}
+
+export interface ToolCallCanonicalizationPipelineStage {
+  stage?: string;
+  inputOrigins?: string[];
+  entryPoints?: string[];
+  output?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallValidationContract {
+  plannerValidationEntry?: string;
+  plannerCanonicalValidationEntry?: string;
+  sharedSchemaValidator?: string;
+  definitionResolution?: string;
+  internalToolSchemaSource?: string;
+  schemaCombinators?: string[];
+  schemaCombinatorPolicy?: string;
+  additionalPropertiesPolicy?: string;
+  payloadNormalization?: string;
+  errorKinds?: string[];
+  metadataStripping?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallValidationPipelineStage {
+  stage?: string;
+  entryPoint?: string;
+  policy?: string;
+  errorKind?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallWorkflowGraphObservabilityContract {
+  source?: typeof WORKFLOW_RUNTIME_SOURCE | (string & {});
+  plannerDetailFields?: string[];
+  executorDetailFields?: string[];
+  transitionReason?: WorkflowTransitionReason | string;
+  protocolValue?: string;
+  summaryPolicy?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallApprovedReplayContract {
+  trustedContext?: string;
+  markerKey?: string;
+  scope?: string;
+  markerPolicy?: string;
+  authorizationPolicy?: string;
+  [key: string]: unknown;
+}
+
+export interface BridgeToolCallWorkflowGraphStageContract {
+  node?: WorkflowNodeName | string;
+  status?: WorkflowNodeStatus | string;
+  stage?: string;
+  detailFields?: string[];
+  bridgeStatusValues?: string[];
+  completionCarryForward?: string[];
+  records?: string;
+  [key: string]: unknown;
+}
+
+export interface BridgeToolCallContract {
+  name?: "tool_call" | string;
+  payloadShape?: Record<string, unknown>;
+  targetAliases?: string[];
+  argumentAliases?: string[];
+  blockedTargets?: string[];
+  targetValidation?: string;
+  directExecutionValidation?: string;
+  directContextBoundary?: string;
+  directApprovalBoundary?: string;
+  workflowGraphStage?: BridgeToolCallWorkflowGraphStageContract;
+  approvedReplay?: ToolCallApprovedReplayContract;
+  riskPolicy?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallExecutionBoundary {
+  internalTools?: string;
+  mcpTools?: string;
+  approvals?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolCallProtocolContract {
+  schema?: typeof TOOL_CALL_PROTOCOL_SCHEMA | (string & {});
+  canonicalShape?: string;
+  canonicalFields?: Record<string, unknown>;
+  acceptedOrigins?: string[];
+  canonicalizationPipeline?: ToolCallCanonicalizationPipelineStage[];
+  providerAdapterBoundary?: ToolCallProviderAdapterBoundary;
+  acceptedInputShapes?: ToolCallAcceptedInputShapes;
+  validation?: ToolCallValidationContract;
+  validationPipeline?: ToolCallValidationPipelineStage[];
+  workflowGraphObservability?: ToolCallWorkflowGraphObservabilityContract;
+  bridgeToolCall?: BridgeToolCallContract;
+  executionBoundary?: ToolCallExecutionBoundary;
+  purpose?: string;
+}
+
+export interface AgentRuntimeContracts {
+  workflowGraph?: WorkflowGraphRuntimeContract | null;
+  workflow_graph?: WorkflowGraphRuntimeContract | null;
+  toolCallProtocol?: ToolCallProtocolContract | null;
+  tool_call_protocol?: ToolCallProtocolContract | null;
+}
+
+export type AgentRuntimeContractsCarrier = {
+  workflowGraphRuntimeContract?: WorkflowGraphRuntimeContract | null;
+  workflow_graph_runtime_contract?: WorkflowGraphRuntimeContract | null;
+  toolCallProtocolContract?: ToolCallProtocolContract | null;
+  tool_call_protocol_contract?: ToolCallProtocolContract | null;
+  agentRuntimeContracts?: AgentRuntimeContracts | null;
+  agent_runtime_contracts?: AgentRuntimeContracts | null;
+  runtimeContracts?: AgentRuntimeContracts | null;
+  runtime_contracts?: AgentRuntimeContracts | null;
+};
+
+function agentRuntimeContractsPresent(
+  contracts?: AgentRuntimeContracts | null
+): contracts is AgentRuntimeContracts {
+  return Boolean(
+    contracts?.workflowGraph
+      ?? contracts?.workflow_graph
+      ?? contracts?.toolCallProtocol
+      ?? contracts?.tool_call_protocol
+  );
+}
+
+export function agentRuntimeContractsValue(
+  source?: AgentRuntimeContractsCarrier | null
+): AgentRuntimeContracts | null {
+  return [
+    source?.agentRuntimeContracts,
+    source?.agent_runtime_contracts,
+    source?.runtimeContracts,
+    source?.runtime_contracts
+  ].find(agentRuntimeContractsPresent) ?? null;
+}
+
+export function workflowGraphRuntimeContractValue(
+  source?: AgentRuntimeContractsCarrier | null
+): WorkflowGraphRuntimeContract | null {
+  const contracts = agentRuntimeContractsValue(source);
+  return source?.workflowGraphRuntimeContract
+    ?? source?.workflow_graph_runtime_contract
+    ?? contracts?.workflowGraph
+    ?? contracts?.workflow_graph
+    ?? null;
+}
+
+export function toolCallProtocolContractValue(
+  source?: AgentRuntimeContractsCarrier | null
+): ToolCallProtocolContract | null {
+  const contracts = agentRuntimeContractsValue(source);
+  return source?.toolCallProtocolContract
+    ?? source?.tool_call_protocol_contract
+    ?? contracts?.toolCallProtocol
+    ?? contracts?.tool_call_protocol
+    ?? null;
+}
+
+export interface WorkflowRuntimeSummary {
+  schema?: typeof WORKFLOW_GRAPH_SCHEMA | (string & {});
+  mode?: WorkflowGraph["mode"] | string | null;
+  requestSource?: string | null;
+  request_source?: string | null;
+  toolContext?: string | null;
+  tool_context?: string | null;
+  currentNode?: WorkflowNodeName | null;
+  current_node?: WorkflowNodeName | null;
+  currentStatus?: WorkflowNodeStatus | null;
+  current_status?: WorkflowNodeStatus | null;
+  lastEventSequence?: number | null;
+  last_event_sequence?: number | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+  nodeCount?: number;
+  node_count?: number;
+  transitionCount?: number;
+  transition_count?: number;
+  statusCounts?: Record<string, number>;
+  status_counts?: Record<string, number>;
+  toolOrigins?: string[];
+  tool_origins?: string[];
+}
+
+export interface WorkflowSnapshotRuntimePayload {
+  summary?: WorkflowRuntimeSummary | null;
+  workflowSummary?: WorkflowRuntimeSummary | null;
+  workflow_summary?: WorkflowRuntimeSummary | null;
+  graph?: WorkflowGraph | null;
+  workflowGraph?: WorkflowGraph | null;
+  workflow_graph?: WorkflowGraph | null;
+}
+
+export interface WorkflowNodeRuntimePayload {
+  node?: WorkflowNodeName | null;
+  role?: string | null;
+  status?: WorkflowNodeStatus | null;
+  detail?: unknown;
+  eventSequence?: number | null;
+  event_sequence?: number | null;
+  graphSummary?: WorkflowRuntimeSummary | null;
+  graph_summary?: WorkflowRuntimeSummary | null;
+}
+
+export interface WorkflowTransitionRuntimePayload {
+  from?: WorkflowNodeName | null;
+  to?: WorkflowNodeName | null;
+  reason?: WorkflowTransitionReason | null;
+  topologyEdgeKnown?: boolean | null;
+  topology_edge_known?: boolean | null;
+  topologyReasonKnown?: boolean | null;
+  topology_reason_known?: boolean | null;
+  topologyEdgeSource?: string | null;
+  topology_edge_source?: string | null;
+  topologyEdgeLabel?: string | null;
+  topology_edge_label?: string | null;
+  detail?: unknown;
+  eventSequence?: number | null;
+  event_sequence?: number | null;
+  graphSummary?: WorkflowRuntimeSummary | null;
+  graph_summary?: WorkflowRuntimeSummary | null;
+}
+
+export type WorkflowRuntimeEventKind =
+  | typeof WORKFLOW_RUNTIME_KIND_SNAPSHOT
+  | typeof WORKFLOW_RUNTIME_KIND_TRANSITION
+  | `${typeof WORKFLOW_RUNTIME_NODE_KIND_PREFIX}${WorkflowNodeStatus}`;
+
+export type AgentRuntimeEventKind = WorkflowRuntimeEventKind | (string & {});
+
 export interface AgentRunRecord {
   runId: string;
   conversationId: string;
@@ -350,6 +971,150 @@ export interface AgentRunRecord {
   phaseEvents?: AgentRunPhase[];
   checkpoints?: AgentCheckpointRecord[];
   pendingSteers?: string[];
+  workflowGraph?: WorkflowGraph | null;
+  workflow_graph?: WorkflowGraph | null;
+}
+
+export type AgentRunWorkflowGraphCarrier = {
+  workflowGraph?: WorkflowGraph | null;
+  workflow_graph?: WorkflowGraph | null;
+};
+
+export function agentRunWorkflowGraph(run?: AgentRunWorkflowGraphCarrier | null): WorkflowGraph | null {
+  return run?.workflowGraph ?? run?.workflow_graph ?? null;
+}
+
+export function workflowGraphCurrentNodeValue(graph?: WorkflowGraph | null): WorkflowNodeName | null {
+  return graph?.currentNode
+    ?? graph?.current_node
+    ?? graph?.nodes?.find((node) => node.status === "running")?.node
+    ?? null;
+}
+
+export function workflowGraphCurrentStatusValue(
+  graph?: WorkflowGraph | null,
+  currentNode: WorkflowNodeName | null = workflowGraphCurrentNodeValue(graph)
+): WorkflowNodeStatus | null {
+  return graph?.currentStatus
+    ?? graph?.current_status
+    ?? graph?.nodes?.find((node) => node.node === currentNode)?.status
+    ?? null;
+}
+
+export function workflowGraphRequestSourceValue(graph?: WorkflowGraph | null): string | null {
+  return graph?.requestSource ?? graph?.request_source ?? null;
+}
+
+export function workflowGraphToolContextValue(graph?: WorkflowGraph | null): string | null {
+  return graph?.toolContext ?? graph?.tool_context ?? null;
+}
+
+export function workflowGraphLastEventSequenceValue(graph?: WorkflowGraph | null): number | null {
+  return graph?.lastEventSequence ?? graph?.last_event_sequence ?? null;
+}
+
+export function workflowGraphUpdatedAtValue(graph?: WorkflowGraph | null): string | null {
+  return graph?.updatedAt ?? graph?.updated_at ?? null;
+}
+
+export function workflowTransitionSequenceValue(transition: WorkflowGraphTransition): number | null {
+  return transition.eventSequence ?? transition.event_sequence ?? null;
+}
+
+export function workflowTransitionUpdatedAtValue(transition: WorkflowGraphTransition): string | null {
+  return transition.updatedAt ?? transition.updated_at ?? null;
+}
+
+export function workflowRuntimeSummaryCurrentNodeValue(
+  summary?: WorkflowRuntimeSummary | null
+): WorkflowNodeName | null {
+  return summary?.currentNode ?? summary?.current_node ?? null;
+}
+
+export function workflowRuntimeSummaryCurrentStatusValue(
+  summary?: WorkflowRuntimeSummary | null
+): WorkflowNodeStatus | null {
+  return summary?.currentStatus ?? summary?.current_status ?? null;
+}
+
+export function workflowRuntimeSummaryRequestSourceValue(summary?: WorkflowRuntimeSummary | null): string | null {
+  return summary?.requestSource ?? summary?.request_source ?? null;
+}
+
+export function workflowRuntimeSummaryToolContextValue(summary?: WorkflowRuntimeSummary | null): string | null {
+  return summary?.toolContext ?? summary?.tool_context ?? null;
+}
+
+export function workflowRuntimeSummaryToolOriginsValue(summary?: WorkflowRuntimeSummary | null): string[] {
+  return summary?.toolOrigins ?? summary?.tool_origins ?? [];
+}
+
+export function workflowRuntimeSummaryNodeCountValue(summary?: WorkflowRuntimeSummary | null): number | null {
+  return summary?.nodeCount ?? summary?.node_count ?? null;
+}
+
+export function workflowRuntimeSummaryTransitionCountValue(summary?: WorkflowRuntimeSummary | null): number | null {
+  return summary?.transitionCount ?? summary?.transition_count ?? null;
+}
+
+export function workflowRuntimePayloadEventSequenceValue(
+  payload?: WorkflowNodeRuntimePayload | WorkflowTransitionRuntimePayload | null
+): number | null {
+  return payload?.eventSequence ?? payload?.event_sequence ?? null;
+}
+
+function workflowRecordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function isWorkflowRuntimeSummaryValue(value: unknown): value is WorkflowRuntimeSummary {
+  const record = workflowRecordValue(value);
+  if (!record) return false;
+  return Boolean(
+    record.currentNode
+      ?? record.current_node
+      ?? record.currentStatus
+      ?? record.current_status
+      ?? record.requestSource
+      ?? record.request_source
+      ?? record.toolContext
+      ?? record.tool_context
+      ?? record.toolOrigins
+      ?? record.tool_origins
+      ?? record.nodeCount
+      ?? record.node_count
+      ?? record.transitionCount
+      ?? record.transition_count
+      ?? record.statusCounts
+      ?? record.status_counts
+  );
+}
+
+function isWorkflowGraphValue(value: unknown): value is WorkflowGraph {
+  const record = workflowRecordValue(value);
+  if (!record) return false;
+  return record.schema === WORKFLOW_GRAPH_SCHEMA
+    || Array.isArray(record.nodes)
+    || Array.isArray(record.transitions)
+    || Boolean(record.currentNode ?? record.current_node);
+}
+
+export function workflowSnapshotRuntimeSummaryValue(
+  payload?: WorkflowSnapshotRuntimePayload | null
+): WorkflowRuntimeSummary | null {
+  const summary = payload?.summary ?? payload?.workflowSummary ?? payload?.workflow_summary;
+  if (summary) return summary;
+  return isWorkflowRuntimeSummaryValue(payload) ? payload : null;
+}
+
+export function workflowSnapshotRuntimeGraphValue(
+  payload?: WorkflowSnapshotRuntimePayload | null
+): WorkflowGraph | null {
+  const graph = payload?.graph ?? payload?.workflowGraph ?? payload?.workflow_graph;
+  if (graph) return graph;
+  return isWorkflowGraphValue(payload) ? payload : null;
 }
 
 export interface ToolArtifactRecord {
@@ -393,6 +1158,8 @@ export interface AgentRunEvent {
   accumulatedPhases?: AgentRunPhase[];
   phase?: string | null;
   detail?: unknown | null;
+  workflowGraph?: WorkflowGraph | null;
+  workflow_graph?: WorkflowGraph | null;
   error?: string | null;
   updatedAt: string;
   lastActivityAt?: string | null;
@@ -497,7 +1264,7 @@ export interface AgentQueuedRequest {
 
 export interface AgentRuntimeEvent {
   id: number;
-  kind: string;
+  kind: AgentRuntimeEventKind;
   source: string;
   status?: string | null;
   conversationId?: string | null;
@@ -529,6 +1296,14 @@ export interface AgentRuntimeEventStream {
   websocketEmbedded?: boolean;
   nativeRuntimeEventBridge?: boolean;
   sources?: string[];
+  workflowGraphRuntimeContract?: WorkflowGraphRuntimeContract | null;
+  workflow_graph_runtime_contract?: WorkflowGraphRuntimeContract | null;
+  toolCallProtocolContract?: ToolCallProtocolContract | null;
+  tool_call_protocol_contract?: ToolCallProtocolContract | null;
+  agentRuntimeContracts?: AgentRuntimeContracts | null;
+  agent_runtime_contracts?: AgentRuntimeContracts | null;
+  runtimeContracts?: AgentRuntimeContracts | null;
+  runtime_contracts?: AgentRuntimeContracts | null;
 }
 
 export interface KanbanDispatchDrainResult {

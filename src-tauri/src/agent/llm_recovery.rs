@@ -14,6 +14,7 @@ use crate::{
     hermes_auth::{
         mark_hermes_credential_pool_failure, mark_hermes_credential_pool_failure_for_source,
     },
+    llm::PROVIDER_TOOL_CALL_META_KEY,
     model_catalog,
     models::{
         new_id, now_iso, AgentCheckpointRecord, AgentRunRecord, ChatConfig, ChatMessage,
@@ -1399,7 +1400,7 @@ fn stub_tool_result_message(conversation_id: &str, stub: &ToolCallStub) -> ChatM
     };
     if let Some(object) = payload.as_object_mut() {
         object.insert(
-            "__agentProviderToolCall".into(),
+            PROVIDER_TOOL_CALL_META_KEY.into(),
             json!({
                 "id": stub.id,
                 "call_id": stub.id,

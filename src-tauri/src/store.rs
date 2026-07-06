@@ -20,14 +20,16 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use crate::{
     agent::decode_terminal_output,
     error::{AppError, AppResult},
+    llm::provider_tool_call_id_from_payload,
     models::{
         new_id, now_iso, AgentCheckpointRecord, AgentDefinition, AgentQueuedRequest,
-        AgentRunRecord, AgentTodoItem, AppConfig, BrowserProvider, CapabilityAdapter, ChatMessage,
-        Conversation, EnhancedSkillSummary, FileStateReaderRecord, FileStateRecord, ImageProvider,
-        LlmProvider, MemoryEntry, Persona, PlannerTraceRecord, PluginSummary, ProfileConfig,
-        ScheduledAgentJob, ScheduledJobOutputRecord, SearchProvider, ShortContextState,
-        ToolApprovalRequest, ToolDefinition, ToolEvent, ToolRouterTraceRecord, ToolTraceEntry,
-        VideoProvider, VisionProvider,
+        AgentRunPhaseRecord, AgentRunRecord, AgentTodoItem, AppConfig, BrowserProvider,
+        CapabilityAdapter, ChatMessage, Conversation, EnhancedSkillSummary,
+        FileStateReaderRecord, FileStateRecord, ImageProvider, LlmProvider, MemoryEntry, Persona,
+        PlannerTraceRecord, PluginSummary, ProfileConfig, ScheduledAgentJob,
+        ScheduledJobOutputRecord, SearchProvider, ShortContextState, ToolApprovalRequest,
+        ToolDefinition, ToolEvent, ToolRouterTraceRecord, ToolTraceEntry, VideoProvider,
+        VisionProvider,
     },
     process_utils::CommandWindowExt,
     threat_patterns::{first_threat_message, ThreatScope},
@@ -5535,11 +5537,11 @@ fn normalize_stale_landed_write_file_runs(state: &mut PersistedState) -> bool {
                 state: "recovered_landed_write_file".into(),
                 completed_call_ids: recovered_events
                     .iter()
-                    .filter_map(|event| tool_event_provider_call_id(event).map(str::to_string))
+                    .filter_map(tool_event_provider_call_id)
                     .collect(),
                 event_refs: recovered_events
                     .iter()
-                    .filter_map(|event| tool_event_provider_call_id(event).map(str::to_string))
+                    .filter_map(tool_event_provider_call_id)
                     .collect(),
                 summary:
                     "Recovered stale running write_file event after verified file write landed."
@@ -6277,11 +6279,21 @@ fn replace_run_tool_event_with_completed(run: &mut AgentRunRecord, event: &Value
         if let Some(index) = run
             .tool_events
             .iter()
-            .position(|candidate| tool_event_provider_call_id(candidate) == Some(call_id))
+            .position(|candidate| {
+                tool_event_provider_call_id(candidate).as_deref() == Some(call_id.as_str())
+            })
         {
             run.tool_events[index] = event.clone();
             return;
         }
+    }
+    if let Some(index) = run
+        .tool_events
+        .iter()
+        .position(|candidate| tool_event_identity_matches(candidate, event))
+    {
+        run.tool_events[index] = event.clone();
+        return;
     }
     run.tool_events.push(event.clone());
 }
@@ -6703,8 +6715,8 @@ fn message_tool_event(message: &ChatMessage) -> Option<Value> {
 
 fn tool_event_identity_matches(left: &Value, right: &Value) -> bool {
     match (
-        tool_event_provider_call_id(left),
-        tool_event_provider_call_id(right),
+        tool_event_raw_payload_provider_call_id(left),
+        tool_event_raw_payload_provider_call_id(right),
     ) {
         (Some(left_id), Some(right_id)) => return left_id == right_id,
         (Some(_), None) | (None, Some(_)) => return false,
@@ -6719,8 +6731,8 @@ fn tool_event_identity_matches(left: &Value, right: &Value) -> bool {
 
 fn tool_event_payload_matches(left: &Value, right: &Value) -> bool {
     match (
-        tool_event_provider_call_id(left),
-        tool_event_provider_call_id(right),
+        tool_event_raw_payload_provider_call_id(left),
+        tool_event_raw_payload_provider_call_id(right),
     ) {
         (Some(left_id), Some(right_id)) => return left_id == right_id,
         (Some(_), None) | (None, Some(_)) => return false,
@@ -6735,27 +6747,23 @@ fn tool_event_payload_matches(left: &Value, right: &Value) -> bool {
     }
 }
 
-fn tool_event_provider_call_id(event: &Value) -> Option<&str> {
+fn tool_event_raw_payload_provider_call_id(event: &Value) -> Option<String> {
+    event
+        .get("raw")
+        .and_then(|raw| raw.get("payload"))
+        .and_then(provider_tool_call_id_from_payload)
+}
+
+fn tool_event_provider_call_id(event: &Value) -> Option<String> {
     if let Some(call_id) = event
         .get("callId")
         .or_else(|| event.get("call_id"))
         .and_then(Value::as_str)
         .filter(|call_id| !call_id.trim().is_empty())
     {
-        return Some(call_id);
+        return Some(call_id.trim().to_string());
     }
-    event
-        .get("raw")
-        .and_then(|raw| raw.get("payload"))
-        .and_then(|payload| payload.get("__agentProviderToolCall"))
-        .and_then(|metadata| {
-            metadata
-                .get("id")
-                .or_else(|| metadata.get("call_id"))
-                .or_else(|| metadata.get("tool_call_id"))
-                .or_else(|| metadata.get("toolCallId"))
-        })
-        .and_then(Value::as_str)
+    tool_event_raw_payload_provider_call_id(event)
 }
 
 fn mark_agent_run_aborted(run: &mut AgentRunRecord, now: &str, summary: &str) -> Vec<Value> {
@@ -6773,7 +6781,163 @@ fn mark_agent_run_aborted(run: &mut AgentRunRecord, now: &str, summary: &str) ->
     run.error = Some(summary.to_string());
     run.updated_at = now.to_string();
     run.completed_at = Some(now.to_string());
+    mark_workflow_graph_current_node_canceled(run, now, summary);
     close_running_tool_events(run, "canceled", "运行已取消")
+}
+
+fn mark_workflow_graph_current_node_canceled(
+    run: &mut AgentRunRecord,
+    now: &str,
+    summary: &str,
+) {
+    let event_sequence = next_store_workflow_event_sequence(run);
+    let abort_detail = json!({
+        "aborted": true,
+        "runState": "aborted",
+        "reason": summary,
+    });
+    let phase_detail = {
+        let Some(graph) = run.workflow_graph.as_mut().and_then(Value::as_object_mut) else {
+            return;
+        };
+        let Some(current_node) = graph
+            .get("currentNode")
+            .or_else(|| graph.get("current_node"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|node| !node.is_empty())
+            .map(str::to_string)
+        else {
+            return;
+        };
+        let current_status = graph
+            .get("currentStatus")
+            .or_else(|| graph.get("current_status"))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .or_else(|| workflow_graph_node_status(graph, &current_node));
+        if matches!(
+            current_status.as_deref(),
+            Some("failed" | "completed" | "canceled" | "skipped")
+        ) {
+            return;
+        }
+
+        let role = workflow_graph_node_role_for_store(&current_node);
+        graph.insert("currentStatus".into(), json!("canceled"));
+        graph.insert("current_status".into(), json!("canceled"));
+        graph.insert("lastEventSequence".into(), json!(event_sequence));
+        graph.insert("last_event_sequence".into(), json!(event_sequence));
+        graph.insert("updatedAt".into(), json!(now));
+        graph.insert("updated_at".into(), json!(now));
+        let nodes = graph.entry("nodes").or_insert_with(|| Value::Array(Vec::new()));
+        if let Some(nodes) = nodes.as_array_mut() {
+            if let Some(node) = nodes.iter_mut().find(|node| {
+                node.get("node")
+                    .and_then(Value::as_str)
+                    == Some(current_node.as_str())
+            }) {
+                if let Some(object) = node.as_object_mut() {
+                    object.insert("status".into(), json!("canceled"));
+                    object.insert("eventSequence".into(), json!(event_sequence));
+                    object.insert("event_sequence".into(), json!(event_sequence));
+                    object.insert("updatedAt".into(), json!(now));
+                    object.insert("updated_at".into(), json!(now));
+                    match object.get_mut("detail").and_then(Value::as_object_mut) {
+                        Some(detail) => {
+                            detail.insert("aborted".into(), json!(true));
+                            detail.insert("runState".into(), json!("aborted"));
+                            detail.insert("reason".into(), json!(summary));
+                        }
+                        None => {
+                            object.insert("detail".into(), abort_detail.clone());
+                        }
+                    }
+                }
+            } else {
+                nodes.push(json!({
+                    "node": current_node.clone(),
+                    "role": role,
+                    "status": "canceled",
+                    "detail": abort_detail.clone(),
+                    "eventSequence": event_sequence,
+                    "event_sequence": event_sequence,
+                    "updatedAt": now,
+                    "updated_at": now,
+                }));
+            }
+        }
+        json!({
+            "schema": "synthgraph_workflow_v1",
+            "node": current_node,
+            "role": role,
+            "status": "canceled",
+            "detail": abort_detail,
+            "eventSequence": event_sequence,
+            "event_sequence": event_sequence,
+            "updatedAt": now,
+            "updated_at": now,
+        })
+    };
+    run.phase_events.push(AgentRunPhaseRecord {
+        phase: "workflow_node".into(),
+        detail: phase_detail,
+        updated_at: now.to_string(),
+    });
+}
+
+fn next_store_workflow_event_sequence(run: &AgentRunRecord) -> u64 {
+    let phase_sequence = run
+        .phase_events
+        .iter()
+        .filter_map(|event| workflow_phase_event_sequence(&event.detail))
+        .max()
+        .unwrap_or(0);
+    let graph_sequence = run
+        .workflow_graph
+        .as_ref()
+        .and_then(|graph| {
+            graph
+                .get("lastEventSequence")
+                .or_else(|| graph.get("last_event_sequence"))
+        })
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    phase_sequence.max(graph_sequence) + 1
+}
+
+fn workflow_phase_event_sequence(detail: &Value) -> Option<u64> {
+    detail
+        .get("eventSequence")
+        .or_else(|| detail.get("event_sequence"))
+        .and_then(Value::as_u64)
+}
+
+fn workflow_graph_node_status(
+    graph: &serde_json::Map<String, Value>,
+    node_name: &str,
+) -> Option<String> {
+    graph
+        .get("nodes")
+        .and_then(Value::as_array)?
+        .iter()
+        .find(|node| node.get("node").and_then(Value::as_str) == Some(node_name))
+        .and_then(|node| node.get("status"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+fn workflow_graph_node_role_for_store(node_name: &str) -> &'static str {
+    match node_name {
+        "queue" => "queue admission",
+        "group_room" => "group context",
+        "planner" => "decision planning",
+        "executor" => "tool execution",
+        "approval" => "human approval gate",
+        "checkpoint" => "state checkpoint",
+        "reviewer" => "final review",
+        _ => "custom workflow node",
+    }
 }
 
 fn close_running_tool_events(run: &mut AgentRunRecord, status: &str, summary: &str) -> Vec<Value> {

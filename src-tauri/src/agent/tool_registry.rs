@@ -19,9 +19,7 @@ use crate::{
 
 use super::{
     apply_agent_toolset_policy, apply_tool_context_policy, call_mcp_tool_with_retry,
-    decision_parser::{
-        parse_tool_arguments_json, provider_tool_call_id, PROVIDER_TOOL_CALL_META_KEY,
-    },
+    decision_parser::{provider_tool_call_id, strip_provider_tool_call_metadata},
     discord_settings, feishu_settings, homeassistant_settings, is_risky_tool_call,
     list_python_plugin_tools, provider_api_key, qweather_settings, redact_json_value,
     redact_sensitive_text, run_post_tool_call_hooks, run_pre_tool_call_hooks,
@@ -53,7 +51,7 @@ pub(super) fn render_internal_tool_prompt_block(
                 source: "internal".into(),
                 server_id: "__internal".into(),
                 tool_name: (*name).into(),
-                input_schema: json!({}),
+                input_schema: internal_tool_input_schema(*name),
                 requires_approval: false,
             };
             tool_allowed_in_context(&tool, context)
@@ -395,7 +393,7 @@ pub(super) fn internal_tool_prompt_lines() -> Vec<(&'static str, &'static str)> 
         ),
         (
             "tool_call",
-            r#"- tool_call: payload {"name":"tool_name","arguments":{}} invokes an available tool by name after tool_search/tool_describe discovery."#,
+            r#"- tool_call: payload {"name":"tool_name","arguments":{}} invokes an available tool by name after tool_search/tool_describe discovery; arguments aliases are args, payload, input, and parameters."#,
         ),
         (
             "read_file",
@@ -1042,6 +1040,102 @@ pub(super) fn internal_tool_prompt_lines() -> Vec<(&'static str, &'static str)> 
     ]
 }
 
+pub(super) fn internal_tool_input_schema(name: &str) -> Value {
+    match name {
+        "tool_search" => json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search text describing the capability or tool to find."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of matching tools to return."
+                },
+                "includeUnavailable": {
+                    "type": "boolean",
+                    "description": "Include currently unavailable internal tools in the catalog search."
+                },
+                "include_unavailable": {
+                    "type": "boolean",
+                    "description": "Snake-case alias for includeUnavailable."
+                }
+            },
+            "additionalProperties": true
+        }),
+        "tool_describe" => json!({
+            "type": "object",
+            "anyOf": [
+                {"required": ["name"]},
+                {"required": ["tool"]}
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Tool name or alias to describe."
+                },
+                "tool": {
+                    "type": "string",
+                    "description": "Alias for name."
+                },
+                "includeUnavailable": {
+                    "type": "boolean",
+                    "description": "Allow describing currently unavailable internal tools."
+                },
+                "include_unavailable": {
+                    "type": "boolean",
+                    "description": "Snake-case alias for includeUnavailable."
+                }
+            },
+            "additionalProperties": true
+        }),
+        "tool_call" => json!({
+            "type": "object",
+            "anyOf": [
+                {"required": ["name"]},
+                {"required": ["tool"]}
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Resolved target tool name."
+                },
+                "tool": {
+                    "type": "string",
+                    "description": "Alias for name."
+                },
+                "arguments": {
+                    "type": ["object", "string"],
+                    "description": "Target tool JSON payload, or a JSON string that decodes to an object."
+                },
+                "args": {
+                    "type": ["object", "string"],
+                    "description": "Alias for arguments."
+                },
+                "payload": {
+                    "type": ["object", "string"],
+                    "description": "Alias for arguments."
+                },
+                "input": {
+                    "type": ["object", "string"],
+                    "description": "Alias for arguments."
+                },
+                "parameters": {
+                    "type": ["object", "string"],
+                    "description": "Alias for arguments."
+                }
+            },
+            "additionalProperties": true
+        }),
+        _ => json!({
+            "type": "object",
+            "additionalProperties": true
+        }),
+    }
+}
+
 pub(super) fn available_mcp_tool_definitions(
     store: &AppStore,
     agent: &AgentDefinition,
@@ -1095,7 +1189,7 @@ pub(super) fn visible_tool_definitions_for_agent(
             source: "internal".into(),
             server_id: "__internal".into(),
             tool_name: name.into(),
-            input_schema: json!({}),
+            input_schema: internal_tool_input_schema(name),
             requires_approval: false,
         })
         .collect::<Vec<_>>();
@@ -1560,13 +1654,6 @@ pub(super) async fn execute_recovery_mcp_tool(
     } else {
         Ok((text, event))
     }
-}
-
-fn strip_provider_tool_call_metadata(mut payload: Value) -> Value {
-    if let Some(object) = payload.as_object_mut() {
-        object.remove(PROVIDER_TOOL_CALL_META_KEY);
-    }
-    payload
 }
 
 pub(super) fn mcp_result_to_tool_event(
@@ -2081,38 +2168,6 @@ fn tool_catalog_source_name(entry: &Value) -> String {
     }
 }
 
-pub(super) fn resolve_tool_call_payload(payload: &Value) -> AppResult<(String, Value)> {
-    let name = payload
-        .get("name")
-        .or_else(|| payload.get("tool"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::BadRequest("tool_call requires payload.name".into()))?;
-    if matches!(name, "tool_search" | "tool_describe" | "tool_call") {
-        return Err(AppError::BadRequest(format!(
-            "tool_call cannot invoke bridge tool '{name}'"
-        )));
-    }
-    let arguments = payload
-        .get("arguments")
-        .or_else(|| payload.get("args"))
-        .or_else(|| payload.get("payload"))
-        .cloned()
-        .unwrap_or_else(|| json!({}));
-    let arguments = if let Some(raw) = arguments.as_str() {
-        parse_tool_arguments_json(raw, name)
-    } else {
-        arguments
-    };
-    if !arguments.is_object() {
-        return Err(AppError::BadRequest(
-            "tool_call arguments must be a JSON object".into(),
-        ));
-    }
-    Ok((name.to_string(), arguments))
-}
-
 fn tool_catalog(
     store: &AppStore,
     agent: &AgentDefinition,
@@ -2131,7 +2186,7 @@ fn tool_catalog(
             source: "internal".into(),
             server_id: "__internal".into(),
             tool_name: name.into(),
-            input_schema: json!({}),
+            input_schema: internal_tool_input_schema(name),
             requires_approval: false,
         };
         if !tool_allowed_in_context(&tool, context)
@@ -2156,6 +2211,7 @@ fn tool_catalog(
                 "toolName": name,
                 "description": rendered_line,
                 "payloadShape": rendered_line,
+                "payloadSchema": tool.input_schema,
                 "requiresApproval": is_risky_tool_call(name, &json!({})),
                 "available": available,
                 "unavailableReason": unavailable_reason

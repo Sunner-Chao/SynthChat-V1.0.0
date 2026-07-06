@@ -23,6 +23,7 @@ use crate::{
 };
 
 use super::*;
+use super::workflow_graph::WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT;
 
 const PET_WINDOW_LABEL: &str = "pet";
 
@@ -1364,6 +1365,8 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     let mut assistant_provider_data: Option<Value> = None;
     let mut assistant_model: Option<String> = None;
     let mut assistant_provider_id: Option<String> = None;
+    let mut reviewer_skip_reason: Option<&'static str> = None;
+    let mut planner_recovery_exhausted: Option<&'static str> = None;
     let mut assistant_prompt_tokens = 0usize;
     let skill_blocks =
         crate::skills::prompt_blocks_for_request(store, &agent, &effective_request_content)?;
@@ -1371,10 +1374,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         memory_prompt_blocks_for_query(store, &persona, &effective_request_content)?;
     let mut short_context = store.short_context(&conversation.id)?;
     let mcp_tools = available_mcp_tool_definitions(store, &agent)?;
-    let native_tools = visible_tool_definitions_for_agent(store, &agent, tool_context)?;
-    let available_tools_for_validation = native_tools
+    let visible_tools = visible_tool_definitions_for_agent(store, &agent, tool_context)?;
+    let available_tools_for_validation = visible_tools.clone();
+    let prompt_mcp_tools = visible_tools
         .iter()
-        .chain(mcp_tools.iter())
+        .filter(|tool| tool.source != "internal")
         .cloned()
         .collect::<Vec<_>>();
     on_memory_turn_start(
@@ -1384,7 +1388,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         &persona,
         &effective_request_content,
         memory_blocks.len(),
-        native_tools.len() + mcp_tools.len(),
+        available_tools_for_validation.len(),
     )?;
     let run_started_at = Instant::now();
     let run_timeout_seconds =
@@ -1406,6 +1410,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 "summaryFailureCooldownUntilMs": short_context.summary_failure_cooldown_until_ms,
             }),
         )?;
+        workflow_planner.failed(
+            store,
+            &saved_run.run_id,
+            None,
+            WorkflowPlannerErrorKind::ContextCompression,
+            "Context compression is frozen after summary failure.",
+        )?;
+        run = store.agent_run(&saved_run.run_id)?;
         run.state = "failed".into();
         run.error = Some("Context compression is frozen after summary failure.".into());
         run.updated_at = now_iso();
@@ -1484,7 +1496,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             &skill_blocks,
             &memory_blocks,
             &short_context,
-            &mcp_tools,
+            &prompt_mcp_tools,
             tool_context,
             &agent,
             Some(&effective_persona),
@@ -1509,7 +1521,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 planner_prompt.clone(),
                 history.clone(),
                 &llm_user_content,
-                Some(&native_tools),
+                Some(&visible_tools),
                 stream_delta_callback.clone(),
             ),
         )
@@ -1549,6 +1561,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 }
                 let mut failed_run = store.agent_run(&saved_run.run_id)?;
                 if failed_run.state != "aborted" {
+                    workflow_planner.failed(
+                        store,
+                        &saved_run.run_id,
+                        Some(iteration + 1),
+                        WorkflowPlannerErrorKind::LlmError,
+                        &error.to_string(),
+                    )?;
+                    failed_run = store.agent_run(&saved_run.run_id)?;
                     failed_run.state = "failed".into();
                     failed_run.error = Some(error.to_string());
                     failed_run.updated_at = now_iso();
@@ -1648,6 +1668,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 )?;
                 continue;
             } else {
+                planner_recovery_exhausted = Some(if observations.is_empty() {
+                    "empty_response"
+                } else {
+                    "empty_response_after_tools"
+                });
                 append_parent_phase_event(
                     store,
                     &saved_run.run_id,
@@ -1715,11 +1740,12 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 guardrail_message
                             ));
                             if outcome.halt {
-                                record_tool_failed_for_run(
+                                executor_core.record_tool_failed_with_iteration(
                                     store,
                                     desktop_app,
                                     &conversation.id,
                                     &saved_run.run_id,
+                                    Some(iteration + 1),
                                     tool_name,
                                     &mcp_tools,
                                     &guardrail_payload,
@@ -1735,6 +1761,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                     break;
                 }
                 if should_parallelize && assistant_text.trim().is_empty() {
+                    let parallel_tool_names = requests
+                        .iter()
+                        .map(|(tool_name, _)| tool_name.clone())
+                        .collect::<Vec<_>>();
+                    executor_core.start_parallel_batch(
+                        store,
+                        &saved_run.run_id,
+                        iteration + 1,
+                        request_count,
+                        &parallel_tool_names,
+                    )?;
                     let parallel_results = await_agent_run_interruptible(
                         store,
                         &saved_run.run_id,
@@ -1758,10 +1795,13 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                     let Some(parallel_results) = parallel_results else {
                         return Ok(vec![user]);
                     };
+                    let mut parallel_succeeded = 0usize;
+                    let mut parallel_failed = 0usize;
                     for (tool_name, payload, result) in parallel_results {
                         let guardrail_payload = payload.clone();
                         match result {
                             Ok((text, mut event)) => {
+                                parallel_succeeded += 1;
                                 record_file_mutation_result(
                                     &mut failed_file_mutations,
                                     &tool_name,
@@ -1802,6 +1842,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                     app,
                                     &mut run,
                                     &conversation.id,
+                                    WorkflowMode::ChatTurn,
                                     &text,
                                     &event,
                                 )? {
@@ -1841,11 +1882,13 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 }
                             }
                             Err(error) => {
-                                record_tool_failed_for_run(
+                                parallel_failed += 1;
+                                executor_core.record_tool_failed_with_iteration(
                                     store,
                                     desktop_app,
                                     &conversation.id,
                                     &saved_run.run_id,
+                                    Some(iteration + 1),
                                     &tool_name,
                                     &mcp_tools,
                                     &payload,
@@ -1884,6 +1927,16 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             }
                         }
                     }
+                    executor_core.complete_parallel_batch(
+                        store,
+                        &saved_run.run_id,
+                        iteration + 1,
+                        request_count,
+                        &parallel_tool_names,
+                        parallel_succeeded,
+                        parallel_failed,
+                        !assistant_text.trim().is_empty(),
+                    )?;
                     if !assistant_text.trim().is_empty() {
                         break;
                     }
@@ -1916,11 +1969,12 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             guardrail_message
                         ));
                         if outcome.halt {
-                            record_tool_failed_for_run(
+                            executor_core.record_tool_failed_with_iteration(
                                 store,
                                 desktop_app,
                                 &conversation.id,
                                 &saved_run.run_id,
+                                Some(iteration + 1),
                                 &tool_name,
                                 &mcp_tools,
                                 &guardrail_payload,
@@ -1940,20 +1994,32 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                     run = store.agent_run(&saved_run.run_id)?;
                     match tool_resolution {
                         WorkflowExecutorToolResolution::Internal(tool_identity) => {
-                        let approval_reason = match tool_approval_reason(
-                            store,
-                            tool_identity.server_id(),
-                            tool_identity.tool_name(),
-                            &payload,
-                            is_risky_tool_call(&tool_name, &payload),
-                        ) {
+                            let approval_reason = match executor_core
+                                .resolve_approval_policy(
+                                    store,
+                                    ExecutorApprovalPolicyContext::chat_turn(
+                                        &saved_run.run_id,
+                                        &providers,
+                                        &effective_persona,
+                                        tool_context,
+                                        subagent_auto_approve,
+                                    ),
+                                    iteration + 1,
+                                    &tool_identity,
+                                    &tool_name,
+                                    &payload,
+                                    is_risky_tool_call(&tool_name, &payload),
+                                )
+                                .await
+                            {
                             Ok(reason) => reason,
                             Err(error) => {
-                                record_tool_failed_for_run(
+                                executor_core.record_tool_failed_with_iteration(
                                     store,
                                     desktop_app,
                                     &conversation.id,
                                     &saved_run.run_id,
+                                    Some(iteration + 1),
                                     &tool_name,
                                     &mcp_tools,
                                     &guardrail_payload,
@@ -1968,131 +2034,6 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Base,
-                            approval_reason.as_deref(),
-                        )?;
-                        let approval_reason = match apply_scheduled_approval_mode(
-                            store,
-                            tool_context,
-                            approval_reason,
-                            &tool_name,
-                        ) {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                record_tool_failed_for_run(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                continue;
-                            }
-                        };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Scheduled,
-                            approval_reason.as_deref(),
-                        )?;
-                        let approval_reason = match apply_smart_approval_mode(
-                            store,
-                            &saved_run.run_id,
-                            &providers,
-                            &effective_persona,
-                            approval_reason,
-                            &tool_name,
-                            &payload,
-                        )
-                        .await
-                        {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                record_tool_failed_for_run(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                continue;
-                            }
-                        };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Smart,
-                            approval_reason.as_deref(),
-                        )?;
-                        let approval_reason = match apply_subagent_approval_override(
-                            tool_context,
-                            subagent_auto_approve,
-                            approval_reason,
-                            &tool_name,
-                        ) {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                record_tool_failed_for_run(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                continue;
-                            }
-                        };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Subagent,
-                            approval_reason.as_deref(),
-                        )?;
-                        executor_core.record_approval_policy(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            approval_reason.as_deref(),
-                        )?;
                         if let Some(reason) = approval_reason {
                             let approval_request = executor_core.request_approval(
                                 store,
@@ -2136,7 +2077,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             let assistant = store.append_message(assistant_message)?;
                             return Ok(vec![user, assistant]);
                         }
-                        executor_core.record_tool_started(
+                        run = executor_core.start_tool_execution(
                             store,
                             desktop_app,
                             &saved_run.run_id,
@@ -2144,7 +2085,6 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             &payload,
                             iteration + 1,
                         )?;
-                        run = store.agent_run(&saved_run.run_id)?;
                         emit_agent_run_record(desktop_app, &run, None);
                         let tool_result = await_agent_run_interruptible(
                             store,
@@ -2153,15 +2093,18 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             run_timeout_seconds,
                             post_tool_quiet_timeout_seconds,
                             desktop_app,
-                            execute_recovery_internal_tool(
+                            executor_core.execute_internal_tool(
                                 store,
-                                &agent,
-                                &conversation.id,
-                                &saved_run.run_id,
+                                ExecutorInternalToolExecutionContext {
+                                    agent: &agent,
+                                    conversation_id: &conversation.id,
+                                    run_id: &saved_run.run_id,
+                                    tool_context,
+                                    app,
+                                    approved_tool_call_replay: false,
+                                },
                                 &tool_name,
                                 payload,
-                                tool_context,
-                                app,
                             ),
                         )
                         .await?;
@@ -2205,6 +2148,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 let _tool_message = store.append_message(tool_message)?;
                                 history.push(_tool_message);
                                 push_tool_event_record(&mut run, &event);
+                                if let Some(assistant) = pause_run_for_clarify_tool(
+                                    store,
+                                    app,
+                                    &mut run,
+                                    &conversation.id,
+                                    WorkflowMode::ChatTurn,
+                                    &text,
+                                    &event,
+                                )? {
+                                    return Ok(vec![user, assistant]);
+                                }
                                 let saved_tool_run = store.save_agent_run(run.clone())?;
                                 run = saved_tool_run.clone();
                                 emit_agent_run_record(desktop_app, &run, None);
@@ -2239,11 +2193,12 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 }
                             }
                             Err(error) => {
-                                record_tool_failed_for_run(
+                                executor_core.record_tool_failed_with_iteration(
                                     store,
                                     desktop_app,
                                     &conversation.id,
                                     &saved_run.run_id,
+                                    Some(iteration + 1),
                                     &tool_name,
                                     &mcp_tools,
                                     &guardrail_payload,
@@ -2286,20 +2241,32 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             identity: tool_identity,
                             definition,
                         } => {
-                        let approval_reason = match tool_approval_reason(
-                            store,
-                            tool_identity.server_id(),
-                            tool_identity.tool_name(),
-                            &payload,
-                            definition.requires_approval,
-                        ) {
+                            let approval_reason = match executor_core
+                                .resolve_approval_policy(
+                                    store,
+                                    ExecutorApprovalPolicyContext::chat_turn(
+                                        &saved_run.run_id,
+                                        &providers,
+                                        &effective_persona,
+                                        tool_context,
+                                        subagent_auto_approve,
+                                    ),
+                                    iteration + 1,
+                                    &tool_identity,
+                                    &tool_name,
+                                    &payload,
+                                    definition.requires_approval,
+                                )
+                                .await
+                            {
                             Ok(reason) => reason,
                             Err(error) => {
-                                record_tool_failed_for_run(
+                                executor_core.record_tool_failed_with_iteration(
                                     store,
                                     desktop_app,
                                     &conversation.id,
                                     &saved_run.run_id,
+                                    Some(iteration + 1),
                                     &tool_name,
                                     &mcp_tools,
                                     &guardrail_payload,
@@ -2314,131 +2281,6 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 continue;
                             }
                         };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Base,
-                            approval_reason.as_deref(),
-                        )?;
-                        let approval_reason = match apply_scheduled_approval_mode(
-                            store,
-                            tool_context,
-                            approval_reason,
-                            &tool_name,
-                        ) {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                record_tool_failed_for_run(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                continue;
-                            }
-                        };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Scheduled,
-                            approval_reason.as_deref(),
-                        )?;
-                        let approval_reason = match apply_smart_approval_mode(
-                            store,
-                            &saved_run.run_id,
-                            &providers,
-                            &effective_persona,
-                            approval_reason,
-                            tool_identity.tool_name(),
-                            &payload,
-                        )
-                        .await
-                        {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                record_tool_failed_for_run(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                continue;
-                            }
-                        };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Smart,
-                            approval_reason.as_deref(),
-                        )?;
-                        let approval_reason = match apply_subagent_approval_override(
-                            tool_context,
-                            subagent_auto_approve,
-                            approval_reason,
-                            &tool_name,
-                        ) {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                record_tool_failed_for_run(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                continue;
-                            }
-                        };
-                        executor_core.record_approval_policy_stage(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            WorkflowExecutorApprovalPolicyStage::Subagent,
-                            approval_reason.as_deref(),
-                        )?;
-                        executor_core.record_approval_policy(
-                            store,
-                            &saved_run.run_id,
-                            iteration + 1,
-                            &tool_identity,
-                            approval_reason.as_deref(),
-                        )?;
                         if let Some(reason) = approval_reason {
                             let approval_request = executor_core.request_approval(
                                 store,
@@ -2482,7 +2324,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             let assistant = store.append_message(assistant_message)?;
                             return Ok(vec![user, assistant]);
                         }
-                        executor_core.record_tool_started(
+                        run = executor_core.start_tool_execution(
                             store,
                             desktop_app,
                             &saved_run.run_id,
@@ -2490,7 +2332,6 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             &payload,
                             iteration + 1,
                         )?;
-                        run = store.agent_run(&saved_run.run_id)?;
                         emit_agent_run_record(desktop_app, &run, None);
                         let tool_result = await_agent_run_interruptible(
                             store,
@@ -2499,7 +2340,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                             run_timeout_seconds,
                             post_tool_quiet_timeout_seconds,
                             desktop_app,
-                            execute_recovery_mcp_tool(
+                            executor_core.execute_mcp_tool(
                                 store,
                                 &saved_run.run_id,
                                 &definition,
@@ -2555,6 +2396,17 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 let _tool_message = store.append_message(tool_message)?;
                                 history.push(_tool_message);
                                 push_tool_event_record(&mut run, &event);
+                                if let Some(assistant) = pause_run_for_clarify_tool(
+                                    store,
+                                    app,
+                                    &mut run,
+                                    &conversation.id,
+                                    WorkflowMode::ChatTurn,
+                                    &text,
+                                    &event,
+                                )? {
+                                    return Ok(vec![user, assistant]);
+                                }
                                 let saved_tool_run = store.save_agent_run(run.clone())?;
                                 run = saved_tool_run.clone();
                                 emit_agent_run_record(desktop_app, &run, None);
@@ -2590,11 +2442,12 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 }
                             }
                             Err(error) => {
-                                record_tool_failed_for_run(
+                                executor_core.record_tool_failed_with_iteration(
                                     store,
                                     desktop_app,
                                     &conversation.id,
                                     &saved_run.run_id,
+                                    Some(iteration + 1),
                                     &tool_name,
                                     &mcp_tools,
                                     &guardrail_payload,
@@ -2636,11 +2489,12 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                         WorkflowExecutorToolResolution::Unavailable { requested_name } => {
                         let error =
                             AppError::BadRequest(format!("tool is not available: {requested_name}"));
-                        record_tool_failed_for_run(
+                        executor_core.record_tool_failed_with_iteration(
                             store,
                             desktop_app,
                             &conversation.id,
                             &saved_run.run_id,
+                            Some(iteration + 1),
                             &tool_name,
                             &mcp_tools,
                             &guardrail_payload,
@@ -2733,9 +2587,38 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 }),
             )?;
         }
+        let (planner_error_kind, planner_error) = if iteration_budget.exhausted() {
+            (
+                WorkflowPlannerErrorKind::IterationBudgetExhausted,
+                format!(
+                    "Agent iteration budget exhausted before a final answer ({}/{}).",
+                    iteration_budget.used(),
+                    iteration_budget.max_total()
+                ),
+            )
+        } else if let Some(kind) = planner_recovery_exhausted {
+            (
+                WorkflowPlannerErrorKind::LlmRecoveryExhausted,
+                format!("LLM recovery exhausted before a final answer: {kind}."),
+            )
+        } else {
+            (
+                WorkflowPlannerErrorKind::NoFinalAnswer,
+                "Planner loop ended without a final answer.".to_string(),
+            )
+        };
+        workflow_planner.failed(
+            store,
+            &saved_run.run_id,
+            None,
+            planner_error_kind,
+            &planner_error,
+        )?;
         assistant_text = if observations.is_empty() {
+            reviewer_skip_reason = Some("no_final_answer");
             recovery_reply(&effective_request_content)
         } else if iteration_budget.exhausted() {
+            reviewer_skip_reason = Some("iteration_budget_exhausted");
             format!(
                 "已达到本轮 agent 迭代预算（{}/{}），当前没有得到最终回答。\n\n{}",
                 iteration_budget.used(),
@@ -2743,6 +2626,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 observations.join("\n\n")
             )
         } else {
+            reviewer_skip_reason = Some("no_final_answer");
             format!(
                 "已完成可用工具检查，但当前恢复版 agent loop 未得到最终回答。\n\n{}",
                 observations.join("\n\n")
@@ -2802,20 +2686,32 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     }
     let assistant = store.append_message(assistant_message)?;
 
-    run.state = "completed".into();
-    run.updated_at = now_iso();
-    run.completed_at = Some(run.updated_at.clone());
-    let saved_completed_run = store.save_agent_run(run)?;
-    let reviewer_route = workflow_reviewer.completed(
-        store,
-        &saved_completed_run.run_id,
-        &assistant.id,
-        assistant_model.as_deref(),
-        assistant_provider_id.as_deref(),
-    )?;
+    let mut final_run = store.agent_run(&saved_run.run_id)?;
+    final_run.state = "completed".into();
+    final_run.updated_at = now_iso();
+    final_run.completed_at = Some(final_run.updated_at.clone());
+    let saved_completed_run = store.save_agent_run(final_run)?;
+    let reviewer_route = if let Some(reason) = reviewer_skip_reason {
+        workflow_reviewer.skipped(
+            store,
+            &saved_completed_run.run_id,
+            &assistant.id,
+            reason,
+            assistant_model.as_deref(),
+            assistant_provider_id.as_deref(),
+        )?
+    } else {
+        workflow_reviewer.completed(
+            store,
+            &saved_completed_run.run_id,
+            &assistant.id,
+            assistant_model.as_deref(),
+            assistant_provider_id.as_deref(),
+        )?
+    };
     debug_assert!(matches!(
         reviewer_route,
-        WorkflowReviewerRoute::Completed { .. }
+        WorkflowReviewerRoute::Completed { .. } | WorkflowReviewerRoute::Skipped { .. }
     ));
     if assistant_prompt_tokens > 0 {
         if let Some(note) = maybe_post_turn_compress_with_context_engine(
@@ -3002,6 +2898,7 @@ pub(crate) async fn drain_queued_requests_for_conversation(
                     fallback.completed_at = Some(now_iso());
                     fallback
                 });
+            record_agent_queue_workflow_terminal(store, &completed)?;
             emit_agent_queue_event(
                 app,
                 &completed.status,
@@ -3047,6 +2944,7 @@ pub(crate) async fn drain_queued_requests_for_conversation(
                         fallback.completed_at = Some(now_iso());
                         fallback
                     });
+                record_agent_queue_workflow_terminal(store, &failed)?;
                 emit_agent_queue_event(app, &failed.status, Some(&failed), Some(conversation_id));
                 return Err(error);
             }
@@ -3060,6 +2958,7 @@ pub(crate) async fn drain_queued_requests_for_conversation(
                 fallback.completed_at = Some(now_iso());
                 fallback
             });
+        record_agent_queue_workflow_terminal(store, &completed)?;
         emit_agent_queue_event(
             app,
             &completed.status,
@@ -3257,6 +3156,7 @@ async fn drain_goal_continuations_for_conversation(
                         fallback.completed_at = Some(now_iso());
                         fallback
                     });
+                record_agent_queue_workflow_terminal(store, &failed)?;
                 emit_agent_queue_event(app, &failed.status, Some(&failed), Some(conversation_id));
                 return Err(error);
             }
@@ -3270,6 +3170,7 @@ async fn drain_goal_continuations_for_conversation(
                 fallback.completed_at = Some(now_iso());
                 fallback
             });
+        record_agent_queue_workflow_terminal(store, &completed)?;
         emit_agent_queue_event(
             app,
             &completed.status,
@@ -3864,6 +3765,7 @@ pub(super) fn clarification_response_context_for_turn(
     let Some(mut run) = latest_needs_clarification_run(store, conversation_id)? else {
         return Ok(None);
     };
+    let workflow_mode = workflow_mode_for_run(&run);
     let question = run
         .checkpoints
         .iter()
@@ -3891,17 +3793,19 @@ pub(super) fn clarification_response_context_for_turn(
     run.updated_at = now;
     store.save_agent_run(run.clone())?;
     if let Some(checkpoint) = run.checkpoints.last() {
-        append_workflow_checkpoint_event(
-            store,
-            &run.run_id,
-            &checkpoint.state,
-            &checkpoint.summary,
-            json!({
-                "kind": "clarification_response",
-                "checkpointId": checkpoint.checkpoint_id.clone(),
-                "iteration": checkpoint.iteration,
-            }),
-        )?;
+        WorkflowDriver::new(workflow_mode)
+            .checkpoint()
+            .completed(
+                store,
+                &run.run_id,
+                &checkpoint.state,
+                &checkpoint.summary,
+                json!({
+                    "kind": "clarification_response",
+                    "checkpointId": checkpoint.checkpoint_id.clone(),
+                    "iteration": checkpoint.iteration,
+                }),
+            )?;
     }
     Ok(Some(format!(
         "Continue the user's original task after a clarification exchange.\n\nOriginal request:\n{}\n\nClarification question:\n{}\n\nUser clarification response:\n{}\n\nUse this response to continue the original task. Do not ask the same clarification again unless the response is still insufficient.",
@@ -3933,6 +3837,7 @@ pub(super) fn pause_run_for_clarify_tool(
     app: Option<&AppHandle>,
     run: &mut AgentRunRecord,
     conversation_id: &str,
+    workflow_mode: WorkflowMode,
     tool_text: &str,
     event: &crate::models::ToolEvent,
 ) -> AppResult<Option<ChatMessage>> {
@@ -3977,33 +3882,31 @@ pub(super) fn pause_run_for_clarify_tool(
             .unwrap_or_default(),
         summary: truncate_for_prompt(&text.replace('\n', " "), 500),
     });
-    let saved_run = store.save_agent_run(run.clone())?;
+    let mut saved_run = store.save_agent_run(run.clone())?;
     if let Some(checkpoint) = run.checkpoints.last() {
-        append_workflow_transition_event(
-            store,
-            &run.run_id,
-            WorkflowNodeName::Executor,
-            WorkflowNodeName::Checkpoint,
-            "clarify_requires_user_input",
-            json!({
-                "toolName": event.tool_name,
-                "callId": event.call_id.clone(),
-                "checkpointId": checkpoint.checkpoint_id.clone(),
-            }),
-        )?;
-        append_workflow_checkpoint_event(
-            store,
-            &run.run_id,
-            &checkpoint.state,
-            &checkpoint.summary,
-            json!({
-                "kind": "clarify_pause",
-                "toolName": event.tool_name,
-                "checkpointId": checkpoint.checkpoint_id.clone(),
-                "iteration": checkpoint.iteration,
-            }),
-        )?;
+        WorkflowDriver::new(workflow_mode)
+            .checkpoint()
+            .waiting_from_executor(
+                store,
+                &run.run_id,
+                WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT,
+                json!({
+                    "toolName": event.tool_name,
+                    "callId": event.call_id.clone(),
+                    "checkpointId": checkpoint.checkpoint_id.clone(),
+                }),
+                &checkpoint.state,
+                &checkpoint.summary,
+                json!({
+                    "kind": "clarify_pause",
+                    "checkpointScope": "user_input",
+                    "toolName": event.tool_name,
+                    "checkpointId": checkpoint.checkpoint_id.clone(),
+                    "iteration": checkpoint.iteration,
+                }),
+            )?;
     }
+    saved_run = store.agent_run(&run.run_id)?;
     let assistant = store.append_message(ChatMessage::new(
         conversation_id.to_string(),
         "assistant",
@@ -4044,6 +3947,13 @@ pub(super) fn check_agent_run_interrupted(
         && agent_run_idle_for_timeout(&latest, started_at, effective_timeout_seconds)
     {
         let reason = agent_run_timeout_reason(&latest, effective_timeout_seconds);
+        let workflow_mode = workflow_mode_for_run(&latest);
+        WorkflowDriver::new(workflow_mode).timeout(
+            store,
+            run_id,
+            &reason,
+            effective_timeout_seconds,
+        )?;
         let aborted = store.abort_agent_run(run_id, Some(reason.clone()))?;
         store.mark_hermes_session_resume_pending(
             &aborted.conversation_id,
@@ -4151,6 +4061,15 @@ pub(super) fn abort_agent_run_for_turn_aborted_marker(
         return Ok(false);
     }
     let reason = "Provider reported turn_aborted before completing the turn.".to_string();
+    let current_run = store.agent_run(run_id)?;
+    let workflow_mode = workflow_mode_for_run(&current_run);
+    WorkflowDriver::new(workflow_mode).planner().failed(
+        store,
+        run_id,
+        None,
+        WorkflowPlannerErrorKind::ProviderTurnAborted,
+        &reason,
+    )?;
     let aborted = store.abort_agent_run(run_id, Some(reason.clone()))?;
     spawn_session_finished_hooks(
         store,

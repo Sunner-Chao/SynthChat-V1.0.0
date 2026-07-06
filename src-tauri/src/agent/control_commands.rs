@@ -11483,6 +11483,7 @@ pub(super) fn cancel_agent_queue_item_for_conversation(
         return Ok("未找到匹配的当前会话 pending/running 队列项。".into());
     };
     let canceled = store.cancel_agent_queue_item(&item.id)?;
+    record_agent_queue_workflow_terminal(store, &canceled)?;
     emit_agent_queue_event(app, "canceled", Some(&canceled), Some(&conversation.id));
     Ok(format!("已取消 agent 队列项：{}。", canceled.id))
 }
@@ -11759,6 +11760,7 @@ async fn drain_agent_queue_for_conversation(
                         fallback.completed_at = Some(now_iso());
                         fallback
                     });
+                record_agent_queue_workflow_terminal(store, &failed)?;
                 emit_agent_queue_event(app, &failed.status, Some(&failed), Some(conversation_id));
                 return Err(error);
             }
@@ -11772,6 +11774,7 @@ async fn drain_agent_queue_for_conversation(
                 fallback.completed_at = Some(now_iso());
                 fallback
             });
+        record_agent_queue_workflow_terminal(store, &completed)?;
         emit_agent_queue_event(
             app,
             &completed.status,

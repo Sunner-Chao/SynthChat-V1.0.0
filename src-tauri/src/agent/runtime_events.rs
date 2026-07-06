@@ -195,6 +195,8 @@ pub(super) fn emit_agent_run_record(
         "toolEvent": tool_event,
         "phase": phase.map(|item| item.phase.clone()),
         "detail": phase.map(|item| item.detail.clone()),
+        "workflowGraph": &run.workflow_graph,
+        "workflow_graph": &run.workflow_graph,
         "error": &run.error,
         "updatedAt": &run.updated_at,
         "lastActivityAt": &run.last_activity_at,
@@ -356,8 +358,8 @@ pub(super) fn push_tool_event_record(run: &mut AgentRunRecord, event: &ToolEvent
 
 fn tool_event_payload_matches(left: &Value, right: &Value) -> bool {
     match (
-        tool_event_provider_call_id(left),
-        tool_event_provider_call_id(right),
+        tool_event_raw_payload_provider_call_id(left),
+        tool_event_raw_payload_provider_call_id(right),
     ) {
         (Some(left_id), Some(right_id)) => return left_id == right_id,
         (Some(_), None) | (None, Some(_)) => return false,
@@ -372,27 +374,23 @@ fn tool_event_payload_matches(left: &Value, right: &Value) -> bool {
     }
 }
 
-fn tool_event_provider_call_id(event: &Value) -> Option<&str> {
+fn tool_event_raw_payload_provider_call_id(event: &Value) -> Option<String> {
+    event
+        .get("raw")
+        .and_then(|raw| raw.get("payload"))
+        .and_then(provider_tool_call_id)
+}
+
+fn tool_event_provider_call_id(event: &Value) -> Option<String> {
     if let Some(call_id) = event
         .get("callId")
         .or_else(|| event.get("call_id"))
         .and_then(Value::as_str)
         .filter(|call_id| !call_id.trim().is_empty())
     {
-        return Some(call_id);
+        return Some(call_id.trim().to_string());
     }
-    event
-        .get("raw")
-        .and_then(|raw| raw.get("payload"))
-        .and_then(|payload| payload.get(super::decision_parser::PROVIDER_TOOL_CALL_META_KEY))
-        .and_then(|metadata| {
-            metadata
-                .get("id")
-                .or_else(|| metadata.get("call_id"))
-                .or_else(|| metadata.get("tool_call_id"))
-                .or_else(|| metadata.get("toolCallId"))
-        })
-        .and_then(Value::as_str)
+    tool_event_raw_payload_provider_call_id(event)
 }
 
 pub(super) fn tool_started_event(

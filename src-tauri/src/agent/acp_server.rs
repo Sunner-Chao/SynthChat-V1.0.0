@@ -29,7 +29,7 @@ use super::{
         acp_session_mcp_server_id_prefix, acp_session_status_notifications_for_params,
         acp_session_status_notifications_for_result, acp_usage_notification,
     },
-    now_iso, AcpNotificationSink,
+    now_iso, record_agent_queue_workflow_terminal, AcpNotificationSink,
 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -467,6 +467,7 @@ async fn acp_drain_session_queue_after_prompt(
                 fallback.completed_at = Some(now_iso());
                 fallback
             });
+        record_agent_queue_workflow_terminal(store, &completed)?;
         acp_emit_or_collect(
             notification_sink,
             notifications,
