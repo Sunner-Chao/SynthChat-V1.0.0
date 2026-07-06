@@ -21,7 +21,7 @@ use std::{
     io::{self, BufRead, IsTerminal, Write},
     path::{Path, PathBuf},
     process::{Command, Output},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -30,7 +30,7 @@ use error::{AppError, AppResult};
 use futures::StreamExt;
 use model_catalog::{DetectedModelList, ModelCapabilities, ModelCatalogEntry, ProviderCatalogInfo};
 use models::{
-    new_id, AgentDefinition, AppConfig, BrowserProvider, EmojiGroupConfig, ImageProvider,
+    new_id, AgentDefinition, AppConfig, BrowserProvider, ChatMessage, EmojiGroupConfig, ImageProvider,
     LlmProvider, Persona, ProactiveStatus, ProfileConfig, ScheduledAgentJob,
     ScheduledJobOutputRecord, SearchProvider, SendChatRequest, VideoProvider, VisionProvider,
 };
@@ -76,6 +76,8 @@ const APP_UPDATE_DOWNLOAD_TIMEOUT_SECS: u64 = 600;
 const MAX_APP_UPDATE_INSTALLER_BYTES: u64 = 500 * 1024 * 1024;
 const APP_UPDATE_USER_AGENT: &str = "SynthChat-Update-Checker";
 const DEFAULT_APP_UPDATE_MANIFEST_URL: Option<&str> = option_env!("SYNTHCHAT_UPDATE_MANIFEST_URL");
+const SYNTHCHAT_DATA_DIR_ENV: &str = "SYNTHCHAT_DATA_DIR";
+const SYNTHCHAT_DATA_DIR_NAME: &str = "synthchat-data";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -163,49 +165,209 @@ pub(crate) fn state_path() -> PathBuf {
     resolve_state_path(None)
 }
 
+fn state_path_from_data_dir(data_dir: PathBuf) -> PathBuf {
+    let looks_like_json_file = data_dir
+        .extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| value.eq_ignore_ascii_case("json"));
+    if looks_like_json_file {
+        data_dir
+    } else {
+        data_dir.join("state.json")
+    }
+}
+
+fn env_state_path_candidate() -> Option<PathBuf> {
+    std::env::var(SYNTHCHAT_DATA_DIR_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .map(state_path_from_data_dir)
+}
+
+fn current_workspace_root() -> Option<PathBuf> {
+    let cwd = std::env::current_dir().ok()?;
+    for dir in cwd.ancestors() {
+        if dir.join("src-tauri").join("tauri.conf.json").exists()
+            && dir.join("package.json").exists()
+        {
+            return Some(dir.to_path_buf());
+        }
+        if dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == "src-tauri")
+            && dir.join("tauri.conf.json").exists()
+        {
+            if let Some(parent) = dir.parent() {
+                return Some(parent.to_path_buf());
+            }
+        }
+    }
+    None
+}
+
+fn app_data_state_path(app: Option<&AppHandle>) -> Option<PathBuf> {
+    app.and_then(|handle| handle.path().app_data_dir().ok())
+        .or_else(|| dirs::data_dir().map(|dir| dir.join("cc.synthchat.v1")))
+        .map(|dir| dir.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"))
+}
+
+fn local_state_path_candidates(app: Option<&AppHandle>) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(path) = env_state_path_candidate() {
+        candidates.push(path);
+    }
+    if let Some(root) = current_workspace_root() {
+        candidates.push(root.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            candidates.push(parent.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
+            if let Some(grandparent) = parent.parent() {
+                candidates.push(grandparent.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
+            }
+        }
+    }
+    if let Some(path) = app_data_state_path(app) {
+        candidates.push(path);
+    }
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if !unique.iter().any(|item: &PathBuf| item == &candidate) {
+            unique.push(candidate);
+        }
+    }
+    unique
+}
+
+fn state_path_parent_writable(path: &Path) -> bool {
+    let Some(parent) = path.parent() else {
+        return false;
+    };
+    if fs::create_dir_all(parent).is_err() {
+        return false;
+    }
+    let probe = parent.join(".synthchat-write-test");
+    match fs::write(&probe, b"ok") {
+        Ok(()) => {
+            let _ = fs::remove_file(probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 fn legacy_state_path_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
-            candidates.push(parent.join("synthchat-data").join("state.json"));
+            candidates.push(parent.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
             if let Some(grandparent) = parent.parent() {
-                candidates.push(grandparent.join("synthchat-data").join("state.json"));
+                candidates.push(
+                    grandparent
+                        .join(SYNTHCHAT_DATA_DIR_NAME)
+                        .join("state.json"),
+                );
             }
         }
     }
     if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("synthchat-data").join("state.json"));
+        candidates.push(cwd.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
         candidates.push(
             cwd.join("src-tauri")
                 .join("target")
                 .join("debug")
-                .join("synthchat-data")
+                .join(SYNTHCHAT_DATA_DIR_NAME)
                 .join("state.json"),
         );
         candidates.push(
             cwd.join("target")
                 .join("debug")
-                .join("synthchat-data")
+                .join(SYNTHCHAT_DATA_DIR_NAME)
                 .join("state.json"),
         );
+    }
+    if let Some(path) = app_data_state_path(None) {
+        candidates.push(path);
     }
     candidates
 }
 
+fn copy_dir_if_missing(source: &Path, target: &Path) {
+    if !source.is_dir() {
+        return;
+    }
+    if fs::create_dir_all(target).is_err() {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(source) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_dir_if_missing(&source_path, &target_path);
+        } else if source_path.is_file() && !target_path.exists() {
+            let _ = fs::copy(&source_path, &target_path);
+        }
+    }
+}
+
+fn copy_legacy_data_siblings(candidate_dir: &Path, target_dir: &Path) {
+    for name in [
+        "accounts.json",
+        "emoji_groups.json",
+        "wechat.json",
+        "processes.json",
+        "synthchat-profile.json",
+    ] {
+        let source = candidate_dir.join(name);
+        let target = target_dir.join(name);
+        if source.exists() && !target.exists() {
+            let _ = fs::copy(source, target);
+        }
+    }
+    for name in [
+        "artifacts",
+        "attachments",
+        "config",
+        "conversations",
+        "emoji",
+        "exports",
+        "logs",
+        "mcp-media",
+        "memory-providers",
+        "public",
+        "data",
+        "runtime",
+        "profile",
+        "personas",
+        "skills",
+        "state-snapshots",
+        "workspace-snapshots",
+        ".hermes",
+        ".playwright-mcp",
+    ] {
+        copy_dir_if_missing(&candidate_dir.join(name), &target_dir.join(name));
+    }
+}
+
 fn resolve_state_path(app: Option<&AppHandle>) -> PathBuf {
-    let app_data_dir = app
-        .and_then(|handle| handle.path().app_data_dir().ok())
-        .or_else(|| dirs::data_dir().map(|dir| dir.join("cc.synthchat.v1")))
+    let candidates = local_state_path_candidates(app);
+    let state_path = candidates
+        .iter()
+        .find(|candidate| state_path_parent_writable(candidate))
+        .cloned()
+        .or_else(|| candidates.last().cloned())
         .unwrap_or_else(|| {
-            std::env::current_exe()
-                .ok()
-                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-                .or_else(|| std::env::current_dir().ok())
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("synthchat-data")
+            std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join(SYNTHCHAT_DATA_DIR_NAME)
+                .join("state.json")
         });
-    let state_dir = app_data_dir.join("synthchat-data");
-    let state_path = state_dir.join("state.json");
     if !state_path.exists() {
         for candidate in legacy_state_path_candidates() {
             if candidate == state_path || !candidate.exists() {
@@ -223,18 +385,7 @@ fn resolve_state_path(app: Option<&AppHandle>) -> PathBuf {
                 .parent()
                 .map(Path::to_path_buf)
                 .unwrap_or_else(|| PathBuf::from("."));
-            for name in [
-                "accounts.json",
-                "emoji_groups.json",
-                "wechat.json",
-                "processes.json",
-            ] {
-                let source = candidate_dir.join(name);
-                let target = target_dir.join(name);
-                if source.exists() && !target.exists() {
-                    let _ = fs::copy(source, target);
-                }
-            }
+            copy_legacy_data_siblings(&candidate_dir, &target_dir);
             break;
         }
     }
@@ -1262,6 +1413,11 @@ fn restore_workspace_snapshot(
     delete_new_files: bool,
 ) -> AppResult<Value> {
     store.restore_workspace_snapshot(&snapshot_id, delete_new_files)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_storage_layout(store: State<'_, AppStore>) -> AppResult<Value> {
+    Ok(store.storage_layout())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2444,6 +2600,147 @@ fn list_agentic_models(provider_id: String) -> AppResult<Vec<ModelCatalogEntry>>
 #[tauri::command(rename_all = "camelCase")]
 async fn detect_provider_models(provider: LlmProvider) -> AppResult<DetectedModelList> {
     model_catalog::detect_provider_models(provider).await
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelCapabilityProbeResult {
+    ok: bool,
+    capability: String,
+    provider_id: String,
+    model_id: String,
+    supported: bool,
+    source: String,
+    capabilities: ModelCapabilities,
+    response_preview: Option<String>,
+    error: Option<String>,
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn probe_provider_vision_capability(
+    provider: LlmProvider,
+) -> AppResult<ModelCapabilityProbeResult> {
+    let mut capabilities = model_catalog::provider_model_capabilities(&provider);
+    let provider_id = provider.id.trim().to_string();
+    let model_id = provider.model.trim().to_string();
+    if model_id.is_empty() {
+        return Ok(ModelCapabilityProbeResult {
+            ok: false,
+            capability: "vision".into(),
+            provider_id,
+            model_id,
+            supported: false,
+            source: "probe".into(),
+            capabilities,
+            response_preview: None,
+            error: Some("model ID is empty".into()),
+        });
+    }
+
+    const PROBE_IMAGE_BASE64: &str =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    let image_url = format!("data:image/png;base64,{PROBE_IMAGE_BASE64}");
+    let prompt = "This is a capability probe. If you can receive the attached image, answer exactly: OK";
+    let mut probe_message = ChatMessage::new(
+        "capability-probe".into(),
+        "user",
+        prompt.into(),
+        "capability-probe",
+    );
+    probe_message.provider_data = Some(json!({
+        "openai": {
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": image_url}}
+            ]
+        },
+        "responses": {
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {"type": "input_image", "image_url": image_url}
+            ]
+        },
+        "anthropic": {
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image", "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": PROBE_IMAGE_BASE64
+                }}
+            ]
+        },
+        "gemini": {
+            "parts": [
+                {"text": prompt},
+                {"inlineData": {
+                    "mimeType": "image/png",
+                    "data": PROBE_IMAGE_BASE64
+                }}
+            ]
+        }
+    }));
+    let mut probe_persona = Persona::default();
+    probe_persona.llm_provider = provider.id.clone();
+    probe_persona.llm_model = model_id.clone();
+    probe_persona.temperature = 0.0;
+    probe_persona.max_tokens = 16;
+    let result = llm::complete_chat_with_options(
+        &provider,
+        &probe_persona,
+        "You are running a model capability probe. Reply briefly.".into(),
+        vec![probe_message],
+        prompt,
+        None,
+        &llm::LlmCallOptions {
+            fast_mode_enabled: true,
+            thinking_enabled: false,
+            ..llm::LlmCallOptions::default()
+        },
+    )
+    .await;
+    match result {
+        Ok(reply) => {
+            capabilities.supports_vision = true;
+            if !capabilities
+                .input_modalities
+                .iter()
+                .any(|item| item == "image")
+            {
+                capabilities.input_modalities.push("image".into());
+                capabilities.input_modalities.sort();
+                capabilities.input_modalities.dedup();
+            }
+            capabilities.source = "probe".into();
+            Ok(ModelCapabilityProbeResult {
+                ok: true,
+                capability: "vision".into(),
+                provider_id,
+                model_id,
+                supported: true,
+                source: "probe".into(),
+                capabilities,
+                response_preview: Some(reply.content.chars().take(200).collect()),
+                error: None,
+            })
+        }
+        Err(error) => Ok(ModelCapabilityProbeResult {
+            ok: false,
+            capability: "vision".into(),
+            provider_id,
+            model_id,
+            supported: false,
+            source: "probe".into(),
+            capabilities,
+            response_preview: None,
+            error: Some(error.to_string()),
+        }),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn detect_image_provider_models(provider: ImageProvider) -> AppResult<DetectedModelList> {
+    model_catalog::detect_image_provider_models(provider).await
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -4694,7 +4991,13 @@ fn bundled_emoji_dir() -> Option<PathBuf> {
             std::env::current_exe().ok().and_then(|exe| {
                 let parent = exe.parent()?;
                 [
+                    parent.join("synthchat-data").join("data").join("emoji"),
                     parent.join("data").join("emoji"),
+                    parent
+                        .join("resources")
+                        .join("synthchat-data")
+                        .join("data")
+                        .join("emoji"),
                     parent.join("resources").join("data").join("emoji"),
                     parent.join("resources").join("emoji"),
                 ]
@@ -4703,7 +5006,16 @@ fn bundled_emoji_dir() -> Option<PathBuf> {
                 .or_else(|| {
                     parent.parent().and_then(|grandparent| {
                         [
+                            grandparent
+                                .join("synthchat-data")
+                                .join("data")
+                                .join("emoji"),
                             grandparent.join("data").join("emoji"),
+                            grandparent
+                                .join("resources")
+                                .join("synthchat-data")
+                                .join("data")
+                                .join("emoji"),
                             grandparent.join("resources").join("data").join("emoji"),
                             grandparent.join("resources").join("emoji"),
                         ]
@@ -5018,6 +5330,13 @@ impl PythonCommand {
         parts.extend(extra_args.iter().map(|item| item.to_string()));
         parts.join(" ")
     }
+
+    fn display_with_strings(&self, extra_args: &[String]) -> String {
+        let mut parts = vec![self.program.clone()];
+        parts.extend(self.prefix_args.iter().cloned());
+        parts.extend(extra_args.iter().cloned());
+        parts.join(" ")
+    }
 }
 
 fn edge_tts_platform_label() -> &'static str {
@@ -5031,16 +5350,50 @@ fn edge_tts_platform_label() -> &'static str {
 
 fn edge_tts_install_hint() -> &'static str {
     match std::env::consts::OS {
-        "windows" => "python -m pip install edge-tts",
-        "macos" => "python3 -m pip install --user edge-tts",
-        "linux" => "python3 -m pip install --user edge-tts",
-        _ => "python -m pip install edge-tts",
+        "windows" => "python -m venv <synthchat-data>\\runtime\\python\\edge-tts-venv",
+        "macos" => "python3 -m venv <synthchat-data>/runtime/python/edge-tts-venv",
+        "linux" => "python3 -m venv <synthchat-data>/runtime/python/edge-tts-venv",
+        _ => "python -m venv <synthchat-data>/runtime/python/edge-tts-venv",
     }
 }
 
-fn edge_tts_python_candidates() -> Vec<PythonCommand> {
+fn edge_tts_venv_dir(store: &AppStore) -> PathBuf {
+    store
+        .data_dir()
+        .join("runtime")
+        .join("python")
+        .join("edge-tts-venv")
+}
+
+fn edge_tts_venv_python_path(venv_dir: &Path) -> PathBuf {
+    if cfg!(windows) {
+        venv_dir.join("Scripts").join("python.exe")
+    } else {
+        venv_dir.join("bin").join("python")
+    }
+}
+
+fn edge_tts_python_from_path(path: PathBuf) -> PythonCommand {
+    PythonCommand::new(path.to_string_lossy().to_string(), vec![])
+}
+
+fn edge_tts_python_candidates(store: Option<&AppStore>) -> Vec<PythonCommand> {
     let mut candidates = Vec::new();
-    for key in ["SYNTHCHAT_EDGE_TTS_PYTHON", "HERMES_PYTHON"] {
+    for key in ["SYNTHCHAT_EDGE_TTS_PYTHON", "SYNTHCHAT_TTS_PYTHON"] {
+        if let Ok(value) = std::env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                candidates.push(PythonCommand::new(trimmed, vec![]));
+            }
+        }
+    }
+    if let Some(store) = store {
+        let venv_python = edge_tts_venv_python_path(&edge_tts_venv_dir(store));
+        if venv_python.exists() {
+            candidates.push(edge_tts_python_from_path(venv_python));
+        }
+    }
+    for key in ["HERMES_PYTHON", "HERMES_TTS_PYTHON"] {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {
@@ -5076,6 +5429,15 @@ fn run_edge_tts_python_command(candidate: &PythonCommand, extra_args: &[&str]) -
     command.output()
 }
 
+fn run_edge_tts_python_command_strings(
+    candidate: &PythonCommand,
+    extra_args: &[String],
+) -> io::Result<Output> {
+    let mut command = Command::new(&candidate.program);
+    command.args(&candidate.prefix_args).args(extra_args).hide_window();
+    command.output()
+}
+
 fn truncate_detail(value: &str, max_chars: usize) -> String {
     let mut result = String::new();
     for ch in value.chars().take(max_chars) {
@@ -5103,9 +5465,42 @@ fn command_output_text(output: &Output) -> String {
     truncate_detail(&text, 2400)
 }
 
-fn find_edge_tts_python() -> (Option<(PythonCommand, String)>, Vec<String>) {
+static CHATTTS_INSTALL_RUNNING: OnceLock<Mutex<bool>> = OnceLock::new();
+
+fn chattts_install_running() -> &'static Mutex<bool> {
+    CHATTTS_INSTALL_RUNNING.get_or_init(|| Mutex::new(false))
+}
+
+fn emit_chattts_install_progress(
+    app: Option<&AppHandle>,
+    job_id: Option<&str>,
+    stage: &str,
+    message: &str,
+    percent: Option<u8>,
+    success: Option<bool>,
+    detail: Option<&str>,
+) {
+    let Some(app) = app else {
+        return;
+    };
+    let _ = app.emit(
+        "install-progress",
+        json!({
+            "id": "chattts",
+            "action": "install_chattts_deps",
+            "jobId": job_id,
+            "stage": stage,
+            "message": message,
+            "percent": percent,
+            "success": success,
+            "detail": detail,
+        }),
+    );
+}
+
+fn find_edge_tts_python(store: Option<&AppStore>) -> (Option<(PythonCommand, String)>, Vec<String>) {
     let mut attempts = Vec::new();
-    for candidate in edge_tts_python_candidates() {
+    for candidate in edge_tts_python_candidates(store) {
         match run_edge_tts_python_command(&candidate, &["--version"]) {
             Ok(output) if output.status.success() => {
                 let version = command_output_text(&output);
@@ -5127,21 +5522,27 @@ fn find_edge_tts_python() -> (Option<(PythonCommand, String)>, Vec<String>) {
     (None, attempts)
 }
 
-fn edge_tts_check_item() -> Value {
+fn edge_tts_check_item(store: &AppStore) -> Value {
     let platform = edge_tts_platform_label();
     let install_hint = edge_tts_install_hint();
-    let (python, attempts) = find_edge_tts_python();
+    let venv_dir = edge_tts_venv_dir(store);
+    let venv_python = edge_tts_venv_python_path(&venv_dir);
+    let (python, attempts) = find_edge_tts_python(Some(store));
     let Some((python, version)) = python else {
         return json!({
             "id": "edge-tts",
             "name": "Edge TTS",
             "status": "missing",
             "detail": format!(
-                "未找到可用 Python 运行时。\nOS: {platform}\n检查命令：python --version\n安装 edge-tts 前请先安装 Python 3，并确保 python 或 python3 在 PATH 中。\n推荐安装命令：{install_hint}\n\n尝试记录：\n{}",
+                "未找到可用 Python 运行时。\nOS: {platform}\n计划创建的本地环境：{}\n安装 edge-tts 前需要系统存在 Python 3（python/python3/py -3 任一可用）。\n自动配置步骤：{install_hint}，然后在该 venv 内安装 edge-tts。\n\n尝试记录：\n{}",
+                venv_dir.to_string_lossy(),
                 if attempts.is_empty() { "无".into() } else { attempts.join("\n") }
             ),
-            "fixAction": null,
-            "fixLabel": null
+            "pythonPath": null,
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
+            "fixAction": "install_edge_tts",
+            "fixLabel": "自动配置 edge-tts"
         });
     };
 
@@ -5164,6 +5565,9 @@ fn edge_tts_check_item() -> Value {
                     check_command,
                     voice_count
                 ),
+                "pythonPath": python.display_with(&[]),
+                "venvPath": venv_dir.to_string_lossy().to_string(),
+                "venvPython": venv_python.to_string_lossy().to_string(),
                 "fixAction": null,
                 "fixLabel": null
             })
@@ -5180,8 +5584,11 @@ fn edge_tts_check_item() -> Value {
                 install_hint,
                 command_output_text(&output)
             ),
+            "pythonPath": python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
             "fixAction": "install_edge_tts",
-            "fixLabel": "安装 edge-tts"
+            "fixLabel": "自动配置 edge-tts"
         }),
         Err(error) => json!({
             "id": "edge-tts",
@@ -5194,50 +5601,558 @@ fn edge_tts_check_item() -> Value {
                 install_hint,
                 error
             ),
+            "pythonPath": python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
             "fixAction": "install_edge_tts",
-            "fixLabel": "安装 edge-tts"
+            "fixLabel": "自动配置 edge-tts"
+        }),
+    }
+}
+
+fn chattts_install_hint() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => "python -m venv <synthchat-data>\\runtime\\python\\chattts-venv",
+        "macos" => "python3 -m venv <synthchat-data>/runtime/python/chattts-venv",
+        "linux" => "python3 -m venv <synthchat-data>/runtime/python/chattts-venv",
+        _ => "python -m venv <synthchat-data>/runtime/python/chattts-venv",
+    }
+}
+
+fn chattts_venv_dir(store: &AppStore) -> PathBuf {
+    store
+        .data_dir()
+        .join("runtime")
+        .join("python")
+        .join("chattts-venv")
+}
+
+fn chattts_model_dir(store: &AppStore) -> PathBuf {
+    store
+        .data_dir()
+        .join("data")
+        .join("models")
+        .join("ChatTTS")
+}
+
+fn chattts_script_path(store: &AppStore) -> PathBuf {
+    store.data_dir().join("data").join("tts").join("chattts_synth.py")
+}
+
+fn chattts_python_candidates(store: Option<&AppStore>) -> Vec<PythonCommand> {
+    let mut candidates = Vec::new();
+    for key in ["SYNTHCHAT_CHATTTS_PYTHON", "SYNTHCHAT_TTS_PYTHON"] {
+        if let Ok(value) = std::env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                candidates.push(PythonCommand::new(trimmed, vec![]));
+            }
+        }
+    }
+    if let Some(store) = store {
+        let venv_python = edge_tts_venv_python_path(&chattts_venv_dir(store));
+        if venv_python.exists() {
+            candidates.push(edge_tts_python_from_path(venv_python));
+        }
+    }
+    for key in ["HERMES_CHATTTS_PYTHON", "HERMES_TTS_PYTHON", "HERMES_PYTHON"] {
+        if let Ok(value) = std::env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                candidates.push(PythonCommand::new(trimmed, vec![]));
+            }
+        }
+    }
+    if cfg!(windows) {
+        candidates.push(PythonCommand::new("python", vec![]));
+        candidates.push(PythonCommand::new("py", vec!["-3".into()]));
+        candidates.push(PythonCommand::new("python3", vec![]));
+    } else {
+        candidates.push(PythonCommand::new("python3", vec![]));
+        candidates.push(PythonCommand::new("python", vec![]));
+    }
+
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        let key = candidate.display_with(&[]);
+        if !unique
+            .iter()
+            .any(|item: &PythonCommand| item.display_with(&[]) == key)
+        {
+            unique.push(candidate);
+        }
+    }
+    unique
+}
+
+fn find_chattts_python(store: Option<&AppStore>) -> (Option<(PythonCommand, String)>, Vec<String>) {
+    let mut attempts = Vec::new();
+    for candidate in chattts_python_candidates(store) {
+        match run_edge_tts_python_command(&candidate, &["--version"]) {
+            Ok(output) if output.status.success() => {
+                let version = command_output_text(&output);
+                return (Some((candidate, version)), attempts);
+            }
+            Ok(output) => attempts.push(format!(
+                "{} -> exit {:?}: {}",
+                candidate.display_with(&["--version"]),
+                output.status.code(),
+                command_output_text(&output)
+            )),
+            Err(error) => attempts.push(format!(
+                "{} -> {}",
+                candidate.display_with(&["--version"]),
+                error
+            )),
+        }
+    }
+    (None, attempts)
+}
+
+fn chattts_model_dir_ready(path: &Path) -> bool {
+    path.is_dir()
+        && path
+            .read_dir()
+            .map(|mut entries| entries.next().is_some())
+            .unwrap_or(false)
+}
+
+fn chattts_check_item(store: &AppStore) -> Value {
+    let platform = edge_tts_platform_label();
+    let install_hint = chattts_install_hint();
+    let venv_dir = chattts_venv_dir(store);
+    let venv_python = edge_tts_venv_python_path(&venv_dir);
+    let model_dir = chattts_model_dir(store);
+    let script_path = chattts_script_path(store);
+    let model_ready = chattts_model_dir_ready(&model_dir);
+    let script_ready = script_path.is_file();
+    let (python, attempts) = find_chattts_python(Some(store));
+    let Some((python, version)) = python else {
+        return json!({
+            "id": "chattts",
+            "name": "ChatTTS",
+            "status": "missing",
+            "detail": format!(
+                "未找到可用 Python 运行时。\nOS: {platform}\n脚本：{}\n默认模型目录：{}\n计划创建的本地环境：{}\n自动配置步骤：{install_hint}，然后在该 venv 内安装 ChatTTS/torch/torchaudio/numpy。\n\n尝试记录：\n{}",
+                script_path.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                venv_dir.to_string_lossy(),
+                if attempts.is_empty() { "无".into() } else { attempts.join("\n") }
+            ),
+            "pythonPath": null,
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
+            "modelDir": model_dir.to_string_lossy().to_string(),
+            "scriptPath": script_path.to_string_lossy().to_string(),
+            "fixAction": "install_chattts_deps",
+            "fixLabel": "自动配置 ChatTTS"
+        });
+    };
+
+    let check_args = ["-c", "import ChatTTS, torch, torchaudio, numpy; print('ok')"];
+    let check_command = python.display_with(&check_args);
+    match run_edge_tts_python_command(&python, &check_args) {
+        Ok(output) if output.status.success() && script_ready && model_ready => json!({
+            "id": "chattts",
+            "name": "ChatTTS",
+            "status": "ok",
+            "detail": format!(
+                "ChatTTS 已就绪。\nOS: {platform}\nPython: {}\nPython 版本：{}\n检查命令：{}\n脚本：{}\n模型目录：{}",
+                python.display_with(&[]),
+                version,
+                check_command,
+                script_path.to_string_lossy(),
+                model_dir.to_string_lossy()
+            ),
+            "pythonPath": python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
+            "modelDir": model_dir.to_string_lossy().to_string(),
+            "scriptPath": script_path.to_string_lossy().to_string(),
+            "fixAction": null,
+            "fixLabel": null
+        }),
+        Ok(output) if output.status.success() => json!({
+            "id": "chattts",
+            "name": "ChatTTS",
+            "status": "missing",
+            "detail": format!(
+                "ChatTTS Python 依赖可用，但资源尚未完整。\nOS: {platform}\nPython: {}\nPython 版本：{}\n检查命令：{}\n脚本：{} ({})\n默认模型目录：{} ({})\n\n说明：ChatTTS 模型文件较大，不会被强制写入 state.json；建议放在 synthchat-data/data/models/ChatTTS 或在角色语音设置里选择现有模型目录。",
+                python.display_with(&[]),
+                version,
+                check_command,
+                script_path.to_string_lossy(),
+                if script_ready { "存在" } else { "缺失" },
+                model_dir.to_string_lossy(),
+                if model_ready { "存在" } else { "缺失或为空" }
+            ),
+            "pythonPath": python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
+            "modelDir": model_dir.to_string_lossy().to_string(),
+            "scriptPath": script_path.to_string_lossy().to_string(),
+            "fixAction": "install_chattts_deps",
+            "fixLabel": "自动配置 ChatTTS"
+        }),
+        Ok(output) => json!({
+            "id": "chattts",
+            "name": "ChatTTS",
+            "status": "missing",
+            "detail": format!(
+                "Python 可用，但 ChatTTS 依赖检查失败。\nOS: {platform}\nPython: {}\nPython 版本：{}\n检查命令：{}\n脚本：{}\n默认模型目录：{}\n推荐配置步骤：{}\n\n输出：\n{}",
+                python.display_with(&[]),
+                version,
+                check_command,
+                script_path.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                install_hint,
+                command_output_text(&output)
+            ),
+            "pythonPath": python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
+            "modelDir": model_dir.to_string_lossy().to_string(),
+            "scriptPath": script_path.to_string_lossy().to_string(),
+            "fixAction": "install_chattts_deps",
+            "fixLabel": "自动配置 ChatTTS"
+        }),
+        Err(error) => json!({
+            "id": "chattts",
+            "name": "ChatTTS",
+            "status": "error",
+            "detail": format!(
+                "无法执行 ChatTTS 检查。\nOS: {platform}\nPython: {}\n检查命令：{}\n脚本：{}\n默认模型目录：{}\n推荐配置步骤：{}\n\n错误：{}",
+                python.display_with(&[]),
+                check_command,
+                script_path.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                install_hint,
+                error
+            ),
+            "pythonPath": python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "venvPython": venv_python.to_string_lossy().to_string(),
+            "modelDir": model_dir.to_string_lossy().to_string(),
+            "scriptPath": script_path.to_string_lossy().to_string(),
+            "fixAction": "install_chattts_deps",
+            "fixLabel": "自动配置 ChatTTS"
         }),
     }
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn install_edge_tts() -> AppResult<Value> {
+fn install_edge_tts(store: State<'_, AppStore>) -> AppResult<Value> {
     let platform = edge_tts_platform_label();
     let install_hint = edge_tts_install_hint();
-    let (python, attempts) = find_edge_tts_python();
-    let Some((python, version)) = python else {
+    let venv_dir = edge_tts_venv_dir(&store);
+    let venv_python_path = edge_tts_venv_python_path(&venv_dir);
+    let (base_python, attempts) = if venv_python_path.exists() {
+        find_edge_tts_python(Some(&store))
+    } else {
+        find_edge_tts_python(None)
+    };
+    let Some((base_python, version)) = base_python else {
         return Ok(json!({
             "success": false,
             "message": "未找到 Python，无法安装 edge-tts。",
             "detail": format!(
-                "OS: {platform}\n请先安装 Python 3，并确认 python 或 python3 可用。\n推荐安装命令：{install_hint}\n\n尝试记录：\n{}",
+                "OS: {platform}\n请先安装 Python 3，并确认 python、python3 或 py -3 可用。\n计划创建的本地环境：{}\n推荐配置步骤：{install_hint}\n\n尝试记录：\n{}",
+                venv_dir.to_string_lossy(),
                 if attempts.is_empty() { "无".into() } else { attempts.join("\n") }
             )
         }));
     };
 
-    let mut install_attempts: Vec<Vec<&str>> = vec![vec!["-m", "pip", "install", "edge-tts"]];
-    if !cfg!(windows) {
-        install_attempts.push(vec!["-m", "pip", "install", "--user", "edge-tts"]);
+    let mut logs = Vec::new();
+    if let Some(parent) = venv_dir.parent() {
+        fs::create_dir_all(parent)?;
     }
 
-    let mut logs = Vec::new();
-    for args in install_attempts {
-        let command_text = python.display_with(&args);
-        match run_edge_tts_python_command(&python, &args) {
-            Ok(output) if output.status.success() => {
+    if !venv_python_path.exists() {
+        let create_args = vec![
+            "-m".to_string(),
+            "venv".to_string(),
+            venv_dir.to_string_lossy().to_string(),
+        ];
+        let command_text = base_python.display_with_strings(&create_args);
+        match run_edge_tts_python_command_strings(&base_python, &create_args) {
+            Ok(output) if output.status.success() => logs.push(format!(
+                "{} -> ok\n{}",
+                command_text,
+                command_output_text(&output)
+            )),
+            Ok(output) => {
                 return Ok(json!({
-                    "success": true,
-                    "message": "edge-tts 安装完成。",
+                    "success": false,
+                    "message": "edge-tts 本地 Python 环境创建失败。",
                     "detail": format!(
-                        "OS: {platform}\nPython: {}\nPython 版本：{}\n执行命令：{}\n\n输出：\n{}",
-                        python.display_with(&[]),
+                        "OS: {platform}\nPython: {}\nPython 版本：{}\n执行命令：{}\n目标环境：{}\n\n输出：\n{}",
+                        base_python.display_with(&[]),
                         version,
                         command_text,
+                        venv_dir.to_string_lossy(),
                         command_output_text(&output)
                     )
                 }));
             }
+            Err(error) => {
+                return Ok(json!({
+                    "success": false,
+                    "message": "edge-tts 本地 Python 环境创建失败。",
+                    "detail": format!(
+                        "OS: {platform}\nPython: {}\nPython 版本：{}\n执行命令：{}\n目标环境：{}\n\n错误：{}",
+                        base_python.display_with(&[]),
+                        version,
+                        command_text,
+                        venv_dir.to_string_lossy(),
+                        error
+                    )
+                }));
+            }
+        }
+    }
+
+    let venv_python = edge_tts_python_from_path(venv_python_path.clone());
+    for args in [
+        vec!["-m", "ensurepip", "--upgrade"],
+        vec!["-m", "pip", "install", "--upgrade", "pip"],
+        vec!["-m", "pip", "install", "--upgrade", "edge-tts"],
+    ] {
+        let command_text = venv_python.display_with(&args);
+        match run_edge_tts_python_command(&venv_python, &args) {
+            Ok(output) if output.status.success() => logs.push(format!(
+                "{} -> ok\n{}",
+                command_text,
+                command_output_text(&output)
+            )),
+            Ok(output) if args.contains(&"edge-tts") => {
+                logs.push(format!(
+                    "{} -> exit {:?}\n{}",
+                    command_text,
+                    output.status.code(),
+                    command_output_text(&output)
+                ));
+                return Ok(json!({
+                    "success": false,
+                    "message": "edge-tts 安装失败。",
+                    "detail": format!(
+                        "OS: {platform}\nBase Python: {}\n本地环境：{}\n推荐配置步骤：{}\n\n尝试记录：\n{}",
+                        base_python.display_with(&[]),
+                        venv_dir.to_string_lossy(),
+                        install_hint,
+                        logs.join("\n\n")
+                    )
+                }));
+            }
+            Ok(output) => logs.push(format!(
+                "{} -> exit {:?}\n{}",
+                command_text,
+                output.status.code(),
+                command_output_text(&output)
+            )),
+            Err(error) if args.contains(&"edge-tts") => {
+                logs.push(format!("{command_text} -> {error}"));
+                return Ok(json!({
+                    "success": false,
+                    "message": "edge-tts 安装失败。",
+                    "detail": format!(
+                        "OS: {platform}\nBase Python: {}\n本地环境：{}\n推荐配置步骤：{}\n\n尝试记录：\n{}",
+                        base_python.display_with(&[]),
+                        venv_dir.to_string_lossy(),
+                        install_hint,
+                        logs.join("\n\n")
+                    )
+                }));
+            }
+            Err(error) => logs.push(format!("{command_text} -> {error}")),
+        }
+    }
+
+    match run_edge_tts_python_command(&venv_python, &["-m", "edge_tts", "--list-voices"]) {
+        Ok(output) if output.status.success() => Ok(json!({
+            "success": true,
+            "message": "edge-tts 本地环境已配置完成。",
+            "detail": format!(
+                "OS: {platform}\nBase Python: {}\nBase Python 版本：{}\nedge-tts Python: {}\n本地环境：{}\n\n输出：\n{}",
+                base_python.display_with(&[]),
+                version,
+                venv_python.display_with(&[]),
+                venv_dir.to_string_lossy(),
+                command_output_text(&output)
+            ),
+            "pythonPath": venv_python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string()
+        })),
+        Ok(output) => Ok(json!({
+            "success": false,
+            "message": "edge-tts 已安装但验证失败。",
+            "detail": format!(
+                "OS: {platform}\nedge-tts Python: {}\n本地环境：{}\n\n安装记录：\n{}\n\n验证输出：\n{}",
+                venv_python.display_with(&[]),
+                venv_dir.to_string_lossy(),
+                logs.join("\n\n"),
+                command_output_text(&output)
+            )
+        })),
+        Err(error) => Ok(json!({
+            "success": false,
+            "message": "edge-tts 已安装但验证失败。",
+            "detail": format!(
+                "OS: {platform}\nedge-tts Python: {}\n本地环境：{}\n\n安装记录：\n{}\n\n验证错误：{}",
+                venv_python.display_with(&[]),
+                venv_dir.to_string_lossy(),
+                logs.join("\n\n"),
+                error
+            )
+        })),
+    }
+}
+
+fn install_chattts_deps_sync(
+    store: &AppStore,
+    model_dir: Option<String>,
+    app: Option<&AppHandle>,
+    job_id: Option<&str>,
+) -> AppResult<Value> {
+    let platform = edge_tts_platform_label();
+    let install_hint = chattts_install_hint();
+    emit_chattts_install_progress(
+        app,
+        job_id,
+        "resolving",
+        "正在解析 ChatTTS 本地运行目录...",
+        Some(5),
+        None,
+        None,
+    );
+    let venv_dir = chattts_venv_dir(store);
+    let venv_python_path = edge_tts_venv_python_path(&venv_dir);
+    let model_dir = model_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| chattts_model_dir(store));
+    let script_path = chattts_script_path(store);
+    let (base_python, attempts) = if venv_python_path.exists() {
+        find_chattts_python(Some(store))
+    } else {
+        find_chattts_python(None)
+    };
+    let Some((base_python, version)) = base_python else {
+        return Ok(json!({
+            "success": false,
+            "message": "未找到 Python，无法配置 ChatTTS。",
+            "detail": format!(
+                "OS: {platform}\n请先安装 Python 3，并确认 python、python3 或 py -3 可用。\n计划创建的本地环境：{}\n默认模型目录：{}\n推荐配置步骤：{install_hint}\n\n尝试记录：\n{}",
+                venv_dir.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                if attempts.is_empty() { "无".into() } else { attempts.join("\n") }
+            )
+        }));
+    };
+
+    let mut logs = Vec::new();
+    emit_chattts_install_progress(
+        app,
+        job_id,
+        "preparing",
+        "正在创建 ChatTTS 目录结构...",
+        Some(10),
+        None,
+        None,
+    );
+    if let Some(parent) = venv_dir.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::create_dir_all(&model_dir)?;
+
+    if !venv_python_path.exists() {
+        emit_chattts_install_progress(
+            app,
+            job_id,
+            "creating_venv",
+            "正在创建 ChatTTS 本地 Python venv...",
+            Some(20),
+            None,
+            None,
+        );
+        let create_args = vec![
+            "-m".to_string(),
+            "venv".to_string(),
+            venv_dir.to_string_lossy().to_string(),
+        ];
+        let command_text = base_python.display_with_strings(&create_args);
+        match run_edge_tts_python_command_strings(&base_python, &create_args) {
+            Ok(output) if output.status.success() => logs.push(format!(
+                "{} -> ok\n{}",
+                command_text,
+                command_output_text(&output)
+            )),
+            Ok(output) => {
+                return Ok(json!({
+                    "success": false,
+                    "message": "ChatTTS 本地 Python 环境创建失败。",
+                    "detail": format!(
+                        "OS: {platform}\nPython: {}\nPython 版本：{}\n执行命令：{}\n目标环境：{}\n模型目录：{}\n\n输出：\n{}",
+                        base_python.display_with(&[]),
+                        version,
+                        command_text,
+                        venv_dir.to_string_lossy(),
+                        model_dir.to_string_lossy(),
+                        command_output_text(&output)
+                    )
+                }));
+            }
+            Err(error) => {
+                return Ok(json!({
+                    "success": false,
+                    "message": "ChatTTS 本地 Python 环境创建失败。",
+                    "detail": format!(
+                        "OS: {platform}\nPython: {}\nPython 版本：{}\n执行命令：{}\n目标环境：{}\n模型目录：{}\n\n错误：{}",
+                        base_python.display_with(&[]),
+                        version,
+                        command_text,
+                        venv_dir.to_string_lossy(),
+                        model_dir.to_string_lossy(),
+                        error
+                    )
+                }));
+            }
+        }
+    }
+
+    let venv_python = edge_tts_python_from_path(venv_python_path.clone());
+    for (stage, message, percent, args) in [
+        (
+            "ensurepip",
+            "正在初始化 ChatTTS venv 的 pip...",
+            35,
+            vec!["-m", "ensurepip", "--upgrade"],
+        ),
+        (
+            "upgrade_pip",
+            "正在升级 pip/setuptools/wheel...",
+            45,
+            vec!["-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+        ),
+    ] {
+        emit_chattts_install_progress(
+            app,
+            job_id,
+            stage,
+            message,
+            Some(percent),
+            None,
+            None,
+        );
+        let command_text = venv_python.display_with(&args);
+        match run_edge_tts_python_command(&venv_python, &args) {
+            Ok(output) if output.status.success() => logs.push(format!(
+                "{} -> ok\n{}",
+                command_text,
+                command_output_text(&output)
+            )),
             Ok(output) => logs.push(format!(
                 "{} -> exit {:?}\n{}",
                 command_text,
@@ -5248,22 +6163,218 @@ fn install_edge_tts() -> AppResult<Value> {
         }
     }
 
+    let install_args = [
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "numpy",
+        "torch",
+        "torchaudio",
+        "ChatTTS",
+    ];
+    let install_command = venv_python.display_with(&install_args);
+    emit_chattts_install_progress(
+        app,
+        job_id,
+        "installing",
+        "正在安装 ChatTTS、torch、torchaudio、numpy，耗时可能较长...",
+        Some(65),
+        None,
+        Some(&install_command),
+    );
+    match run_edge_tts_python_command(&venv_python, &install_args) {
+        Ok(output) if output.status.success() => logs.push(format!(
+            "{} -> ok\n{}",
+            install_command,
+            command_output_text(&output)
+        )),
+        Ok(output) => {
+            logs.push(format!(
+                "{} -> exit {:?}\n{}",
+                install_command,
+                output.status.code(),
+                command_output_text(&output)
+            ));
+            return Ok(json!({
+                "success": false,
+                "message": "ChatTTS 依赖安装失败。",
+                "detail": format!(
+                    "OS: {platform}\nBase Python: {}\n本地环境：{}\n模型目录：{}\n脚本：{}\n推荐配置步骤：{}\n\n尝试记录：\n{}",
+                    base_python.display_with(&[]),
+                    venv_dir.to_string_lossy(),
+                    model_dir.to_string_lossy(),
+                    script_path.to_string_lossy(),
+                    install_hint,
+                    logs.join("\n\n")
+                )
+            }));
+        }
+        Err(error) => {
+            logs.push(format!("{install_command} -> {error}"));
+            return Ok(json!({
+                "success": false,
+                "message": "ChatTTS 依赖安装失败。",
+                "detail": format!(
+                    "OS: {platform}\nBase Python: {}\n本地环境：{}\n模型目录：{}\n脚本：{}\n推荐配置步骤：{}\n\n尝试记录：\n{}",
+                    base_python.display_with(&[]),
+                    venv_dir.to_string_lossy(),
+                    model_dir.to_string_lossy(),
+                    script_path.to_string_lossy(),
+                    install_hint,
+                    logs.join("\n\n")
+                )
+            }));
+        }
+    }
+
+    let check_args = ["-c", "import ChatTTS, torch, torchaudio, numpy; print('ok')"];
+    emit_chattts_install_progress(
+        app,
+        job_id,
+        "verifying",
+        "正在验证 ChatTTS 依赖是否可导入...",
+        Some(90),
+        None,
+        None,
+    );
+    match run_edge_tts_python_command(&venv_python, &check_args) {
+        Ok(output) if output.status.success() => Ok(json!({
+            "success": true,
+            "message": "ChatTTS 本地环境已配置完成。",
+            "detail": format!(
+                "OS: {platform}\nBase Python: {}\nBase Python 版本：{}\nChatTTS Python: {}\n本地环境：{}\n脚本：{}\n模型目录：{}\n\n说明：若模型目录仍为空，请把 ChatTTS 模型文件放入该目录，或在角色语音设置中选择已有模型目录。\n\n输出：\n{}",
+                base_python.display_with(&[]),
+                version,
+                venv_python.display_with(&[]),
+                venv_dir.to_string_lossy(),
+                script_path.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                command_output_text(&output)
+            ),
+            "pythonPath": venv_python.display_with(&[]),
+            "venvPath": venv_dir.to_string_lossy().to_string(),
+            "modelDir": model_dir.to_string_lossy().to_string(),
+            "scriptPath": script_path.to_string_lossy().to_string()
+        })),
+        Ok(output) => Ok(json!({
+            "success": false,
+            "message": "ChatTTS 已安装但验证失败。",
+            "detail": format!(
+                "OS: {platform}\nChatTTS Python: {}\n本地环境：{}\n模型目录：{}\n脚本：{}\n\n安装记录：\n{}\n\n验证输出：\n{}",
+                venv_python.display_with(&[]),
+                venv_dir.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                script_path.to_string_lossy(),
+                logs.join("\n\n"),
+                command_output_text(&output)
+            )
+        })),
+        Err(error) => Ok(json!({
+            "success": false,
+            "message": "ChatTTS 已安装但验证失败。",
+            "detail": format!(
+                "OS: {platform}\nChatTTS Python: {}\n本地环境：{}\n模型目录：{}\n脚本：{}\n\n安装记录：\n{}\n\n验证错误：{}",
+                venv_python.display_with(&[]),
+                venv_dir.to_string_lossy(),
+                model_dir.to_string_lossy(),
+                script_path.to_string_lossy(),
+                logs.join("\n\n"),
+                error
+            )
+        })),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn install_chattts_deps(
+    app: AppHandle,
+    store: State<'_, AppStore>,
+    model_dir: Option<String>,
+) -> AppResult<Value> {
+    {
+        let mut running = chattts_install_running()
+            .lock()
+            .map_err(|_| AppError::BadRequest("ChatTTS 安装状态不可用。".into()))?;
+        if *running {
+            return Ok(json!({
+                "success": true,
+                "inProgress": true,
+                "message": "ChatTTS 正在后台配置中。",
+                "detail": "已有一个 ChatTTS 自动配置任务正在运行，请等待进度条完成。"
+            }));
+        }
+        *running = true;
+    }
+
+    let job_id = new_id("chattts-install");
+    let store = store.inner().clone();
+    let app_for_thread = app.clone();
+    let job_id_for_thread = job_id.clone();
+    emit_chattts_install_progress(
+        Some(&app),
+        Some(&job_id),
+        "queued",
+        "ChatTTS 自动配置已转入后台执行。",
+        Some(1),
+        None,
+        None,
+    );
+
+    std::thread::spawn(move || {
+        let result = install_chattts_deps_sync(
+            &store,
+            model_dir,
+            Some(&app_for_thread),
+            Some(&job_id_for_thread),
+        );
+        let final_payload = match result {
+            Ok(value) => value,
+            Err(error) => json!({
+                "success": false,
+                "message": "ChatTTS 自动配置失败。",
+                "detail": error.to_string()
+            }),
+        };
+        let success = final_payload
+            .get("success")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let message = final_payload
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or(if success {
+                "ChatTTS 自动配置完成。"
+            } else {
+                "ChatTTS 自动配置失败。"
+            });
+        let detail = final_payload.get("detail").and_then(Value::as_str);
+        emit_chattts_install_progress(
+            Some(&app_for_thread),
+            Some(&job_id_for_thread),
+            if success { "completed" } else { "failed" },
+            message,
+            Some(100),
+            Some(success),
+            detail,
+        );
+        if let Ok(mut running) = chattts_install_running().lock() {
+            *running = false;
+        }
+    });
+
     Ok(json!({
-        "success": false,
-        "message": "edge-tts 安装失败。",
-        "detail": format!(
-            "OS: {platform}\nPython: {}\nPython 版本：{}\n推荐手动命令：{}\n\n尝试记录：\n{}",
-            python.display_with(&[]),
-            version,
-            install_hint,
-            logs.join("\n\n")
-        )
+        "success": true,
+        "inProgress": true,
+        "jobId": job_id,
+        "message": "ChatTTS 自动配置已在后台开始。",
+        "detail": "将创建/复用 synthchat-data/runtime/python/chattts-venv，并在其中安装 ChatTTS 依赖。安装完成后环境检查会自动刷新。"
     }))
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn install_missing_environment_deps() -> AppResult<Value> {
-    let edge_tts_item = edge_tts_check_item();
+fn install_missing_environment_deps(store: State<'_, AppStore>) -> AppResult<Value> {
+    let edge_tts_item = edge_tts_check_item(&store);
     let edge_tts_ready = edge_tts_item
         .get("status")
         .and_then(Value::as_str)
@@ -5276,7 +6387,7 @@ fn install_missing_environment_deps() -> AppResult<Value> {
             "detail": "LLM Provider 需要在设置中手动配置，不会由一键安装自动修改。"
         }));
     }
-    install_edge_tts()
+    install_edge_tts(store)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -5285,7 +6396,8 @@ fn environment_check(store: State<'_, AppStore>) -> AppResult<Value> {
     let has_real_provider = providers
         .iter()
         .any(|p| p.enabled && p.provider_type != "echo" && !p.base_url.trim().is_empty());
-    let edge_tts_item = edge_tts_check_item();
+    let edge_tts_item = edge_tts_check_item(&store);
+    let chattts_item = chattts_check_item(&store);
     let edge_tts_ready = edge_tts_item
         .get("status")
         .and_then(Value::as_str)
@@ -5307,6 +6419,7 @@ fn environment_check(store: State<'_, AppStore>) -> AppResult<Value> {
             "fixLabel": null
         }),
         edge_tts_item,
+        chattts_item,
     ];
     Ok(json!({"items": items, "allPassed": has_real_provider && edge_tts_ready}))
 }
@@ -5578,8 +6691,58 @@ async fn open_pet_window(app: AppHandle) -> AppResult<()> {
 fn show_pet_first(app: &AppHandle) -> AppResult<()> {
     ensure_pet_window(app, false)?;
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
+        let _ = hide_main_window_safely(&window);
     }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn hide_main_window_safely(window: &tauri::WebviewWindow) -> AppResult<()> {
+    if window
+        .is_fullscreen()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?
+    {
+        window
+            .set_fullscreen(false)
+            .map_err(|error| AppError::BadRequest(error.to_string()))?;
+        std::thread::sleep(Duration::from_millis(180));
+    }
+    window
+        .hide()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn hide_main_window_safely(window: &tauri::WebviewWindow) -> AppResult<()> {
+    window
+        .hide()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn hide_main_event_window_safely(window: &tauri::Window) -> AppResult<()> {
+    if window
+        .is_fullscreen()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?
+    {
+        window
+            .set_fullscreen(false)
+            .map_err(|error| AppError::BadRequest(error.to_string()))?;
+        std::thread::sleep(Duration::from_millis(180));
+    }
+    window
+        .hide()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn hide_main_event_window_safely(window: &tauri::Window) -> AppResult<()> {
+    window
+        .hide()
+        .map_err(|error| AppError::BadRequest(error.to_string()))?;
     Ok(())
 }
 
@@ -5617,9 +6780,7 @@ fn toggle_main_window(app: AppHandle) -> AppResult<()> {
         .is_minimized()
         .map_err(|error| AppError::BadRequest(error.to_string()))?;
     if visible && !minimized {
-        window
-            .hide()
-            .map_err(|error| AppError::BadRequest(error.to_string()))?;
+        hide_main_window_safely(&window)?;
         return Ok(());
     }
     if minimized {
@@ -5912,7 +7073,7 @@ pub fn run() {
             if window.label() == "main" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    let _ = window.hide();
+                    let _ = hide_main_event_window_safely(window);
                 }
             }
         })
@@ -5994,6 +7155,7 @@ pub fn run() {
             list_workspace_snapshots,
             create_workspace_snapshot,
             restore_workspace_snapshot,
+            get_storage_layout,
             cleanup_historical_resources,
             capture_screen_base64,
             set_pet_vision_active,
@@ -6048,6 +7210,8 @@ pub fn run() {
             get_provider_catalog_info,
             list_agentic_models,
             detect_provider_models,
+            probe_provider_vision_capability,
+            detect_image_provider_models,
             list_image_providers,
             save_image_providers,
             list_video_providers,
@@ -6186,6 +7350,7 @@ pub fn run() {
             upload_chat_attachment_from_path,
             environment_check,
             install_edge_tts,
+            install_chattts_deps,
             install_missing_environment_deps,
             empty_list,
             noop,

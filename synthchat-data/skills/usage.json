@@ -1,0 +1,238 @@
+{
+  "records": [
+    {
+      "contexts": {
+        "prompt": 326
+      },
+      "firstSeenAt": "2026-06-25T08:05:31.584797900+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T08:07:22.227096800+00:00",
+      "name": "apple-notes",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\apple\\apple-notes\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "apple/apple-notes",
+      "source": "project",
+      "useCount": 326
+    },
+    {
+      "contexts": {
+        "prompt": 325
+      },
+      "firstSeenAt": "2026-06-25T08:05:31.586498300+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T08:07:22.229926500+00:00",
+      "name": "apple-reminders",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\apple\\apple-reminders\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "apple/apple-reminders",
+      "source": "project",
+      "useCount": 325
+    },
+    {
+      "contexts": {
+        "prompt": 324
+      },
+      "firstSeenAt": "2026-06-25T08:05:31.587911100+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T08:07:22.231430900+00:00",
+      "name": "findmy",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\apple\\findmy\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "apple/findmy",
+      "source": "project",
+      "useCount": 324
+    },
+    {
+      "contexts": {
+        "prompt": 325
+      },
+      "firstSeenAt": "2026-06-25T08:05:31.590358300+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T08:07:22.233232500+00:00",
+      "name": "imessage",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\apple\\imessage\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "apple/imessage",
+      "source": "project",
+      "useCount": 325
+    },
+    {
+      "contexts": {
+        "prompt": 326
+      },
+      "firstSeenAt": "2026-06-25T08:05:31.592902100+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T08:07:22.234913500+00:00",
+      "name": "macos-computer-use",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\apple\\macos-computer-use\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "apple/macos-computer-use",
+      "source": "project",
+      "useCount": 326
+    },
+    {
+      "contexts": {
+        "prompt": 1030
+      },
+      "firstSeenAt": "2026-06-26T10:36:37.856008600+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-07-06T06:38:59.346318800+00:00",
+      "name": "claude-code",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\autonomous-ai-agents\\claude-code\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "autonomous-ai-agents/claude-code",
+      "source": "project",
+      "useCount": 1030
+    },
+    {
+      "contexts": {
+        "prompt": 1030
+      },
+      "firstSeenAt": "2026-06-26T10:36:37.857472500+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-07-06T06:38:59.348265300+00:00",
+      "name": "codex",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\autonomous-ai-agents\\codex\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "autonomous-ai-agents/codex",
+      "source": "project",
+      "useCount": 1030
+    },
+    {
+      "contexts": {
+        "install": 1,
+        "prompt": 951
+      },
+      "firstSeenAt": "2026-06-27T01:12:49.485008900+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-07-06T06:38:59.349466900+00:00",
+      "name": "agent-browser",
+      "path": "C:\\Users\\33908\\AppData\\Roaming\\cc.synthchat.v1\\synthchat-data\\skills\\external\\agent-browser\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "external/agent-browser",
+      "source": "external",
+      "useCount": 952
+    },
+    {
+      "contexts": {
+        "install": 1,
+        "prompt": 959
+      },
+      "firstSeenAt": "2026-06-27T00:59:09.296644700+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-07-06T06:38:59.351394200+00:00",
+      "name": "find-skills",
+      "path": "C:\\Users\\33908\\AppData\\Roaming\\cc.synthchat.v1\\synthchat-data\\skills\\external\\find-skills\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "external/find-skills",
+      "source": "external",
+      "useCount": 960
+    },
+    {
+      "contexts": {
+        "prompt": 1036,
+        "view": 3
+      },
+      "firstSeenAt": "2026-06-26T09:02:27.058018200+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-07-06T06:38:59.353233300+00:00",
+      "name": "bilibili-clip",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\media\\bilibili-clip\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "media/bilibili-clip",
+      "source": "project",
+      "useCount": 1039
+    },
+    {
+      "contexts": {
+        "prompt": 1
+      },
+      "firstSeenAt": "2026-06-26T09:58:23.051176500+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T09:58:23.051176500+00:00",
+      "name": "plan",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\software-development\\plan\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "software-development/plan",
+      "source": "project",
+      "useCount": 1
+    },
+    {
+      "contexts": {
+        "prompt": 337,
+        "view": 2
+      },
+      "firstSeenAt": "2026-06-25T07:08:22.962373+00:00",
+      "lastContext": "prompt",
+      "lastOrigin": "foreground",
+      "lastUsedAt": "2026-06-26T09:58:23.052282800+00:00",
+      "name": "writing-plans",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\software-development\\writing-plans\\SKILL.md",
+      "provenance": {
+        "agentCreated": false,
+        "backgroundCreated": false,
+        "origin": "foreground"
+      },
+      "skillId": "software-development/writing-plans",
+      "source": "project",
+      "useCount": 339
+    }
+  ],
+  "schema": "synthchat.skills.usage.v1",
+  "updatedAt": "2026-07-06T06:38:59.353413400+00:00"
+}

@@ -57,6 +57,7 @@ import {
   workflowGraphLastEventSequenceValue,
   workflowGraphRequestSourceValue,
   workflowGraphToolContextValue,
+  workflowHumanGateValue,
   workflowNodeDisplayLabel,
   workflowNodeRoleLabel,
   workflowRuntimeSummaryCurrentNodeValue,
@@ -413,6 +414,7 @@ function runStateLabel(state: string) {
     running_tool: "执行中...",
     tool_completed: "成功",
     pendingApproval: "等待审批",
+    needsClarification: "等待澄清",
     finalizing: "正在整理",
     completed: "已完成",
     failed: "失败",
@@ -504,11 +506,13 @@ function workflowSummaryText(summary?: WorkflowRuntimeSummary | null) {
   const requestSource = workflowRuntimeSummaryRequestSourceValue(summary);
   const toolContext = workflowRuntimeSummaryToolContextValue(summary);
   const toolOrigins = workflowToolOriginSummaryText(workflowRuntimeSummaryToolOriginsValue(summary));
+  const humanGate = workflowDetailValueText("humanGate", summary.humanGate ?? summary.human_gate);
   const counts = [
     typeof nodeCount === "number" ? `${nodeCount} nodes` : "",
     typeof transitionCount === "number" ? `${transitionCount} edges` : "",
     requestSource ? `source ${requestSource}` : "",
     toolContext ? `context ${toolContext}` : "",
+    humanGate ? `human ${humanGate}` : "",
     toolOrigins ? `origins ${toolOrigins}` : ""
   ].filter(Boolean).join(" · ");
   return [`current ${current}${status}`, counts].filter(Boolean).join(" · ");
@@ -609,6 +613,7 @@ const WORKFLOW_DETAIL_ALIASES: Record<string, string[]> = {
   chatId: ["chat_id"],
   threadId: ["thread_id"],
   groupId: ["group_id"],
+  humanGate: ["human_gate"],
   approvalId: ["approval_id"],
   checkpointId: ["checkpoint_id"],
   checkpointScope: ["checkpoint_scope"],
@@ -678,6 +683,27 @@ function workflowDetailRecordValue(record: Record<string, unknown>, key: string)
 }
 
 function workflowDetailValueText(key: string, value: unknown) {
+  if (key === "humanGate") {
+    const gate = workflowHumanGateValue({ humanGate: value }) ?? runtimePayloadRecord(value);
+    if (!gate) return "";
+    const kind = workflowDetailValueText("kind", gate.kind);
+    const status = workflowDetailValueText("status", gate.status);
+    const target = [
+      workflowDetailValueText("serverId", gate.serverId ?? gate.server_id),
+      workflowDetailValueText("toolName", gate.toolName ?? gate.tool_name)
+    ].filter(Boolean).join(".");
+    const checkpoint = workflowDetailValueText("checkpointId", gate.checkpointId ?? gate.checkpoint_id);
+    const approval = workflowDetailValueText("approvalId", gate.approvalId ?? gate.approval_id);
+    const question = workflowDetailValueText("question", gate.question);
+    return [
+      kind,
+      status,
+      target,
+      approval ? `approval ${approval}` : "",
+      checkpoint ? `checkpoint ${checkpoint}` : "",
+      question
+    ].filter(Boolean).join(" · ");
+  }
   if (typeof value === "string" && WORKFLOW_DETAIL_VALUE_LABELS[key]?.[value]) {
     return WORKFLOW_DETAIL_VALUE_LABELS[key][value];
   }
@@ -722,6 +748,7 @@ function workflowRuntimeDetailText(detail: unknown) {
     "admission",
     "requestSource",
     "toolContext",
+    "humanGate",
     "approvalId",
     "status",
     "serverId",
@@ -1197,7 +1224,6 @@ function extractArtifactPaths(text: string): ArtifactTarget[] {
 
 const MessageList = memo(function MessageList({
   messages,
-  thinkingCardsEnabled,
   profileName,
   profileAvatar,
   personaName,
@@ -1214,7 +1240,6 @@ const MessageList = memo(function MessageList({
   emojiPathIndexes
 }: {
   messages: ChatMessage[];
-  thinkingCardsEnabled: boolean;
   profileName: string;
   profileAvatar: string;
   personaName: string;
@@ -1274,8 +1299,8 @@ const MessageList = memo(function MessageList({
       }
       deduped.push(msg);
     }
-    return materializeMessageRenderItems(deduped, thinkingCardsEnabled);
-  }, [messages, runStates, thinkingCardsEnabled]);
+    return materializeMessageRenderItems(deduped);
+  }, [messages, runStates]);
   return (
     <>
       {renderItems.map((item) => (
@@ -1285,7 +1310,6 @@ const MessageList = memo(function MessageList({
           mode={item.mode}
           elementId={item.elementId}
           thinkingCardsOverride={item.cards}
-          thinkingCardsEnabled={thinkingCardsEnabled}
           profileName={profileName}
           profileAvatar={profileAvatar}
           personaName={personaName}
@@ -1327,11 +1351,6 @@ function recordValue(value: unknown): Record<string, unknown> | null {
 
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
-}
-
-function providerThinkingEnabled(provider: LlmProvider | null | undefined): boolean {
-  const meta = provider?.models?.__provider;
-  return Boolean(meta && typeof meta === "object" && !Array.isArray(meta) && meta.thinkingEnabled === true);
 }
 
 function thinkingCardsFromProviderData(providerData: unknown): ThinkingCard[] {
@@ -1405,8 +1424,7 @@ function messageRenderItem(message: ChatMessage, mode: MessageRenderMode = "norm
   };
 }
 
-function materializeMessageRenderItem(message: ChatMessage, thinkingCardsEnabled: boolean): MessageRenderItem[] {
-  if (!thinkingCardsEnabled) return [messageRenderItem(message)];
+function materializeMessageRenderItem(message: ChatMessage): MessageRenderItem[] {
   if (message.role === "tool") {
     const cards = messageThinkingCards(message);
     return cards.length > 0
@@ -1436,12 +1454,12 @@ function thinkingCardsSignature(cards: ThinkingCard[]) {
     .join("|");
 }
 
-function materializeMessageRenderItems(messages: ChatMessage[], thinkingCardsEnabled: boolean): MessageRenderItem[] {
+function materializeMessageRenderItems(messages: ChatMessage[]): MessageRenderItem[] {
   const items: MessageRenderItem[] = [];
   let lastThinkingSignature = "";
   let previousItemWasThinking = false;
   for (const message of messages) {
-    const nextItems = materializeMessageRenderItem(message, thinkingCardsEnabled);
+    const nextItems = materializeMessageRenderItem(message);
     const first = nextItems[0];
     if (first?.mode === "thinking") {
       const signature = thinkingCardsSignature(first.cards ?? []);
@@ -1870,7 +1888,6 @@ export const ChatExperience = memo(function ChatExperience() {
     const providerId = providerBinding.providerId;
     return llmProviders.find((provider) => provider.id === providerId && provider.enabled) ?? null;
   }, [llmProviders, providerBinding.providerId]);
-  const thinkingCardsEnabled = providerThinkingEnabled(currentProvider);
   const effectiveModelValue = providerBinding.model;
   useEffect(() => {
     if (!currentProvider) {
@@ -1964,15 +1981,22 @@ export const ChatExperience = memo(function ChatExperience() {
     return results;
   }, [artifactMessages, attachments, messageToolEvents]);
   const canStopRun = Boolean(stoppableRun);
-  const isProcessing = canStopRun;
+  const activeConversationProcessing = Boolean(
+    activeConversationId && processingConversationIds.includes(activeConversationId)
+  );
+  const isProcessing = canStopRun || activeConversationProcessing;
   const [showThinking, setShowThinking] = useState(false);
   // Keep the thinking row mounted through its exit animation so the
   // transition can play instead of the node being removed instantly.
   const [thinkingMounted, setThinkingMounted] = useState(false);
   const thinkingLeaveTimerRef = useRef<number | null>(null);
   const hasStreamingContent = useMemo(
-    () => messages.some((m) => m.source === "desktop-stream" && m.content.length > 0),
-    [messages]
+    () => isProcessing && messages.some((m) => (
+      m.conversationId === activeConversationId
+      && m.source === "desktop-stream"
+      && m.content.length > 0
+    )),
+    [activeConversationId, isProcessing, messages]
   );
   const [firstCharShown, setFirstCharShown] = useState(false);
   // Reset when streaming message disappears (new turn)
@@ -1985,6 +2009,12 @@ export const ChatExperience = memo(function ChatExperience() {
 
   // Manage thinking animation visibility
   useEffect(() => {
+    const currentRunState = activeRun?.state ?? storedRun?.state ?? null;
+    if (currentRunState && isTerminalRunState(currentRunState) && !activeConversationProcessing) {
+      processingEndedAtRef.current = null;
+      setShowThinking(false);
+      return;
+    }
     // While processing or streaming, keep thinking visible
     if (isProcessing || hasStreamingContent) {
       if (isProcessing) processingEndedAtRef.current = null;
@@ -2000,7 +2030,7 @@ export const ChatExperience = memo(function ChatExperience() {
       setShowThinking(false);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [isProcessing, hasStreamingContent, thinkingMinVisibleMs, firstCharShown]);
+  }, [activeConversationProcessing, activeRun?.state, storedRun?.state, isProcessing, hasStreamingContent, thinkingMinVisibleMs, firstCharShown]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -3195,7 +3225,6 @@ export const ChatExperience = memo(function ChatExperience() {
                   ) : null}
                   <MessageList
                     messages={messages}
-                    thinkingCardsEnabled={thinkingCardsEnabled}
                     profileName={profile.name}
                     profileAvatar={profile.avatarPath ?? ""}
                     personaName={selectedPersona?.name ?? "assistant"}
@@ -3763,7 +3792,6 @@ const MessageRow = memo(function MessageRow({
   mode,
   elementId,
   thinkingCardsOverride,
-  thinkingCardsEnabled,
   profileName,
   profileAvatar,
   personaName,
@@ -3783,7 +3811,6 @@ const MessageRow = memo(function MessageRow({
   mode: MessageRenderMode;
   elementId: string;
   thinkingCardsOverride?: ThinkingCard[];
-  thinkingCardsEnabled: boolean;
   profileName: string;
   profileAvatar: string;
   personaName: string;
@@ -3807,7 +3834,7 @@ const MessageRow = memo(function MessageRow({
   const processEvent = mode !== "thinking" && message.role === "tool" ? parseManagedProcessEvent(message.content) : null;
   const isUser = message.role === "user";
   const rawThinkingCards = thinkingCardsOverride ?? messageThinkingCards(message);
-  const thinkingCards = thinkingCardsEnabled && mode !== "content" ? rawThinkingCards : [];
+  const thinkingCards = mode !== "content" ? rawThinkingCards : [];
   const visibleText = !isUser && rawThinkingCards.length > 0
     ? stripThinkingCardsFromText(message.content.trim(), rawThinkingCards)
     : message.content.trim();

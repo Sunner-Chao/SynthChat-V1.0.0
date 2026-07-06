@@ -8492,6 +8492,18 @@ select:focus-visible {
   text-align: right;
 }
 
+.settings-subpanel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-subpanel-actions button {
+  min-height: 28px;
+  padding: 0 10px;
+}
+
 .persona-memory-manager {
   display: grid;
   gap: 12px;
@@ -11682,6 +11694,26 @@ select:focus-visible {
   width: 38px;
   min-width: 38px;
   height: 38px;
+  padding: 0;
+}
+
+.secret-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.secret-input-row input {
+  min-width: 0;
+}
+
+.settings-form .secret-toggle-btn {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
   padding: 0;
 }
 

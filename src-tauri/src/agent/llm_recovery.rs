@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     future::Future,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
@@ -1851,6 +1851,12 @@ fn image_attachments_from_message(message: &ChatMessage, attachment_root: &PathB
     for line in message.content.lines() {
         let trimmed = line.trim();
         if !trimmed.starts_with('{') || !trimmed.contains("\"attachment\"") {
+            if let Some(value) = image_attachment_value_from_media_marker(trimmed) {
+                push_image_attachment_part(&value, &root, &mut seen, &mut attachments);
+                if attachments.len() >= 6 {
+                    return attachments;
+                }
+            }
             continue;
         }
         if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
@@ -1888,6 +1894,90 @@ fn image_attachments_from_message(message: &ChatMessage, attachment_root: &PathB
         }
     }
     attachments
+}
+
+fn image_attachment_value_from_media_marker(trimmed: &str) -> Option<Value> {
+    let rest = trimmed.strip_prefix("[media attached:")?;
+    let (path, rest) = parse_native_media_attachment_path(rest.trim())?;
+    let rest = rest.trim_start();
+    let (mime_type, label) = if let Some(after_open) = rest.strip_prefix('(') {
+        let (mime, after_close) = after_open.split_once(')')?;
+        (mime.trim().to_string(), after_close.trim())
+    } else {
+        (native_attachment_mime_from_path(&path), rest)
+    };
+    let label = label
+        .trim_start_matches(']')
+        .trim_end_matches(']')
+        .trim()
+        .trim_matches('"')
+        .trim_matches('`')
+        .trim();
+    let file_name = if label.is_empty() {
+        native_attachment_file_name(&path, "attachment")
+    } else {
+        label.to_string()
+    };
+    let mime_type = if mime_type.trim().is_empty() {
+        native_attachment_mime_from_path(&path)
+    } else {
+        mime_type
+    };
+    Some(json!({
+        "type": "attachment",
+        "path": path,
+        "fileName": file_name,
+        "mimeType": mime_type
+    }))
+}
+
+fn parse_native_media_attachment_path(value: &str) -> Option<(String, &str)> {
+    let value = value.trim_start();
+    let mut chars = value.chars();
+    let first = chars.next()?;
+    if matches!(first, '"' | '\'' | '`') {
+        let end = value[first.len_utf8()..].find(first)? + first.len_utf8();
+        let path = value[first.len_utf8()..end].trim().to_string();
+        let rest = &value[end + first.len_utf8()..];
+        return (!path.is_empty()).then_some((path, rest));
+    }
+    let end = value
+        .find(" (")
+        .or_else(|| value.find(']'))
+        .unwrap_or(value.len());
+    let path = value[..end].trim().to_string();
+    let rest = &value[end..];
+    (!path.is_empty()).then_some((path, rest))
+}
+
+fn native_attachment_file_name(path: &str, fallback: &str) -> String {
+    let trimmed = path.trim();
+    Path::new(trimmed)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn native_attachment_mime_from_path(path: &str) -> String {
+    match Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "jpg" | "jpeg" => "image/jpeg".into(),
+        "webp" => "image/webp".into(),
+        "gif" => "image/gif".into(),
+        "bmp" => "image/bmp".into(),
+        "svg" => "image/svg+xml".into(),
+        "png" => "image/png".into(),
+        _ => "application/octet-stream".into(),
+    }
 }
 
 fn push_image_attachment_part(

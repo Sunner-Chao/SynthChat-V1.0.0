@@ -46,6 +46,8 @@ const MANAGED_PROCESS_FINISHED_TTL_SECONDS: u64 = 1800;
 const MAX_MANAGED_PROCESSES: usize = 64;
 const RUNTIME_RELOAD_RECENT_RUN_GRACE_SECONDS: i64 = 600;
 const STALE_WRITE_FILE_RECOVERY_SECONDS: i64 = 120;
+const PORTABLE_PROFILE_SCHEMA: &str = "synthchat_portable_profile_v1";
+const PORTABLE_PROJECTION_SCHEMA: &str = "synthchat_portable_projection_v1";
 const DIALOG_BRIDGE_HOST: &str = "hermes-dialog-bridge.invalid";
 const DIALOG_BRIDGE_URL_PATTERN: &str = "http://hermes-dialog-bridge.invalid/*";
 const DIALOG_BRIDGE_SCRIPT: &str = r#"
@@ -5329,6 +5331,406 @@ fn backup_current_state_file(path: &PathBuf) {
     }
 }
 
+fn copy_portable_seed_dir(source: &Path, target: &Path) -> AppResult<()> {
+    if !source.is_dir() {
+        return Ok(());
+    }
+    fs::create_dir_all(target)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_portable_seed_dir(&source_path, &target_path)?;
+        } else if source_path.is_file() && !target_path.exists() {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(source_path, target_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn same_portable_path(left: &Path, right: &Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+fn portable_resource_seed_candidates(name: &str) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        for ancestor in exe.parent().into_iter().flat_map(Path::ancestors) {
+            roots.push(ancestor.to_path_buf());
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        for ancestor in cwd.ancestors() {
+            roots.push(ancestor.to_path_buf());
+        }
+    }
+    if let Some(project_root) = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent() {
+        roots.push(project_root.to_path_buf());
+    }
+
+    let mut candidates = Vec::new();
+    for root in roots {
+        candidates.push(root.join("synthchat-data").join(name));
+        candidates.push(root.join("resources").join("synthchat-data").join(name));
+        candidates.push(root.join(name));
+        candidates.push(root.join("resources").join(name));
+    }
+
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if !unique.iter().any(|item: &PathBuf| item == &candidate) {
+            unique.push(candidate);
+        }
+    }
+    unique
+}
+
+fn seed_portable_resource_dir(root: &Path, name: &str) {
+    let target = root.join(name);
+    for source in portable_resource_seed_candidates(name) {
+        if same_portable_path(&source, &target) || !source.is_dir() {
+            continue;
+        }
+        if copy_portable_seed_dir(&source, &target).is_ok() {
+            break;
+        }
+    }
+}
+
+fn ensure_portable_profile_layout(path: &Path) -> AppResult<()> {
+    let root = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(root)?;
+    for folder in [
+        "config",
+        "conversations",
+        "attachments",
+        "artifacts",
+        "exports",
+        "logs",
+        "skills",
+        "public",
+        "data",
+        "runtime",
+        "runtime/python",
+        "mcp-media",
+        "memory-providers",
+        "state-snapshots",
+        "workspace-snapshots",
+        ".hermes",
+        ".playwright-mcp",
+    ] {
+        fs::create_dir_all(root.join(folder))?;
+    }
+    for resource_dir in ["skills", "public", "data"] {
+        seed_portable_resource_dir(root, resource_dir);
+    }
+    fs::create_dir_all(root.join("data").join("models"))?;
+    let state_file = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("state.json");
+    let manifest = json!({
+        "schema": PORTABLE_PROFILE_SCHEMA,
+        "version": 1,
+        "canonicalState": state_file,
+        "portableCopyRoot": root.to_string_lossy(),
+        "containsSecrets": true,
+        "storage": {
+            "state": state_file,
+            "config": "config",
+            "conversations": "conversations",
+            "attachments": "attachments",
+            "artifacts": "artifacts",
+            "exports": "exports",
+            "logs": "logs",
+            "skills": "skills",
+            "public": "public",
+            "data": "data",
+            "runtime": "runtime",
+            "mcpMedia": "mcp-media",
+            "memoryProviders": "memory-providers",
+            "hermesHome": ".hermes",
+            "playwrightMcp": ".playwright-mcp",
+            "stateSnapshots": "state-snapshots",
+            "workspaceSnapshots": "workspace-snapshots"
+        },
+        "resources": {
+            "mode": "single_synthchat_data_root_with_seeded_resources",
+            "writable": {
+                "skills": "skills",
+                "public": "public",
+                "data": "data"
+            },
+            "bundledSeed": {
+                "skills": "synthchat-data/skills",
+                "public": "synthchat-data/public",
+                "data": "synthchat-data/data"
+            },
+            "note": "The active profile is one synthchat-data directory. Bundled resources are copied into it as first-run seeds when the writable profile folders are empty."
+        },
+            "runtime": {
+                "python": "runtime/python",
+                "edgeTtsVenv": "runtime/python/edge-tts-venv",
+                "chatttsVenv": "runtime/python/chattts-venv",
+                "note": "Local runtime dependencies are isolated under the portable profile instead of mutating bundled resources."
+        },
+        "models": {
+            "chattts": "data/models/ChatTTS",
+            "note": "Large model files are profile resources. Copying synthchat-data moves them together with conversations and config."
+        },
+        "projection": {
+            "schema": PORTABLE_PROJECTION_SCHEMA,
+            "mode": "canonical_state_with_split_file_projection",
+            "canonical": state_file,
+            "configFiles": [
+                "config/app.json",
+                "config/profile.json",
+                "config/personas.json",
+                "config/agents.json",
+                "config/providers.json",
+                "config/integrations.json",
+                "config/memory.json"
+            ],
+            "conversationIndex": "conversations/index.json",
+            "conversationFolderPattern": "conversations/{safeConversationId}/",
+            "note": "state.json remains the write source of truth. Split files are generated for inspection, portable copy, and future database import."
+        },
+        "migration": {
+            "current": "state_json_canonical_with_split_file_projection",
+            "next": "sqlite_sessions_with_file_artifacts",
+            "note": "Copy this directory as one portable profile. state.json remains canonical until the database migration lands."
+        }
+    });
+    fs::write(
+        root.join("synthchat-profile.json"),
+        serde_json::to_vec_pretty(&manifest)?,
+    )?;
+    Ok(())
+}
+
+fn portable_profile_root(path: &Path) -> PathBuf {
+    path.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+}
+
+fn portable_tmp_path(path: &Path) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("projection.json");
+    path.with_file_name(format!("{file_name}.tmp"))
+}
+
+fn write_json_projection<T: Serialize + ?Sized>(path: &Path, value: &T) -> AppResult<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = portable_tmp_path(path);
+    fs::write(&tmp, serde_json::to_vec_pretty(value)?)?;
+    match fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(first_error) => {
+            if path.exists() {
+                fs::remove_file(path)?;
+                fs::rename(&tmp, path)?;
+                Ok(())
+            } else {
+                Err(AppError::Io(first_error))
+            }
+        }
+    }
+}
+
+fn portable_segment_hash(value: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn portable_safe_segment(value: &str, fallback: &str) -> String {
+    let mut segment = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    while segment.contains("--") {
+        segment = segment.replace("--", "-");
+    }
+    let segment = segment.trim_matches('-').trim_matches('_');
+    let base = if segment.is_empty() {
+        fallback.to_string()
+    } else {
+        segment.chars().take(48).collect::<String>()
+    };
+    format!("{base}-{:016x}", portable_segment_hash(value))
+}
+
+fn project_portable_profile_state(path: &Path, state: &PersistedState) -> AppResult<()> {
+    ensure_portable_profile_layout(path)?;
+    let root = portable_profile_root(path);
+    let config_dir = root.join("config");
+    let conversations_dir = root.join("conversations");
+    fs::create_dir_all(&config_dir)?;
+    fs::create_dir_all(&conversations_dir)?;
+
+    write_json_projection(&config_dir.join("app.json"), &state.config)?;
+    write_json_projection(&config_dir.join("profile.json"), &state.profile)?;
+    write_json_projection(&config_dir.join("personas.json"), &state.personas)?;
+    write_json_projection(&config_dir.join("agents.json"), &state.agents)?;
+    write_json_projection(
+        &config_dir.join("providers.json"),
+        &json!({
+            "schema": PORTABLE_PROJECTION_SCHEMA,
+            "containsSecrets": true,
+            "llmProviders": state.llm_providers,
+            "imageProviders": state.image_providers,
+            "videoProviders": state.video_providers,
+            "visionProviders": state.vision_providers,
+            "searchProviders": state.search_providers,
+            "browserProviders": state.browser_providers,
+            "llmCredentialCooldowns": state.llm_credential_cooldowns,
+            "llmCredentialUsage": state.llm_credential_usage,
+            "llmCredentialRoundRobin": state.llm_credential_round_robin,
+        }),
+    )?;
+    write_json_projection(
+        &config_dir.join("integrations.json"),
+        &json!({
+            "schema": PORTABLE_PROJECTION_SCHEMA,
+            "mcpServers": state.mcp_servers,
+            "capabilityAdapters": state.capability_adapters,
+            "plugins": state.plugins,
+            "skills": state.skills,
+            "toolDefinitions": state.tool_definitions,
+            "themes": state.themes,
+        }),
+    )?;
+    write_json_projection(
+        &config_dir.join("memory.json"),
+        &json!({
+            "schema": PORTABLE_PROJECTION_SCHEMA,
+            "memories": state.memories,
+            "worldbooks": state.worldbooks,
+            "shortContext": state.short_context,
+            "tokenUsage": state.token_usage,
+        }),
+    )?;
+
+    let mut conversation_index = Vec::with_capacity(state.conversations.len());
+    for conversation in &state.conversations {
+        let folder_name = portable_safe_segment(&conversation.id, "conversation");
+        let conversation_dir = conversations_dir.join(&folder_name);
+        fs::create_dir_all(&conversation_dir)?;
+        let messages = state
+            .messages
+            .get(&conversation.id)
+            .cloned()
+            .unwrap_or_default();
+        let agent_runs = state
+            .agent_runs
+            .iter()
+            .filter(|run| run.conversation_id == conversation.id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let approvals = state
+            .tool_approvals
+            .iter()
+            .filter(|approval| approval.conversation_id.as_deref() == Some(conversation.id.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
+        let todos = state
+            .agent_todos
+            .iter()
+            .filter(|todo| todo.conversation_id == conversation.id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let planner_traces = state
+            .planner_traces
+            .iter()
+            .filter(|trace| trace.conversation_id == conversation.id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let tool_router_traces = state
+            .tool_router_traces
+            .iter()
+            .filter(|trace| trace.conversation_id == conversation.id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let short_context = state.short_context.get(&conversation.id).cloned();
+
+        write_json_projection(&conversation_dir.join("conversation.json"), conversation)?;
+        write_json_projection(&conversation_dir.join("messages.json"), &messages)?;
+        write_json_projection(&conversation_dir.join("agent-runs.json"), &agent_runs)?;
+        write_json_projection(&conversation_dir.join("tool-approvals.json"), &approvals)?;
+        write_json_projection(&conversation_dir.join("agent-todos.json"), &todos)?;
+        write_json_projection(&conversation_dir.join("planner-traces.json"), &planner_traces)?;
+        write_json_projection(
+            &conversation_dir.join("tool-router-traces.json"),
+            &tool_router_traces,
+        )?;
+        if let Some(short_context) = short_context {
+            write_json_projection(&conversation_dir.join("short-context.json"), &short_context)?;
+        }
+
+        conversation_index.push(json!({
+            "id": conversation.id,
+            "title": conversation.title,
+            "personaId": conversation.persona_id,
+            "agentId": conversation.agent_id,
+            "updatedAt": conversation.updated_at,
+            "createdAt": conversation.created_at,
+            "lastMessage": conversation.last_message,
+            "folder": folder_name,
+            "messageCount": messages.len(),
+            "agentRunCount": agent_runs.len(),
+            "toolApprovalCount": approvals.len(),
+            "agentTodoCount": todos.len(),
+            "hasShortContext": state.short_context.contains_key(&conversation.id),
+        }));
+    }
+    write_json_projection(
+        &conversations_dir.join("index.json"),
+        &json!({
+            "schema": PORTABLE_PROJECTION_SCHEMA,
+            "generatedAt": now_iso(),
+            "conversationCount": state.conversations.len(),
+            "conversations": conversation_index,
+        }),
+    )?;
+    Ok(())
+}
+
+fn record_portable_projection_error(path: &Path, stage: &str, error: &str) {
+    let root = portable_profile_root(path);
+    let error_path = root.join("logs").join("storage-projection-error.json");
+    let _ = write_json_projection(
+        &error_path,
+        &json!({
+            "schema": PORTABLE_PROJECTION_SCHEMA,
+            "stage": stage,
+            "error": error,
+            "updatedAt": now_iso(),
+        }),
+    );
+}
+
+fn project_portable_profile_state_best_effort(path: &Path, state: &PersistedState, stage: &str) {
+    if let Err(error) = project_portable_profile_state(path, state) {
+        record_portable_projection_error(path, stage, &error.to_string());
+    }
+}
+
 fn normalize_persisted_config(state: &mut PersistedState) {
     if state.config.chat.agent_run_timeout_seconds == 30 {
         state.config.chat.agent_run_timeout_seconds =
@@ -6933,8 +7335,9 @@ fn workflow_graph_node_role_for_store(node_name: &str) -> &'static str {
         "group_room" => "group context",
         "planner" => "decision planning",
         "executor" => "tool execution",
-        "approval" => "human approval gate",
+        "approval" => "human gate",
         "checkpoint" => "state checkpoint",
+        "completion_gate" => "completion gate",
         "reviewer" => "final review",
         _ => "custom workflow node",
     }
@@ -7049,6 +7452,7 @@ impl AppStore {
             }
             fs::write(&path, serde_json::to_vec_pretty(&state)?)?;
         }
+        ensure_portable_profile_layout(&path)?;
         normalize_interrupted_runs(&mut state);
         let store = Self {
             path,
@@ -8246,6 +8650,7 @@ impl AppStore {
         fs::write(&tmp, serde_json::to_vec_pretty(&*state)?)?;
         backup_current_state_file(&self.path);
         fs::rename(tmp, &self.path)?;
+        project_portable_profile_state_best_effort(&self.path, &state, "save");
         Ok(())
     }
 
@@ -8279,6 +8684,7 @@ impl AppStore {
         fs::write(&tmp, serde_json::to_vec_pretty(state)?)?;
         backup_current_state_file(&self.path);
         fs::rename(tmp, &self.path)?;
+        project_portable_profile_state_best_effort(&self.path, state, "persist");
         Ok(())
     }
 
@@ -8301,6 +8707,38 @@ impl AppStore {
             .parent()
             .unwrap_or_else(|| std::path::Path::new("."))
             .to_path_buf()
+    }
+
+    pub fn storage_layout(&self) -> Value {
+        let root = self.data_dir();
+        json!({
+            "schema": PORTABLE_PROFILE_SCHEMA,
+            "projectionSchema": PORTABLE_PROJECTION_SCHEMA,
+            "root": root.to_string_lossy().to_string(),
+            "canonicalState": self.path.to_string_lossy().to_string(),
+            "manifest": root.join("synthchat-profile.json").to_string_lossy().to_string(),
+            "config": root.join("config").to_string_lossy().to_string(),
+            "conversations": root.join("conversations").to_string_lossy().to_string(),
+            "attachments": root.join("attachments").to_string_lossy().to_string(),
+            "artifacts": root.join("artifacts").to_string_lossy().to_string(),
+            "exports": root.join("exports").to_string_lossy().to_string(),
+            "logs": root.join("logs").to_string_lossy().to_string(),
+            "skills": root.join("skills").to_string_lossy().to_string(),
+            "public": root.join("public").to_string_lossy().to_string(),
+            "data": root.join("data").to_string_lossy().to_string(),
+            "runtime": root.join("runtime").to_string_lossy().to_string(),
+            "edgeTtsVenv": root.join("runtime").join("python").join("edge-tts-venv").to_string_lossy().to_string(),
+            "chatttsVenv": root.join("runtime").join("python").join("chattts-venv").to_string_lossy().to_string(),
+            "chatttsModelDir": root.join("data").join("models").join("ChatTTS").to_string_lossy().to_string(),
+            "mcpMedia": root.join("mcp-media").to_string_lossy().to_string(),
+            "memoryProviders": root.join("memory-providers").to_string_lossy().to_string(),
+            "hermesHome": root.join(".hermes").to_string_lossy().to_string(),
+            "playwrightMcp": root.join(".playwright-mcp").to_string_lossy().to_string(),
+            "stateSnapshots": self.state_snapshot_dir().to_string_lossy().to_string(),
+            "workspaceSnapshots": self.workspace_snapshot_dir().to_string_lossy().to_string(),
+            "containsSecrets": true,
+            "mode": "canonical_state_with_split_file_projection",
+        })
     }
 
     fn managed_process_checkpoint_path(&self) -> PathBuf {

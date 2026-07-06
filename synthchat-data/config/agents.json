@@ -1,0 +1,60 @@
+[
+  {
+    "id": "",
+    "name": "新智能体",
+    "description": "SynthChat 默认智能体",
+    "workspaceDir": "",
+    "llmProvider": "provider-e8617c9f-70ec-4014-b97e-13845029798e",
+    "llmModel": "MiniMax-M2.7",
+    "enabled": true,
+    "isDefault": true,
+    "mcpEnabled": true,
+    "skillsEnabled": true,
+    "allowShell": true,
+    "maxSubagents": 4,
+    "maxSubagentDepth": 1,
+    "maxToolIterations": 8,
+    "skillsDir": "",
+    "enabledSkills": [
+      "software-development/writing-plans",
+      "software-development/plan",
+      "media/bilibili-clip"
+    ],
+    "enabledMcpServers": [],
+    "enabledToolsets": [],
+    "disabledToolsets": [],
+    "createdAt": "2026-06-26T08:41:30.19Z",
+    "updatedAt": "2026-06-26T09:58:04.967107100+00:00"
+  },
+  {
+    "id": "agent-1782466838742",
+    "name": "New Agent",
+    "description": "A specialized assistant",
+    "workspaceDir": "",
+    "llmProvider": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+    "llmModel": "kimi-k2.6",
+    "enabled": true,
+    "isDefault": false,
+    "mcpEnabled": true,
+    "skillsEnabled": true,
+    "allowShell": true,
+    "maxSubagents": 3,
+    "maxSubagentDepth": 2,
+    "maxToolIterations": 18,
+    "skillsDir": "",
+    "enabledSkills": [
+      "autonomous-ai-agents/claude-code",
+      "autonomous-ai-agents/codex",
+      "media/bilibili-clip",
+      "external/find-skills",
+      "external/agent-browser"
+    ],
+    "enabledMcpServers": [
+      "mcp-1782488928990"
+    ],
+    "enabledToolsets": [],
+    "disabledToolsets": [],
+    "createdAt": "2026-06-26T09:40:38.742Z",
+    "updatedAt": "2026-07-04T10:11:58.125698400+00:00"
+  }
+]

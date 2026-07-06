@@ -1,0 +1,536 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - link "跳到主要内容" [ref=e2] [cursor=pointer]
+      - link "无障碍功能帮助" [ref=e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=zh-CN
+  - generic [ref=e8]:
+    - search [ref=e9]:
+      - generic [ref=e12]:
+        - link "前往 Google 首页" [ref=e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=zh-CN&ictx=0&sa=X&ved=0ahUKEwitz4WLhbaVAxUMPDQIHWveFY8QpYkNCAo
+          - img "前往 Google 首页" [ref=e14]
+        - generic [ref=e19]:
+          - combobox "搜索" [ref=e22]: AI artificial intelligence news today 2025 AI artificial intelligence news today 2025
+          - generic [ref=e23]:
+            - button "清除" [ref=e25] [cursor=pointer]:
+              - img [ref=e27]
+            - generic [ref=e30]:
+              - button "按语音搜索" [ref=e31] [cursor=pointer]:
+                - img [ref=e32]
+              - button "按图搜索" [ref=e34] [cursor=pointer]:
+                - img [ref=e35]
+        - button "搜索" [ref=e37] [cursor=pointer]:
+          - img [ref=e40]
+    - generic [ref=e42]:
+      - button "设置" [ref=e44] [cursor=pointer]:
+        - img [ref=e47]
+      - button "分享" [ref=e50] [cursor=pointer]:
+        - img [ref=e54]
+      - generic [ref=e56]:
+        - button "Google 应用" [ref=e58] [cursor=pointer]:
+          - img [ref=e59]
+        - link "登录" [ref=e63] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=zh-CN&passive=true&continue=https://www.google.com/search%3Fq%3DAI%2Bartificial%2Bintelligence%2Bnews%2Btoday%2B2025&ec=futura_srp_og_si_72236_p
+  - generic [ref=e65]:
+    - navigation [ref=e71]:
+      - generic [ref=e77]:
+        - list [ref=e78]:
+          - listitem [ref=e79]:
+            - link "AI 模式" [ref=e82] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&udm=50&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&aep=1&ntc=1&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q2J8OegQIERAD
+              - generic [ref=e85]: AI 模式
+          - listitem [ref=e86]:
+            - link "全部" [disabled] [ref=e87]:
+              - generic [ref=e89]: 全部
+          - listitem [ref=e90]:
+            - link "新闻" [ref=e91] [cursor=pointer]:
+              - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=AI+artificial+intelligence+news+today+2025&tbm=nws&source=lnms&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q0pQJegQIFxAB
+              - generic [ref=e93]: 新闻
+          - listitem [ref=e94]:
+            - link "视频" [ref=e95] [cursor=pointer]:
+              - /url: /search?sca_esv=f4dcb92bb10f5d9d&udm=7&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&q=AI+artificial+intelligence+news+today+2025&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8QtKgLegQIFRAB
+              - generic [ref=e97]: 视频
+          - listitem [ref=e98]:
+            - link "图片" [ref=e99] [cursor=pointer]:
+              - /url: /search?sca_esv=f4dcb92bb10f5d9d&udm=2&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&q=AI+artificial+intelligence+news+today+2025&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8QtKgLegQIExAB
+              - generic [ref=e101]: 图片
+          - listitem [ref=e102]:
+            - link "短视频" [ref=e103] [cursor=pointer]:
+              - /url: /search?sca_esv=f4dcb92bb10f5d9d&udm=39&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&q=AI+artificial+intelligence+news+today+2025&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Qs6gLegQIFBAB
+              - generic [ref=e105]: 短视频
+          - listitem [ref=e106]:
+            - link "购物" [ref=e107] [cursor=pointer]:
+              - /url: /search?sca_esv=f4dcb92bb10f5d9d&udm=28&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&q=AI+artificial+intelligence+news+today+2025&ved=1t:220175&ictx=111
+              - generic [ref=e109]: 购物
+          - listitem [ref=e110]:
+            - button "更多过滤条件" [ref=e111] [cursor=pointer]:
+              - generic "更多过滤条件" [ref=e112]:
+                - generic [ref=e113]:
+                  - generic [ref=e114]: 更多
+                  - img [ref=e116]
+        - button "工具" [ref=e119] [cursor=pointer]:
+          - generic [ref=e121]:
+            - generic [ref=e122]: 工具
+            - img [ref=e124]
+    - heading "搜索结果" [level=1] [ref=e126]
+    - generic [ref=e131]:
+      - generic [ref=e150]:
+        - generic [ref=e152]:
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - img [ref=e156]
+              - heading "AI 概览" [level=2] [ref=e158]
+            - button "关于这条结果的详细信息" [ref=e162]:
+              - img [ref=e164]
+          - generic [ref=e184]:
+            - generic [ref=e187]:
+              - generic [ref=e188]:
+                - mark [ref=e189]: 当前的 AI 领域正处于从单纯的文本生成向高度自主化 AI 智能体（Agents）演进的阶段
+                - text: 。目前全球聚焦的核心焦点包括：中美 AI 大模型性能差距基本抹平，AI 落地引发的能源与监管危机，以及 OpenAI 和 Anthropic 等巨头备受瞩目的企业动作。
+                - generic [ref=e191]:
+                  - link "UN News - 查看相关链接" [ref=e192] [cursor=pointer]:
+                    - /url: https://news.un.org/en/story/2026/07/1167848
+                  - button "UN News - 查看相关链接" [ref=e193] [cursor=pointer]:
+                    - generic [ref=e196]: UN News
+                    - img [ref=e199]
+              - generic [ref=e201]: 以下是当前人工智能领域的最新动态：
+              - heading "📈 全球竞争格局" [level=3] [ref=e203]
+              - list [ref=e205]:
+                - listitem [ref=e206]:
+                  - generic [ref=e207]:
+                    - strong [ref=e208]: 中美实力并驾齐驱：
+                    - text: 美国在顶尖 AI 模型的数量上保持领先，但中国团队开发的低成本、高性能模型正在全球市场上快速蚕食传统巨头的份额。
+                - listitem [ref=e209]:
+                  - generic [ref=e210]:
+                    - strong [ref=e211]: 韩国半导体爆发：
+                    - text: 在三星电子和 SK 海力士的推动下，韩国正凭借庞大的 AI 芯片产能和极高的 AI 专利人均产出，在全球 AI 硬件版图中异军突起。
+                  - generic [ref=e213]:
+                    - link [ref=e214] [cursor=pointer]:
+                      - /url: https://www.reuters.com/technology/artificial-intelligence/
+                    - button [ref=e215] [cursor=pointer]:
+                      - generic [ref=e217]:
+                        - generic [ref=e218]: Reuters
+                        - generic [ref=e219]: "+2"
+                      - img [ref=e222]
+              - heading [level=3] [ref=e225]: 🌐 企业与技术动向
+              - list [ref=e227]:
+                - listitem [ref=e228]:
+                  - generic [ref=e229]:
+                    - strong [ref=e230]: OpenAI 动态：
+                    - text: OpenAI 与美国政府的合作谈判备受瞩目，业内传出其正在讨论向美国政府提供高达 5% 股权以促进技术普及的方案。
+                  - generic [ref=e232]:
+                    - link [ref=e233] [cursor=pointer]:
+                      - /url: https://www.theguardian.com/technology/artificialintelligenceai
+                    - button [ref=e234] [cursor=pointer]:
+                      - generic [ref=e236]:
+                        - generic [ref=e237]: The Guardian
+                        - generic [ref=e238]: "+1"
+                      - img [ref=e241]
+                - listitem [ref=e243]:
+                  - generic [ref=e244]:
+                    - strong [ref=e245]: 具身智能受挫与反思：
+                    - text: 尽管大语言模型在软件层面取得了极大的成功，但行业正意识到大模型在机器人领域的局限性。例如，福特（Ford）等车企在尝试让 AI 进行质量检查受挫后，已重新雇用人类工程师来保障产品质量。
+                  - generic [ref=e247]:
+                    - link [ref=e248] [cursor=pointer]:
+                      - /url: https://www.bbc.com/news/topics/ce1qrvleleqt
+                    - button [ref=e249] [cursor=pointer]:
+                      - generic [ref=e251]:
+                        - generic [ref=e252]: BBC
+                        - generic [ref=e253]: "+1"
+                      - img [ref=e256]
+                - listitem [ref=e258]:
+                  - generic [ref=e259]:
+                    - strong [ref=e260]: 智能体自动化威胁：
+                    - text: 安全机构指出，AI 智能体已经能够自主从发现漏洞到发起完整的勒索攻击，凸显了代码安全和自动化防御的重要性。
+                  - generic [ref=e262]:
+                    - link [ref=e263] [cursor=pointer]:
+                      - /url: https://thehackernews.com/2026/07/ai-agent-exploits-langflow-rce-to.html
+                    - button [ref=e264] [cursor=pointer]:
+                      - generic [ref=e267]: The Hacker News
+                      - img [ref=e270]
+              - heading [level=3] [ref=e273]: 🌍 能源危机与政策监管
+              - list [ref=e275]:
+                - listitem [ref=e276]:
+                  - generic [ref=e277]:
+                    - strong [ref=e278]: 联合国警告：
+                    - text: 联合国科学专家小组警告，全球控制 AI 规则的窗口正在迅速关闭，若不加强国际协调，AI 可能进一步拉大全球国家间的发展与贫富差距。
+                  - generic [ref=e280]:
+                    - link [ref=e281] [cursor=pointer]:
+                      - /url: https://news.un.org/en/story/2026/07/1167848
+                    - button [ref=e282] [cursor=pointer]:
+                      - generic [ref=e284]:
+                        - generic [ref=e285]: UN News
+                        - generic [ref=e286]: "+1"
+                      - img [ref=e289]
+                - listitem [ref=e291]:
+                  - generic [ref=e292]:
+                    - strong [ref=e293]: 惊人的数据中心碳足迹：
+                    - text: AI 算力的高耗能特征对电网造成了巨大压力，机构预计当前数据中心的 CO₂ 排放量可能比预期高出约 57%。企业正试图寻求核聚变等前沿清洁能源来为庞大的 AI 数据中心供电。
+                  - generic [ref=e295]:
+                    - link [ref=e296] [cursor=pointer]:
+                      - /url: https://techxplore.com/news/2026-06-centers-emit.html
+                    - button [ref=e297] [cursor=pointer]:
+                      - generic [ref=e299]:
+                        - generic [ref=e300]: Tech Xplore
+                        - generic [ref=e301]: "+1"
+                      - img [ref=e304]
+              - separator [ref=e307]
+            - generic [ref=e312]:
+              - generic [ref=e314]:
+                - button "11 个网站" [ref=e315] [cursor=pointer]:
+                  - generic [ref=e324]: 11 个网站
+                - button "关于这条结果" [ref=e329] [cursor=pointer]:
+                  - img [ref=e331]
+              - list [ref=e334]:
+                - listitem [ref=e335]:
+                  - generic [ref=e336]:
+                    - link "Artificial Intelligence - Latest AI News - Reuters. 在新标签页中打开。" [ref=e337] [cursor=pointer]:
+                      - /url: https://www.reuters.com/technology/artificial-intelligence/
+                    - generic [ref=e338]:
+                      - generic [ref=e340]:
+                        - generic [ref=e341]: Artificial Intelligence - Latest AI News - Reuters
+                        - generic [ref=e342]: A new, inexpensive Chinese AI model is catching up with Anth...
+                      - generic [ref=e344]:
+                        - generic [ref=e349]: Reuters
+                        - button "关于这条结果" [ref=e353] [cursor=pointer]:
+                          - img [ref=e355]
+                - listitem [ref=e359]:
+                  - generic [ref=e360]:
+                    - link "AI (artificial intelligence) | The Guardian. 在新标签页中打开。" [ref=e361] [cursor=pointer]:
+                      - /url: https://www.theguardian.com/technology/artificialintelligenceai
+                    - generic [ref=e362]:
+                      - generic [ref=e364]:
+                        - generic [ref=e365]: AI (artificial intelligence) | The Guardian
+                        - generic [ref=e366]: 2026年7月3日 — AI (artificial intelligence) ... The Guardian. * UK. * World...
+                      - generic [ref=e368]:
+                        - generic [ref=e373]: The Guardian
+                        - button [ref=e377] [cursor=pointer]:
+                          - img [ref=e379]
+                - listitem [ref=e383]:
+                  - generic [ref=e384]:
+                    - link [ref=e385] [cursor=pointer]:
+                      - /url: https://hai.stanford.edu/ai-index/2026-ai-index-report
+                    - generic [ref=e386]:
+                      - generic [ref=e388]:
+                        - generic [ref=e389]: The 2026 AI Index Report - Stanford HAI
+                        - generic [ref=e390]: 2. The U.S.-China AI model performance gap has effectively c...
+                      - generic [ref=e392]:
+                        - generic [ref=e397]: Stanford HAI
+                        - button [ref=e401] [cursor=pointer]:
+                          - img [ref=e403]
+              - button [ref=e407] [cursor=pointer]:
+                - generic [ref=e408]: 全部显示
+        - button "显示更多 AI 概览" [ref=e412]:
+          - generic [ref=e414] [cursor=pointer]:
+            - generic [ref=e415]: 展开
+            - img [ref=e417]
+      - main [ref=e420]:
+        - generic [ref=e424]:
+          - generic [ref=e427]:
+            - heading "Web results" [level=2] [ref=e428]
+            - generic [ref=e429]:
+              - generic [ref=e432]:
+                - link "AI News | Latest Headlines and Developments Reuters https://www.reuters.com › technology › arti..." [ref=e434] [cursor=pointer]:
+                  - /url: https://www.reuters.com/technology/artificial-intelligence/
+                  - heading "AI News | Latest Headlines and Developments" [level=3] [ref=e435]
+                  - generic [ref=e441]:
+                    - generic [ref=e443]: Reuters
+                    - generic [ref=e445]: https://www.reuters.com › technology › arti...
+                - generic [ref=e446]:
+                  - generic [ref=e447]: ·
+                  - link "翻译此页" [ref=e448] [cursor=pointer]:
+                    - /url: https://www.reuters.com/technology/artificial-intelligence/
+                - button "关于这条结果的详细信息" [ref=e451] [cursor=pointer]:
+                  - img [ref=e454]
+              - generic [ref=e458]:
+                - emphasis [ref=e459]: Explore the latest artificial intelligence news with Reuters
+                - text: "- from AI breakthroughs and technology trends to regulation, ethics, business and global ..."
+          - generic [ref=e463]:
+            - generic [ref=e466]:
+              - link "AI News | Latest News | Insights Powering AI-Driven Business ... AI News https://www.artificialintelligence-news.com" [ref=e468] [cursor=pointer]:
+                - /url: https://www.artificialintelligence-news.com/
+                - heading "AI News | Latest News | Insights Powering AI-Driven Business ..." [level=3] [ref=e469]
+                - generic [ref=e475]:
+                  - generic [ref=e477]: AI News
+                  - generic [ref=e479]: https://www.artificialintelligence-news.com
+              - generic [ref=e480]:
+                - generic [ref=e481]: ·
+                - link "翻译此页" [ref=e482] [cursor=pointer]:
+                  - /url: https://www.artificialintelligence-news.com/
+              - button "关于这条结果的详细信息" [ref=e485] [cursor=pointer]:
+                - img [ref=e488]
+            - generic [ref=e492]:
+              - emphasis [ref=e493]: AI News
+              - text: delivers the latest updates in artificial intelligence, machine learning, deep learning, enterprise AI, and emerging tech worldwide.
+          - generic [ref=e497]:
+            - generic [ref=e500]:
+              - 'link "Artificial intelligence: Yann LeCun works on more flexible AI BBC https://www.bbc.com › news › articles" [ref=e502] [cursor=pointer]':
+                - /url: https://www.bbc.com/news/articles/cj6gr0xkyr3o
+                - 'heading "Artificial intelligence: Yann LeCun works on more flexible AI" [level=3] [ref=e503]'
+                - generic [ref=e509]:
+                  - generic [ref=e511]: BBC
+                  - generic [ref=e513]: https://www.bbc.com › news › articles
+              - generic [ref=e514]:
+                - generic [ref=e515]: ·
+                - link "翻译此页" [ref=e516] [cursor=pointer]:
+                  - /url: https://www.bbc.com/news/articles/cj6gr0xkyr3o
+              - button "关于这条结果的详细信息" [ref=e519] [cursor=pointer]:
+                - img [ref=e522]
+            - generic [ref=e525]:
+              - generic [ref=e526]:
+                - generic [ref=e527]: 9小时前
+                - text: —
+              - generic [ref=e528]:
+                - text: Leading
+                - emphasis [ref=e529]: AI
+                - text: researcher Yan LeCun has a start-up which is developing a more flexible
+                - emphasis [ref=e530]: AI
+                - text: system.
+          - generic [ref=e534]:
+            - generic [ref=e537]:
+              - link "The 2025 AI Index Report | Stanford HAI Stanford HAI https://hai.stanford.edu › ai-index › 2025-ai-..." [ref=e539] [cursor=pointer]:
+                - /url: https://hai.stanford.edu/ai-index/2025-ai-index-report
+                - heading "The 2025 AI Index Report | Stanford HAI" [level=3] [ref=e540]
+                - generic [ref=e546]:
+                  - generic [ref=e548]: Stanford HAI
+                  - generic [ref=e550]: https://hai.stanford.edu › ai-index › 2025-ai-...
+              - generic [ref=e551]:
+                - generic [ref=e552]: ·
+                - link "翻译此页" [ref=e553] [cursor=pointer]:
+                  - /url: https://hai.stanford.edu/ai-index/2025-ai-index-report
+              - button "关于这条结果的详细信息" [ref=e556] [cursor=pointer]:
+                - img [ref=e559]
+            - generic [ref=e563]:
+              - text: Generative
+              - emphasis [ref=e564]: AI
+              - text: saw particularly strong momentum, attracting $33.9 billion globally in private investment—an 18.7% increase from 2023.
+              - emphasis [ref=e565]: AI
+              - text: business usage is also ...
+          - generic [ref=e569]:
+            - generic [ref=e572]:
+              - link "AI (artificial intelligence) The Guardian https://www.theguardian.com › technology" [ref=e574] [cursor=pointer]:
+                - /url: https://www.theguardian.com/technology/artificialintelligenceai
+                - heading "AI (artificial intelligence)" [level=3] [ref=e575]
+                - generic [ref=e581]:
+                  - generic [ref=e583]: The Guardian
+                  - generic [ref=e585]: https://www.theguardian.com › technology
+              - generic [ref=e586]:
+                - generic [ref=e587]: ·
+                - link "翻译此页" [ref=e588] [cursor=pointer]:
+                  - /url: https://www.theguardian.com/technology/artificialintelligenceai
+              - button "关于这条结果的详细信息" [ref=e591] [cursor=pointer]:
+                - img [ref=e594]
+            - generic [ref=e597]:
+              - generic [ref=e598]:
+                - generic [ref=e599]: 52分钟前
+                - text: —
+              - generic [ref=e600]:
+                - emphasis [ref=e601]: Rapid spread of AI may worsen global inequality
+                - text: ", UN warns ... People participate in a march to protest against the opening of AI datacentres in ..."
+          - generic [ref=e606]:
+            - heading "相关问题" [level=2] [ref=e608]
+            - generic [ref=e609]:
+              - button "What is the new AI update 2025?" [ref=e615] [cursor=pointer]:
+                - generic [ref=e617]: What is the new AI update 2025?
+                - img [ref=e620]
+              - button "What are the latest AI news?" [ref=e629] [cursor=pointer]:
+                - generic [ref=e631]: What are the latest AI news?
+                - img [ref=e634]
+              - button "What are the top 3 AI right now?" [ref=e643] [cursor=pointer]:
+                - generic [ref=e645]: What are the top 3 AI right now?
+                - img [ref=e648]
+              - button "Which new AI is launched recently?" [ref=e657] [cursor=pointer]:
+                - generic [ref=e659]: Which new AI is launched recently?
+                - img [ref=e662]
+          - generic [ref=e667]:
+            - heading "Web results" [level=2] [ref=e668]
+            - generic [ref=e669]:
+              - generic [ref=e672]:
+                - link "AI Bloomberg.com https://www.bloomberg.com › ai" [ref=e674] [cursor=pointer]:
+                  - /url: https://www.bloomberg.com/ai
+                  - heading "AI" [level=3] [ref=e675]
+                  - generic [ref=e681]:
+                    - generic [ref=e683]: Bloomberg.com
+                    - generic [ref=e685]: https://www.bloomberg.com › ai
+                - generic [ref=e686]:
+                  - generic [ref=e687]: ·
+                  - link "翻译此页" [ref=e688] [cursor=pointer]:
+                    - /url: https://www.bloomberg.com/ai
+                - button "关于这条结果的详细信息" [ref=e691] [cursor=pointer]:
+                  - img [ref=e694]
+              - generic [ref=e698]:
+                - text: Understanding how
+                - emphasis [ref=e699]: AI
+                - text: impacts business. The latest
+                - emphasis [ref=e700]: news
+                - text: on advancements in
+                - emphasis [ref=e701]: artificial intelligence
+                - text: ", how to use"
+                - emphasis [ref=e702]: AI
+                - text: ", and how to invest in"
+                - emphasis [ref=e703]: AI
+                - text: .
+          - generic [ref=e710]:
+            - generic [ref=e713]:
+              - 'link "There is ''a LOT of compute capacity'': Ray Wang pushes back ... YouTube · Fox Business 5670+ 次观看 · 11小时前" [ref=e715] [cursor=pointer]':
+                - /url: https://www.youtube.com/watch?v=RxVSoC2W64o
+                - 'heading "There is ''a LOT of compute capacity'': Ray Wang pushes back ..." [level=3] [ref=e716]'
+                - generic [ref=e722]:
+                  - generic [ref=e724]: YouTube · Fox Business
+                  - generic [ref=e726]: 5670+ 次观看 · 11小时前
+              - button "关于这条结果的详细信息" [ref=e729] [cursor=pointer]:
+                - img [ref=e732]
+            - generic [ref=e734]:
+              - 'button "There is ''a LOT of compute capacity'': Ray Wang pushes back ...，由Fox Business上传到YouTube上. 在 Google 上播放. 8:18" [ref=e735] [cursor=pointer]':
+                - generic [ref=e737]:
+                  - img [ref=e743]
+                  - generic [ref=e746]:
+                    - generic [ref=e747]: 8:18
+                    - img [ref=e750]
+              - generic [ref=e753]: "'Making Money.' #fox #media #breakingnews #us #usa #new #news #breaking #foxbusiness #makingmoney #meta #ai #artificialintelligence ..."
+          - generic [ref=e757]:
+            - generic [ref=e760]:
+              - link "Global AI Adoption in 2025 – AI Economy Institute Microsoft https://www.microsoft.com › Home › Reports" [ref=e762] [cursor=pointer]:
+                - /url: https://www.microsoft.com/en-us/corporate-responsibility//topics/ai-economy-institute/reports/global-ai-adoption-2025/
+                - heading "Global AI Adoption in 2025 – AI Economy Institute" [level=3] [ref=e763]
+                - generic [ref=e769]:
+                  - generic [ref=e771]: Microsoft
+                  - generic [ref=e773]: https://www.microsoft.com › Home › Reports
+              - generic [ref=e774]:
+                - generic [ref=e775]: ·
+                - link "翻译此页" [ref=e776] [cursor=pointer]:
+                  - /url: https://www.microsoft.com/en-us/corporate-responsibility//topics/ai-economy-institute/reports/global-ai-adoption-2025/
+              - button "关于这条结果的详细信息" [ref=e779] [cursor=pointer]:
+                - img [ref=e782]
+            - generic [ref=e785]:
+              - generic [ref=e786]: 2026年1月8日 —
+              - generic [ref=e787]:
+                - text: New data from the second half of 2025 shows the
+                - emphasis [ref=e788]: world is using artificial intelligence at record levels
+                - text: ", but it also reveals a widening divide."
+          - generic [ref=e792]:
+            - generic [ref=e795]:
+              - link "Forbes 2026 AI 50 List | Top Artificial Intelligence Companies Forbes https://www.forbes.com › lists" [ref=e797] [cursor=pointer]:
+                - /url: https://www.forbes.com/lists/ai50/
+                - heading "Forbes 2026 AI 50 List | Top Artificial Intelligence Companies" [level=3] [ref=e798]
+                - generic [ref=e804]:
+                  - generic [ref=e806]: Forbes
+                  - generic [ref=e808]: https://www.forbes.com › lists
+              - generic [ref=e809]:
+                - generic [ref=e810]: ·
+                - link "翻译此页" [ref=e811] [cursor=pointer]:
+                  - /url: https://www.forbes.com/lists/ai50/
+              - button "关于这条结果的详细信息" [ref=e814] [cursor=pointer]:
+                - img [ref=e817]
+            - generic [ref=e821]:
+              - text: The Forbes 2026
+              - emphasis [ref=e822]: AI
+              - text: 50 List spotlights the most promising
+              - emphasis [ref=e823]: artificial intelligence
+              - text: businesses. See the leaders driving the future of
+              - emphasis [ref=e824]: AI
+              - text: .
+        - generic [ref=e826]:
+          - generic [ref=e831]:
+            - heading "用户还搜索了" [level=2] [ref=e833]
+            - generic [ref=e835]:
+              - generic [ref=e836]:
+                - link "Ai news" [ref=e840] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=Ai+news&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAgnEAE
+                  - generic [ref=e841]:
+                    - generic [ref=e846]: Ai news
+                    - img [ref=e850]
+                - link "Ai 新闻 聚合" [ref=e855] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=Ai+%E6%96%B0%E9%97%BB+%E8%81%9A%E5%90%88&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAgrEAE
+                  - generic [ref=e856]:
+                    - generic [ref=e861]: Ai 新闻 聚合
+                    - img [ref=e865]
+                - link "Ai 最新 新闻" [ref=e870] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=Ai+%E6%9C%80%E6%96%B0+%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAhAEAE
+                  - generic [ref=e871]:
+                    - generic [ref=e876]: Ai 最新 新闻
+                    - img [ref=e880]
+                - link "Ai 新闻 网站" [ref=e885] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=Ai+%E6%96%B0%E9%97%BB+%E7%BD%91%E7%AB%99&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAg7EAE
+                  - generic [ref=e886]:
+                    - generic [ref=e891]: Ai 新闻 网站
+                    - img [ref=e895]
+              - generic [ref=e897]:
+                - link "Ai 资讯 网站" [ref=e901] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=Ai+%E8%B5%84%E8%AE%AF+%E7%BD%91%E7%AB%99&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAg6EAE
+                  - generic [ref=e902]:
+                    - generic [ref=e907]: Ai 资讯 网站
+                    - img [ref=e911]
+                - link "谷歌ai新闻" [ref=e916] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=%E8%B0%B7%E6%AD%8Cai%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAg0EAE
+                  - generic [ref=e917]:
+                    - generic [ref=e922]: 谷歌ai新闻
+                    - img [ref=e926]
+                - link "全球ai资讯" [ref=e931] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=%E5%85%A8%E7%90%83ai%E8%B5%84%E8%AE%AF&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAgtEAE
+                  - generic [ref=e932]:
+                    - generic [ref=e937]: 全球ai资讯
+                    - img [ref=e941]
+                - link "最新ai资讯" [ref=e946] [cursor=pointer]:
+                  - /url: /search?sca_esv=f4dcb92bb10f5d9d&q=%E6%9C%80%E6%96%B0ai%E8%B5%84%E8%AE%AF&sa=X&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q1QJ6BAgqEAE
+                  - generic [ref=e947]:
+                    - generic [ref=e952]: 最新ai资讯
+                    - img [ref=e956]
+          - navigation [ref=e958]:
+            - heading "网页导航" [level=1] [ref=e959]
+            - text: "1"
+            - link "Page 2" [ref=e962] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=10&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAE
+              - text: "2"
+            - link "Page 3" [ref=e964] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=20&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAG
+              - text: "3"
+            - link "Page 4" [ref=e966] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=30&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAI
+              - text: "4"
+            - link "Page 5" [ref=e968] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=40&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAK
+              - text: "5"
+            - link "Page 6" [ref=e970] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=50&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAM
+              - text: "6"
+            - link "Page 7" [ref=e972] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=60&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAO
+              - text: "7"
+            - link "Page 8" [ref=e974] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=70&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAQ
+              - text: "8"
+            - link "Page 9" [ref=e976] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=80&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAS
+              - text: "9"
+            - link "Page 10" [ref=e978] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=90&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8tMDegQIIRAU
+              - text: "10"
+            - heading "下一页" [level=2] [ref=e980]:
+              - link "下一页" [ref=e981] [cursor=pointer]:
+                - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&ei=HGxHaq3RDIz40PEP67zX-Ag&start=10&sa=N&sstk=AU9db-CmFVQziDDZU4KTKj9G4QzXiRnmXhWN-rELPd8LCPVnP-_MJPbxYMrcf5X5mdmNAuCLdb70jFhRxNuCkucrui3MauNe7a6Cxg&ved=2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q8NMDegQIIRAW
+                - generic [ref=e983]: 下一页
+        - navigation
+    - contentinfo [ref=e984]:
+      - heading "页脚链接" [level=1] [ref=e985]
+      - generic [ref=e989]:
+        - generic [ref=e991]:
+          - text: 日本
+          - generic [ref=e993]:
+            - button "江东区 - 是根据您的 IP 地址推断出来的" [ref=e995] [cursor=pointer]:
+              - generic [ref=e996]: 江东区
+              - generic [ref=e998]:
+                - text: "-"
+                - generic [ref=e999]: 是根据您的 IP 地址推断出来的
+            - text: "-"
+            - button "更新位置信息" [ref=e1001] [cursor=pointer]: 更新位置信息
+        - generic [ref=e1004]:
+          - link "帮助" [ref=e1005] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=zh-CN&fg=1
+          - link "发送反馈" [ref=e1006] [cursor=pointer]:
+            - /url: "#"
+          - link "隐私权" [ref=e1007] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=zh-CN&fg=1
+          - link "条款" [ref=e1008] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=zh-CN&fg=1

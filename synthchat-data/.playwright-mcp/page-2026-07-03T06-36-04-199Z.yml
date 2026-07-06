@@ -1,0 +1,1755 @@
+- generic [active] [ref=f59e1]:
+  - link "欢迎进入 网易,盲人用户使用操作智能引导，请按快捷键Ctrl+Alt+R；阅读详细操作说明请按快捷键Ctrl+Alt+问号键。":
+    - /url: javascript:void(0)
+    - img [ref=f59e2] [cursor=pointer]
+  - generic [ref=f59e6]:
+    - generic [ref=f59e7]:
+      - link "网易首页" [ref=f59e8] [cursor=pointer]:
+        - /url: https://www.163.com/
+      - link "应用" [ref=f59e10] [cursor=pointer]:
+        - /url: https://www.163.com/#f=topnav
+        - text: 应用
+        - emphasis [ref=f59e11]
+      - link "无障碍浏览" [ref=f59e12] [cursor=pointer]:
+        - /url: javascript:void(0)
+      - link "进入关怀版" [ref=f59e13] [cursor=pointer]:
+        - /url: https://www.163.com/special/007797UO/index_a11y.html
+    - generic [ref=f59e14]:
+      - emphasis [ref=f59e17]: 快速导航
+      - generic [ref=f59e22]:
+        - link "登录" [ref=f59e24] [cursor=pointer]:
+          - /url: https://reg.163.com/
+        - link "注册免费邮箱" [ref=f59e26] [cursor=pointer]:
+          - /url: https://mail.163.com/register/index.htm?from=163navi&regPage=163
+          - text: 注册免费邮箱
+          - emphasis [ref=f59e27]
+      - list [ref=f59e28]:
+        - listitem [ref=f59e29]:
+          - link "移动端" [ref=f59e31] [cursor=pointer]:
+            - /url: https://www.163.com/newsapp/#f=163nav
+            - emphasis [ref=f59e32]: 移动端
+        - listitem [ref=f59e33]:
+          - link "网易公开课" [ref=f59e35] [cursor=pointer]:
+            - /url: https://open.163.com/#ftopnav0
+            - emphasis [ref=f59e36]: 网易公开课
+            - emphasis [ref=f59e37]
+        - listitem [ref=f59e38]:
+          - link "网易严选" [ref=f59e40] [cursor=pointer]:
+            - /url: https://you.163.com/?from=web_fc_menhu_xinrukou_1
+            - emphasis [ref=f59e41]: 网易严选
+            - emphasis [ref=f59e42]
+        - listitem [ref=f59e43]:
+          - link "支付" [ref=f59e45] [cursor=pointer]:
+            - /url: https://ecard.163.com/
+            - emphasis [ref=f59e46]: 支付
+            - emphasis [ref=f59e47]
+        - listitem [ref=f59e48]:
+          - generic [ref=f59e50] [cursor=pointer]:
+            - emphasis [ref=f59e51]: 邮箱
+            - emphasis [ref=f59e52]
+  - generic [ref=f59e53]:
+    - generic [ref=f59e54]:
+      - generic [ref=f59e55]:
+        - heading "网易新闻 网易新闻" [level=1] [ref=f59e56]:
+          - link "网易新闻" [ref=f59e57] [cursor=pointer]:
+            - /url: https://www.163.com/
+          - img "网易新闻" [ref=f59e58]
+        - link "网络监督专区" [ref=f59e59] [cursor=pointer]:
+          - /url: https://www.12377.cn
+      - generic [ref=f59e60]:
+        - generic [ref=f59e61]:
+          - link "新闻" [ref=f59e62] [cursor=pointer]:
+            - /url: https://news.163.com/
+          - link "体育" [ref=f59e63] [cursor=pointer]:
+            - /url: https://sports.163.com/
+          - link "世界杯" [ref=f59e64] [cursor=pointer]:
+            - /url: https://sports.163.com/worldcup2026/
+          - link "彩票" [ref=f59e65] [cursor=pointer]:
+            - /url: https://sports.163.com/caipiao?from=pcsy-daohang
+          - link "财经" [ref=f59e66] [cursor=pointer]:
+            - /url: https://money.163.com/
+          - link "科技" [ref=f59e67] [cursor=pointer]:
+            - /url: https://tech.163.com/
+          - link "娱乐" [ref=f59e68] [cursor=pointer]:
+            - /url: https://ent.163.com/
+          - link "文化" [ref=f59e69] [cursor=pointer]:
+            - /url: https://culture.163.com/
+          - link "直播" [ref=f59e70] [cursor=pointer]:
+            - /url: https://v.163.com/
+          - link "教育" [ref=f59e71] [cursor=pointer]:
+            - /url: https://edu.163.com/
+          - link "房产" [ref=f59e72] [cursor=pointer]:
+            - /url: https://house.163.com/
+          - link "家居" [ref=f59e73] [cursor=pointer]:
+            - /url: https://home.163.com/
+          - link "汽车" [ref=f59e74] [cursor=pointer]:
+            - /url: https://auto.163.com/
+          - link "健康" [ref=f59e75] [cursor=pointer]:
+            - /url: https://jiankang.163.com/
+          - link "杭州" [ref=f59e76] [cursor=pointer]:
+            - /url: https://zj.news.163.com/
+          - link "政务" [ref=f59e77] [cursor=pointer]:
+            - /url: https://gov.163.com/
+          - link "网易号" [ref=f59e78] [cursor=pointer]:
+            - /url: https://dy.163.com/#indexdy
+        - generic [ref=f59e79]:
+          - list [ref=f59e80]:
+            - listitem [ref=f59e81]:
+              - link "MuMu模拟器Pro" [ref=f59e82] [cursor=pointer]:
+                - /url: https://mumu.163.com/mac/
+            - listitem [ref=f59e83]:
+              - link "网易亲时光" [ref=f59e84] [cursor=pointer]:
+                - /url: https://qin.163.com/
+            - listitem [ref=f59e85]:
+              - link "企业邮箱" [ref=f59e86] [cursor=pointer]:
+                - /url: https://qiye.163.com/?from=NetEase163tuijian
+            - listitem [ref=f59e87]:
+              - link "VIP邮箱" [ref=f59e88] [cursor=pointer]:
+                - /url: https://vipmail.163.com/#from=www
+            - listitem [ref=f59e89]:
+              - link "伏羲" [ref=f59e90] [cursor=pointer]:
+                - /url: https://fuxi.163.com/
+            - listitem [ref=f59e91]:
+              - link "严选" [ref=f59e92] [cursor=pointer]:
+                - /url: https://you.163.com?from=web_in_wyshouye
+            - listitem [ref=f59e93]:
+              - link "云课堂" [ref=f59e94] [cursor=pointer]:
+                - /url: https://study.163.com/?utm_source=163.com&utm_medium=web_productlist&utm_campaign=business
+            - listitem [ref=f59e95]:
+              - link "网易云游戏" [ref=f59e96] [cursor=pointer]:
+                - /url: https://cg.163.com
+            - listitem [ref=f59e97]:
+              - link "大神社区" [ref=f59e98] [cursor=pointer]:
+                - /url: "https://ds.163.com/?utm_source=163 "
+            - listitem [ref=f59e99]:
+              - link "云音乐" [ref=f59e100] [cursor=pointer]:
+                - /url: https://music.163.com/
+            - listitem [ref=f59e101]:
+              - link "网易红彩" [ref=f59e102] [cursor=pointer]:
+                - /url: https://hongcai.163.com/?from=pcsy-button
+            - listitem [ref=f59e103]:
+              - link "网易味央" [ref=f59e104] [cursor=pointer]:
+                - /url: https://www.weiyang.cn/
+            - listitem [ref=f59e105]:
+              - link "网易游戏" [ref=f59e106] [cursor=pointer]:
+                - /url: https://game.163.com/
+            - listitem [ref=f59e107]:
+              - link "UU远程" [ref=f59e108] [cursor=pointer]:
+                - /url: https://uuyc.163.com/?source_channel=uuyc-wyxw
+            - listitem [ref=f59e109]:
+              - link "免费邮" [ref=f59e110] [cursor=pointer]:
+                - /url: https://email.163.com/#from=ntes_product
+            - listitem [ref=f59e111]:
+              - link "卡搭编程" [ref=f59e112] [cursor=pointer]:
+                - /url: https://www.kada.com/?utm_source=163.com&utm_medium=web_productlist&utm_campaign=business
+            - listitem [ref=f59e113]:
+              - link "CC语音" [ref=f59e114] [cursor=pointer]:
+                - /url: https://cc.163.com/
+            - listitem [ref=f59e115]:
+              - link "UU加速器" [ref=f59e116] [cursor=pointer]:
+                - /url: https://uu.163.com/
+            - listitem [ref=f59e117]:
+              - link "公正邮" [ref=f59e118] [cursor=pointer]:
+                - /url: https://gzy.mail.163.com/?from=163product
+            - listitem [ref=f59e119]:
+              - link "邮箱大师" [ref=f59e120] [cursor=pointer]:
+                - /url: https://mail.163.com/client/dl.html?from=mail46
+            - listitem [ref=f59e121]:
+              - link "公开课" [ref=f59e122] [cursor=pointer]:
+                - /url: https://open.163.com/
+            - listitem [ref=f59e123]:
+              - link "新闻客户端" [ref=f59e124] [cursor=pointer]:
+                - /url: https://www.163.com/newsapp/
+            - listitem [ref=f59e125]:
+              - link "LOFTER" [ref=f59e126] [cursor=pointer]:
+                - /url: https://www.lofter.com/?act=qb163rk_20141031_12
+          - generic [ref=f59e127] [cursor=pointer]: 全部产品
+          - list [ref=f59e129]:
+            - listitem [ref=f59e130]:
+              - link "新闻客户端" [ref=f59e131] [cursor=pointer]:
+                - /url: https://www.163.com/newsapp/
+              - link "网易红彩" [ref=f59e132] [cursor=pointer]:
+                - /url: https://hongcai.163.com/?from=pcsy-button
+              - link "公开课" [ref=f59e133] [cursor=pointer]:
+                - /url: https://open.163.com/
+              - link "免费邮" [ref=f59e134] [cursor=pointer]:
+                - /url: https://email.163.com/#from=ntes_product
+              - link "VIP邮箱" [ref=f59e135] [cursor=pointer]:
+                - /url: https://vipmail.163.com/#from=www
+              - link "企业邮箱" [ref=f59e136] [cursor=pointer]:
+                - /url: https://qiye.163.com/?from=NetEase163tuijian
+              - link "邮箱大师" [ref=f59e137] [cursor=pointer]:
+                - /url: https://mail.163.com/client/dl.html?from=mail46
+            - listitem [ref=f59e138]:
+              - link "严选" [ref=f59e139] [cursor=pointer]:
+                - /url: https://you.163.com?from=web_in_wyshouye
+              - link "公正邮" [ref=f59e140] [cursor=pointer]:
+                - /url: https://gzy.mail.163.com/?from=163product
+              - link "云课堂" [ref=f59e141] [cursor=pointer]:
+                - /url: https://study.163.com/?utm_source=163.com&utm_medium=web_productlist&utm_campaign=business
+              - link "CC语音" [ref=f59e142] [cursor=pointer]:
+                - /url: https://cc.163.com/
+              - link "LOFTER" [ref=f59e143] [cursor=pointer]:
+                - /url: https://www.lofter.com/?act=qb163rk_20141031_12
+              - link "UU加速器" [ref=f59e144] [cursor=pointer]:
+                - /url: https://uu.163.com/
+              - link "UU远程" [ref=f59e145] [cursor=pointer]:
+                - /url: https://uuyc.163.com/?source_channel=uuyc-wyxw
+              - link "网易亲时光" [ref=f59e146] [cursor=pointer]:
+                - /url: https://qin.163.com/
+              - link "伏羲" [ref=f59e147] [cursor=pointer]:
+                - /url: https://fuxi.163.com/
+              - link "云音乐" [ref=f59e148] [cursor=pointer]:
+                - /url: https://music.163.com/
+              - link "大神社区" [ref=f59e149] [cursor=pointer]:
+                - /url: https://ds.163.com/?utm_source=163
+              - link "网易云游戏" [ref=f59e150] [cursor=pointer]:
+                - /url: https://cg.163.com
+              - link "千千壁纸" [ref=f59e151] [cursor=pointer]:
+                - /url: https://qianqian.163.com/
+            - listitem [ref=f59e152]:
+              - link "梦幻西游" [ref=f59e153] [cursor=pointer]:
+                - /url: https://xyq.163.com/
+              - link "大话2" [ref=f59e154] [cursor=pointer]:
+                - /url: https://xy2.163.com/
+              - link "梦幻西游手游" [ref=f59e155] [cursor=pointer]:
+                - /url: https://my.163.com/
+              - link "阴阳师" [ref=f59e156] [cursor=pointer]:
+                - /url: https://yys.163.com/
+              - link "倩女幽魂手游" [ref=f59e157] [cursor=pointer]:
+                - /url: https://qnm.163.com/
+              - link "大话西游3" [ref=f59e158] [cursor=pointer]:
+                - /url: https://xy3.163.com/
+              - link "新倩女幽魂" [ref=f59e159] [cursor=pointer]:
+                - /url: https://xqn.163.com/
+              - link "大唐无双" [ref=f59e160] [cursor=pointer]:
+                - /url: https://dtws.163.com/
+              - link "率士之滨" [ref=f59e161] [cursor=pointer]:
+                - /url: https://stzb.163.com/
+              - link "哈利波特.魔法觉醒" [ref=f59e162] [cursor=pointer]:
+                - /url: https://www.harrypottermagicawakened.com/cn/
+              - link "天下手游" [ref=f59e163] [cursor=pointer]:
+                - /url: https://tx.163.com/
+              - link "明日之后" [ref=f59e164] [cursor=pointer]:
+                - /url: https://mrzh.163.com/
+              - link "逆水寒" [ref=f59e165] [cursor=pointer]:
+                - /url: https://n.163.com/
+              - link "永劫无间" [ref=f59e166] [cursor=pointer]:
+                - /url: https://www.yjwujian.cn/
+              - link "一梦江湖" [ref=f59e167] [cursor=pointer]:
+                - /url: https://jianghu.163.com/
+              - link "第五人格" [ref=f59e168] [cursor=pointer]:
+                - /url: https://id5.163.com/
+    - generic [ref=f59e169]:
+      - iframe [ref=f59e171]:
+        - generic [active] [ref=f64e1]:
+          - link [ref=f64e2] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=309008&AID=333689&FlightID=3629&Values=2872431797&Redirect=https://you.163.com/item/detail?id=4039740&from=out_ynzy_xzy_0
+          - img [ref=f64e3]
+      - generic [ref=f59e172]: 广告
+    - generic [ref=f59e173]:
+      - link "教育" [ref=f59e175] [cursor=pointer]:
+        - /url: https://edu.163.com/
+      - generic [ref=f59e176] [cursor=pointer]: 最新
+      - list [ref=f59e180]:
+        - listitem [ref=f59e181]:
+          - link "网易新闻：猫头鹰视频" [ref=f59e182] [cursor=pointer]:
+            - /url: https://www.163.com/dy/media/T1616589597231.html
+          - link "“清流”穿越迷雾" [ref=f59e183] [cursor=pointer]:
+            - /url: https://www.163.com/dy/media/T1495590561605.html
+        - listitem [ref=f59e184]:
+          - link "北京大学：精品公开课" [ref=f59e185] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=1723835378&Redirect=http://open.163.com/special/School/beida.html
+          - link "《态℃》网易科技频道" [ref=f59e186] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=633413338&Redirect=https://www.163.com/dy/media/T1554807287299.html
+        - listitem [ref=f59e187]:
+          - link "清华大学：大师云集" [ref=f59e188] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=3615767058&Redirect=https://vip.open.163.com/courses/2243?p=home_discount_order_pc
+          - link "专业竞彩一触即发" [ref=f59e189] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=1280699780&Redirect=https://hongcai.163.com/?from=pcsy-button
+        - listitem [ref=f59e190]:
+          - link "不止是看客" [ref=f59e191] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=1939039851&Redirect=http://renjian.163.com/special/renjian_kanke/
+          - link "《我的爸爸是条龙》" [ref=f59e192] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=3799024050&Redirect=https://www.163.com/dy/media/T1628157720648.html
+        - listitem [ref=f59e193]:
+          - link "顶级学府：哈佛大学课程" [ref=f59e194] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=583173203&Redirect=http://open.163.com/special/harvarduniversity/
+          - link "红彩，只做专业预测" [ref=f59e195] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=1280699780&Redirect=https://hongcai.163.com/?from=pcsy-button
+        - listitem [ref=f59e196]:
+          - link "置业推荐" [ref=f59e197] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=2226680023&Redirect=https://house.163.com
+          - link "网易非虚构写作平台" [ref=f59e198] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=266934&AID=287186&FlightID=3734&Values=2414481211&Redirect=http://renjian.163.com/
+      - generic [ref=f59e199]: 广告
+    - generic [ref=f59e200]:
+      - generic [ref=f59e201]:
+        - generic [ref=f59e202]:
+          - list [ref=f59e204]:
+            - listitem [ref=f59e205]:
+              - paragraph [ref=f59e206]:
+                - link "庆祝中国共产党成立105周年大会侧记" [ref=f59e207] [cursor=pointer]:
+                  - /url: https://www.163.com/news/article/L0TOU597000189FH.html?clickfrom=w_yw
+            - listitem [ref=f59e208]:
+              - paragraph [ref=f59e209]:
+                - link "这位县委书记，总书记为何心中常念" [ref=f59e210] [cursor=pointer]:
+                  - /url: https://www.163.com/news/article/L0TP05TA000189FH.html?clickfrom=w_yw
+                  - emphasis [ref=f59e211]: 这位县委书记，总书记为何心中常念
+                - text: "|"
+                - link "把为人民谋幸福作为根本使命" [ref=f59e212] [cursor=pointer]:
+                  - /url: https://www.163.com/news/article/L0TOUVVG000189FH.html?clickfrom=w_yw
+                  - emphasis [ref=f59e213]: 把为人民谋幸福作为根本使命
+                - text: "|"
+                - link "一纸菜单见规矩" [ref=f59e214] [cursor=pointer]:
+                  - /url: https://www.163.com/news/article/L0TP1E9N000189FH.html?clickfrom=w_yw
+                  - emphasis [ref=f59e215]: 一纸菜单见规矩
+          - generic [ref=f59e216]:
+            - list [ref=f59e218]:
+              - listitem [ref=f59e219]:
+                - paragraph [ref=f59e220]:
+                  - link "前5个月我国知识密集型服务出口增长12.2%" [ref=f59e221] [cursor=pointer]:
+                    - /url: https://www.163.com/news/article/L0TFN67D000189FH.html?clickfrom=w_yw
+              - listitem [ref=f59e222]:
+                - paragraph [ref=f59e223]:
+                  - link "各地组织开展“光荣在党50年”纪念章颁发活动" [ref=f59e224] [cursor=pointer]:
+                    - /url: https://www.163.com/dy/article/L0R0DKNK05346RC6.html?clickfrom=w_yw
+              - listitem [ref=f59e225]:
+                - paragraph [ref=f59e226]:
+                  - link "吹空调后浑身难受？教你几招防护方法" [ref=f59e227] [cursor=pointer]:
+                    - /url: https://www.163.com/news/article/L0TSB3RH000189FH.html?clickfrom=w_yw
+              - listitem [ref=f59e228]:
+                - paragraph [ref=f59e229]:
+                  - link "目标2.5万亿元 工业互联网发展再提速" [ref=f59e230] [cursor=pointer]:
+                    - /url: https://www.163.com/dy/article/L0P5DV760514R9P4.html?clickfrom=w_yw
+            - list [ref=f59e232]:
+              - listitem [ref=f59e233]:
+                - paragraph [ref=f59e234]:
+                  - link "党的建设伟大工程的历史进程和时代使命" [ref=f59e235] [cursor=pointer]:
+                    - /url: https://www.163.com/dy/article/L0T3UM3005346936.html?clickfrom=w_yw
+              - listitem [ref=f59e236]:
+                - paragraph [ref=f59e237]:
+                  - link "热浪席卷欧洲 中国空调电扇成热销抢手货" [ref=f59e238] [cursor=pointer]:
+                    - /url: https://www.163.com/dy/article/L0RKGA93053469LG.html?clickfrom=w_yw
+              - listitem [ref=f59e239]:
+                - paragraph [ref=f59e240]:
+                  - link "日菲双边划界构成国际不法行为 中国有权追责" [ref=f59e241] [cursor=pointer]:
+                    - /url: https://www.163.com/news/article/L0TFS1L8000189FH.html?clickfrom=w_yw
+              - listitem [ref=f59e242]:
+                - paragraph [ref=f59e243]:
+                  - link "探“智造”、看口岸 香港青少年走读真实新疆" [ref=f59e244] [cursor=pointer]:
+                    - /url: https://www.163.com/news/article/L0TFTNAC000189FH.html?clickfrom=w_yw
+        - generic [ref=f59e245]:
+          - list [ref=f59e246]:
+            - listitem [ref=f59e247]:
+              - link "莫德里奇：魔笛谢幕 古典中场的世界杯终章 莫德里奇：魔笛谢幕 古典中场的世界杯终章" [ref=f59e248] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TRMAHK0514R9P4.html?clickfrom=w_lb_1_big
+                - img "莫德里奇：魔笛谢幕 古典中场的世界杯终章" [ref=f59e249]
+                - heading "莫德里奇：魔笛谢幕 古典中场的世界杯终章" [level=3] [ref=f59e250]
+              - link "葡萄牙2-1克罗地亚 C罗点射拉莫斯绝杀 葡萄牙2-1克罗地亚 C罗点射拉莫斯绝杀" [ref=f59e251] [cursor=pointer]:
+                - /url: https://sports.163.com/photoview/T1920005/171901.html?clickfrom=w_lb_2_big
+                - img "葡萄牙2-1克罗地亚 C罗点射拉莫斯绝杀" [ref=f59e252]
+                - heading "葡萄牙2-1克罗地亚 C罗点射拉莫斯绝杀" [level=3] [ref=f59e253]
+              - link "类星体喷30%光速黑洞风 类星体喷30%光速黑洞风" [ref=f59e254] [cursor=pointer]:
+                - /url: https://www.163.com/tech/article/KUTQDLD500097U81.html?clickfrom=w_lb_3_big
+                - img "类星体喷30%光速黑洞风" [ref=f59e255]
+                - heading "类星体喷30%光速黑洞风" [level=3] [ref=f59e256]
+            - listitem [ref=f59e257]:
+              - link "徐璐穿藏蓝色上衣配长靴 松弛随性明媚飒爽 徐璐穿藏蓝色上衣配长靴 松弛随性明媚飒爽" [ref=f59e258] [cursor=pointer]:
+                - /url: https://ent.163.com/photoview/00AJ0003/688180.html?clickfrom=w_lb_4_big
+                - img "徐璐穿藏蓝色上衣配长靴 松弛随性明媚飒爽" [ref=f59e259]
+                - heading "徐璐穿藏蓝色上衣配长靴 松弛随性明媚飒爽" [level=3] [ref=f59e260]
+              - link "极氪9X五座版官宣，如图！ 极氪9X五座版官宣，如图！" [ref=f59e261] [cursor=pointer]:
+                - /url: https://www.163.com/auto/article/L0TI32O70008856R.html?clickfrom=w_lb_5_big
+                - img "极氪9X五座版官宣，如图！" [ref=f59e262]
+                - heading "极氪9X五座版官宣，如图！" [level=3] [ref=f59e263]
+              - link "莫德里奇：魔笛谢幕 古典中场的世界杯终章 莫德里奇：魔笛谢幕 古典中场的世界杯终章" [ref=f59e264] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TRMAHK0514R9P4.html?clickfrom=w_lb_6_big
+                - img "莫德里奇：魔笛谢幕 古典中场的世界杯终章" [ref=f59e265]
+                - heading "莫德里奇：魔笛谢幕 古典中场的世界杯终章" [level=3] [ref=f59e266]
+          - list [ref=f59e267]:
+            - listitem [ref=f59e268] [cursor=pointer]
+            - listitem [ref=f59e269] [cursor=pointer]
+      - generic [ref=f59e270]:
+        - generic [ref=f59e272]:
+          - textbox [ref=f59e274]: 视频丨今年2000亿元“两新”设备更新资金已全部下达
+          - button "搜索" [ref=f59e275] [cursor=pointer]
+        - generic [ref=f59e276]:
+          - list [ref=f59e278]:
+            - listitem [ref=f59e279]:
+              - link "网易新闻 网易新闻" [ref=f59e280] [cursor=pointer]:
+                - /url: https://www.163.com/newsapp
+                - generic [ref=f59e281]: 网易新闻
+                - text: 网易新闻
+            - listitem [ref=f59e282]:
+              - link "公开课 公开课" [ref=f59e283] [cursor=pointer]:
+                - /url: https://open.163.com/
+                - generic [ref=f59e284]: 公开课
+                - text: 公开课
+            - listitem [ref=f59e285]:
+              - link "网易红彩 网易红彩" [ref=f59e286] [cursor=pointer]:
+                - /url: https://hongcai.163.com/?from=pcsy-button
+                - generic [ref=f59e287]: 网易红彩
+                - text: 网易红彩
+            - listitem [ref=f59e288]:
+              - link "网易邮箱 网易邮箱" [ref=f59e289] [cursor=pointer]:
+                - /url: https://email.163.com/
+                - generic [ref=f59e290]: 网易邮箱
+                - text: 网易邮箱
+          - generic [ref=f59e291]:
+            - heading "每日辟谣" [level=2] [ref=f59e292]:
+              - link "每日辟谣" [ref=f59e293] [cursor=pointer]:
+                - /url: https://www.163.com/dy/media/T1649842078714.html?clickfrom=w_mp
+            - list [ref=f59e294]:
+              - listitem [ref=f59e295]:
+                - link "新疆大石峡水利枢纽工程坍塌？系网友为引流虚构的合成图像" [ref=f59e296] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0RRIOEV05534S7H.html?clickfrom=w_mp
+              - listitem [ref=f59e297]:
+                - link "重庆彭水一男子因感情纠纷跳楼？街道回应：他是喝多了躺着起不来" [ref=f59e298] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0P6SV3Q05534S7H.html?clickfrom=w_mp
+          - generic [ref=f59e299]:
+            - link "易学院" [ref=f59e300] [cursor=pointer]:
+              - /url: https://mp.163.com/college.html#/home?clickfrom=w_mp
+            - link "网易号投稿" [ref=f59e301] [cursor=pointer]:
+              - /url: https://mp.163.com?clickfrom=w_mp
+              - text: 网易号投稿
+    - generic [ref=f59e303]:
+      - generic [ref=f59e304]:
+        - generic [ref=f59e305]:
+          - list [ref=f59e307]:
+            - listitem [ref=f59e308]:
+              - link "美伊下轮会谈拟于哈梅内伊葬礼后举行 双方有三大分歧" [ref=f59e309] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T5FMLL0550B6IS.html?clickfrom=w_yw
+            - listitem [ref=f59e310]:
+              - link "当着泽连斯基的面 扎卢日内打直球称\"我想取代你\"" [ref=f59e311] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TCQ8BH0550A0OW.html?clickfrom=w_yw
+            - listitem [ref=f59e312]:
+              - link "克罗地亚绝平球被判越位引巨大争议 莫德里奇昂首离开" [ref=f59e313] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TDN5LU055040N3.html?clickfrom=w_yw
+            - listitem [ref=f59e314]:
+              - link "俄罗斯驻瑞典大使馆遇袭 2年多遭袭击次数已超25次" [ref=f59e315] [cursor=pointer]:
+                - /url: https://www.163.com/news/article/L0T11TOJ0001899O.html?clickfrom=w_yw
+            - listitem [ref=f59e316]:
+              - link "河南高考699分女孩爆火 自媒体将镜头架其家门口直播" [ref=f59e317] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0SMOIDD051494GR.html?clickfrom=w_yw
+          - list [ref=f59e319]:
+            - listitem [ref=f59e320]:
+              - link "官方辟谣女护士被单位认定卖淫开除" [ref=f59e321] [cursor=pointer]:
+                - /url: https://www.163.com/news/article/L0TN9S5L0001899O.html?clickfrom=w_yw
+            - listitem [ref=f59e322]:
+              - link "男子将现任妻子照片PS成前妻 欲独吞60万执行返还款" [ref=f59e323] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TE7HTE055040N3.html?clickfrom=w_yw
+            - listitem [ref=f59e324]:
+              - link "在西安赛格商场坠亡商户曾拥有约500家店 如今剩300家" [ref=f59e325] [cursor=pointer]:
+                - /url: https://www.163.com/news/article/L0TAOU9S00019B3E.html?clickfrom=w_yw
+            - listitem [ref=f59e326]:
+              - link "哪吒汽车倒闭女子买车3年未拿到合同 车出故障无处修" [ref=f59e327] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T8PBMN05561G0D.html?clickfrom=w_yw
+            - listitem [ref=f59e328]:
+              - link "牢记初心使命 奋进复兴征程" [ref=f59e329] [cursor=pointer]:
+                - /url: https://c.m.163.com/news/s/S1780671507986.html?clickfrom=w_yw_gov
+        - generic [ref=f59e330]:
+          - list [ref=f59e332]:
+            - listitem [ref=f59e333]:
+              - link "杭州" [ref=f59e335] [cursor=pointer]:
+                - /url: https://zj.news.163.com/
+              - paragraph [ref=f59e337]:
+                - link "硬核科技护航基层平安 机器人巡警显身手" [ref=f59e338] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TD055B0514R9OJ.html?clickfrom=w_bdnews
+            - listitem [ref=f59e339]:
+              - link "中国戏曲武生齐聚杭州 再续武戏薪火" [ref=f59e340] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TDJPR60514R9OJ.html?clickfrom=w_bdnews
+            - listitem [ref=f59e341]:
+              - link "6500 万购回《永乐大典》两册入藏版本馆" [ref=f59e342] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0SFL6K10512B07B.html?clickfrom=w_bdnews
+            - listitem [ref=f59e343]:
+              - link "衢州一展示馆以会损坏地面为由禁止婴儿车进入" [ref=f59e344] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0THJU1N0514EGPO.html?clickfrom=w_bdnews
+            - listitem [ref=f59e345]:
+              - link "男子无不适查出晚期癌，身体征兆常被忽视" [ref=f59e346] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T9RB1005149SCF.html?clickfrom=w_bdnews
+          - list [ref=f59e348]:
+            - listitem [ref=f59e349]:
+              - paragraph [ref=f59e350]:
+                - link "财经" [ref=f59e351] [cursor=pointer]:
+                  - /url: https://money.163.com/
+                - text: "|"
+                - link "AI“鬼故事”不断，市场开始重估？" [ref=f59e352] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TC1E3J05198NMR.html?clickfrom=w_yw_money
+            - listitem [ref=f59e353]:
+              - paragraph [ref=f59e354]:
+                - link "科技" [ref=f59e355] [cursor=pointer]:
+                  - /url: https://tech.163.com/
+                - text: "|"
+                - link "特斯拉交付超预期7.4万辆，股价却大跌7.5%" [ref=f59e356] [cursor=pointer]:
+                  - /url: https://www.163.com/tech/article/L0T801GD00097U7T.html?clickfrom=w_yw_tech
+            - listitem [ref=f59e357]:
+              - paragraph [ref=f59e358]:
+                - link "体育" [ref=f59e359] [cursor=pointer]:
+                  - /url: https://sports.163.com/
+                - text: "|"
+                - link "外籍足彩专家9连红 精准命中竞彩法国3-0比分" [ref=f59e360] [cursor=pointer]:
+                  - /url: https://www.163.com/sports/article/L0OEB9I100058MJK.html?clickfrom=w_yw_sports
+            - listitem [ref=f59e361]:
+              - paragraph [ref=f59e362]:
+                - link "娱乐" [ref=f59e363] [cursor=pointer]:
+                  - /url: https://ent.163.com/
+                - text: "|"
+                - link "黄晓明深夜约会美女，分手原因曝光" [ref=f59e364] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TD61HF0556DZ1O.html?clickfrom=w_yw_ent
+            - listitem [ref=f59e365]:
+              - paragraph [ref=f59e366]:
+                - link "网易号" [ref=f59e367] [cursor=pointer]:
+                  - /url: https://dy.163.com/
+                - text: "|"
+                - link "特朗普首次乘坐新“空军一号”" [ref=f59e368] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T50HFE051481US.html?clickfrom=w_yw_dy
+        - generic [ref=f59e369]:
+          - heading "独家" [level=2] [ref=f59e372]
+          - list [ref=f59e373]:
+            - listitem [ref=f59e374]:
+              - link "卖球衣救子的门将，把德国扑出了世界杯" [ref=f59e375] [cursor=pointer]:
+                - /url: https://www.163.com/sports/article/L0OANE4P00059B4P.html?clickfrom=w_yw_ty
+                - img "卖球衣救子的门将，把德国扑出了世界杯" [ref=f59e376]
+              - generic [ref=f59e377]:
+                - generic [ref=f59e378]: 界外编辑部
+                - link "卖球衣救子的门将，把德国扑出了世界杯" [ref=f59e379] [cursor=pointer]:
+                  - /url: https://www.163.com/sports/article/L0OANE4P00059B4P.html?clickfrom=w_yw_ty
+            - listitem [ref=f59e380]:
+              - link "不涨工资的夸奖就当是在放屁" [ref=f59e381] [cursor=pointer]:
+                - /url: https://www.163.com/news/article/L0RQT774000181BR.html?clickfrom=w_yw_qsyk
+                - img "不涨工资的夸奖就当是在放屁" [ref=f59e382]
+              - generic [ref=f59e383]:
+                - generic [ref=f59e384]: 轻松一刻
+                - link "不涨工资的夸奖就当是在放屁" [ref=f59e385] [cursor=pointer]:
+                  - /url: https://www.163.com/news/article/L0RQT774000181BR.html?clickfrom=w_yw_qsyk
+            - listitem [ref=f59e386]:
+              - link "世界杯最火门将，站到了阿根廷和梅西面前" [ref=f59e387] [cursor=pointer]:
+                - /url: https://www.163.com/sports/article/L0E94TPP00058781.html?clickfrom=w_yw_ty
+                - img "世界杯最火门将，站到了阿根廷和梅西面前" [ref=f59e388]
+              - generic [ref=f59e389]:
+                - generic [ref=f59e390]: 后厂村体工队
+                - link "世界杯最火门将，站到了阿根廷和梅西面前" [ref=f59e391] [cursor=pointer]:
+                  - /url: https://www.163.com/sports/article/L0E94TPP00058781.html?clickfrom=w_yw_ty
+            - listitem [ref=f59e392]:
+              - link "“深圳队”出战世界杯" [ref=f59e393] [cursor=pointer]:
+                - /url: https://www.163.com/v/video/VIVR0DN20.html?clickfrom=w_yw_wysl
+                - img "“深圳队”出战世界杯" [ref=f59e394]
+              - generic [ref=f59e395]:
+                - generic [ref=f59e396]: 城市印象
+                - link "“深圳队”出战世界杯" [ref=f59e397] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VIVR0DN20.html?clickfrom=w_yw_wysl
+            - listitem [ref=f59e398]:
+              - link "韩国人，为什么恨透了洪明甫？" [ref=f59e399] [cursor=pointer]:
+                - /url: https://www.163.com/sports/article/L0REISS400059A7T.html?clickfrom=w_yw_ty
+                - img "韩国人，为什么恨透了洪明甫？" [ref=f59e400]
+              - generic [ref=f59e401]:
+                - generic [ref=f59e402]: 西北望看台
+                - link "韩国人，为什么恨透了洪明甫？" [ref=f59e403] [cursor=pointer]:
+                  - /url: https://www.163.com/sports/article/L0REISS400059A7T.html?clickfrom=w_yw_ty
+            - listitem [ref=f59e404]:
+              - link "LV起诉茉莉奶白商标图案侵权胜诉" [ref=f59e405] [cursor=pointer]:
+                - /url: https://www.163.com/money/article/L0RGCKV200258105.html?clickfrom=w_yw_cj
+                - img "LV起诉茉莉奶白商标图案侵权胜诉" [ref=f59e406]
+              - generic [ref=f59e407]:
+                - generic [ref=f59e408]: 号外
+                - link "LV起诉茉莉奶白商标图案侵权胜诉" [ref=f59e409] [cursor=pointer]:
+                  - /url: https://www.163.com/money/article/L0RGCKV200258105.html?clickfrom=w_yw_cj
+          - generic [ref=f59e418]: 广告
+      - generic [ref=f59e419]:
+        - link "广告" [ref=f59e423] [cursor=pointer]:
+          - /url: javascript:;
+        - generic [ref=f59e424]:
+          - heading "桃桃故事会" [level=2] [ref=f59e425]:
+            - link "桃桃故事会" [ref=f59e426] [cursor=pointer]:
+              - /url: https://m.163.com/touch/story?from=pc163
+          - generic [ref=f59e427]:
+            - list [ref=f59e428]:
+              - listitem [ref=f59e429]:
+                - link "小姨子泼我一脸茅台，我默默把房过户，2周后她全家被赶走" [ref=f59e430] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0E02ABP05538WZN.html?spss=index_stories&clickfrom=w_ttgsh
+                - link "刚做完手术婆婆让我做饭，老公进门直接把锅砸了，婆婆嚎啕大哭" [ref=f59e431] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0CGK8U20553FV3Z.html?spss=index_stories&clickfrom=w_ttgsh
+                - link "我年薪70万，婆婆要我交60万，我拒绝后，她将我东西丢出门让我滚" [ref=f59e432] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L09VNK4L0553FV3Z.html?spss=index_stories&clickfrom=w_ttgsh
+                - link "替姐姐照顾外甥女，姐夫消失八年突然出现，两女儿的决定让人泪目" [ref=f59e433] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/K3NJU86V0556DBTC.html?spss=index_stories&clickfrom=w_ttgsh
+              - listitem
+            - generic [ref=f59e434]:
+              - generic:
+                - insertion
+            - list [ref=f59e435]:
+              - listitem [ref=f59e436] [cursor=pointer]
+              - listitem [ref=f59e437] [cursor=pointer]
+        - generic [ref=f59e439]:
+          - link "广告" [ref=f59e440] [cursor=pointer]:
+            - /url: https://corp.163.com/gb/legal.html
+          - iframe [ref=f59e441]:
+            - generic [active] [ref=f60e1]:
+              - link [ref=f60e2] [cursor=pointer]:
+                - /url: https://g.163.com/effect/c?s=307931&AID=332421&FlightID=6883&Values=3370267075&Redirect=https://money.163.com/special/naec_summary/
+              - img [ref=f60e3]
+    - generic [ref=f59e442]:
+      - generic [ref=f59e443]:
+        - generic [ref=f59e444]:
+          - generic [ref=f59e445]:
+            - heading "体育" [level=2] [ref=f59e447]:
+              - link "体育" [ref=f59e448] [cursor=pointer]:
+                - /url: https://sports.163.com/
+            - generic [ref=f59e449]:
+              - link "NBA" [ref=f59e450] [cursor=pointer]:
+                - /url: https://sports.163.com/nba/
+              - text: "|"
+              - link "CBA" [ref=f59e451] [cursor=pointer]:
+                - /url: https://sports.163.com/cba/
+              - text: "|"
+              - link "中超" [ref=f59e452] [cursor=pointer]:
+                - /url: https://sports.163.com/china/
+              - text: "|"
+              - link "国际足球" [ref=f59e453] [cursor=pointer]:
+                - /url: https://sports.163.com/world/
+          - generic [ref=f59e454]:
+            - link "C罗穿已故队友若塔球衣谢场 眼中含泪 C罗穿已故队友若塔球衣谢场 眼中含泪" [ref=f59e455] [cursor=pointer]:
+              - /url: https://sports.163.com/photoview/T1920005/171901.html?clickfrom=w_sports
+              - img "C罗穿已故队友若塔球衣谢场 眼中含泪" [ref=f59e456]
+              - heading "C罗穿已故队友若塔球衣谢场 眼中含泪" [level=3] [ref=f59e457]
+            - generic [ref=f59e458]:
+              - generic [ref=f59e459]:
+                - generic [ref=f59e460]:
+                  - link "张路" [ref=f59e461] [cursor=pointer]:
+                    - /url: https://hongcai.163.com/professorpage.html?expertId=1091
+                    - img "张路" [ref=f59e462]
+                  - generic [ref=f59e463]:
+                    - link "张路" [ref=f59e464] [cursor=pointer]:
+                      - /url: https://hongcai.163.com/professorpage.html?expertId=1091
+                    - generic:
+                      - generic [ref=f59e465]: 足球评论员
+                      - generic [ref=f59e466]: 10连中
+                      - generic [ref=f59e467]: 100%命中
+                  - link "网易红彩" [ref=f59e468] [cursor=pointer]:
+                    - /url: https://hongcai.163.com/?from=pcsyhc-button
+                    - generic [ref=f59e469]: 网易红彩
+                - generic [ref=f59e470]:
+                  - link "方案 世界杯淘汰赛串关 阿根廷赢球无悬念？哥伦比亚轻松晋级?" [ref=f59e471] [cursor=pointer]:
+                    - /url: https://hongcai.163.com/schemedetail.html?threadId=3507308
+                  - link "世界杯 阿根廷 vs 佛得角":
+                    - /url: https://hongcai.163.com/matchdetail.html?matchId=5403482
+                    - generic "世界杯" [ref=f59e472] [cursor=pointer]
+                    - generic [ref=f59e473] [cursor=pointer]: 阿根廷 vs 佛得角
+              - list [ref=f59e475]:
+                - listitem [ref=f59e476]:
+                  - link "肖十一狼 肖十一狼 12连红":
+                    - /url: https://hongcai.163.com/professorpage.html?expertId=2135608
+                    - img "肖十一狼" [ref=f59e477] [cursor=pointer]
+                    - generic [ref=f59e478] [cursor=pointer]:
+                      - heading "肖十一狼" [level=3] [ref=f59e479]
+                      - generic [ref=f59e480]: 12连红
+                - listitem [ref=f59e481]:
+                  - link "韩哥荐球 韩哥荐球 15连红":
+                    - /url: https://hongcai.163.com/professorpage.html?expertId=15392
+                    - img "韩哥荐球" [ref=f59e482] [cursor=pointer]
+                    - generic [ref=f59e483] [cursor=pointer]:
+                      - heading "韩哥荐球" [level=3] [ref=f59e484]
+                      - generic [ref=f59e485]: 15连红
+                - listitem [ref=f59e486]:
+                  - link "张路 张路 10连红":
+                    - /url: https://hongcai.163.com/professorpage.html?expertId=1091
+                    - img "张路" [ref=f59e487] [cursor=pointer]
+                    - generic [ref=f59e488] [cursor=pointer]:
+                      - heading "张路" [level=3] [ref=f59e489]
+                      - generic [ref=f59e490]: 10连红
+          - generic [ref=f59e491]:
+            - list [ref=f59e492]:
+              - listitem [ref=f59e493]:
+                - link "世界杯-葡萄牙2-1克罗地亚进16强 C罗点射拉莫斯绝杀" [ref=f59e494] [cursor=pointer]:
+                  - /url: https://www.163.com/sports/article/L0TCO87600058781.html?clickfrom=w_sports
+              - listitem [ref=f59e495]:
+                - link "西班牙3-0奥地利进16强 奥亚萨瓦尔双响波罗头槌" [ref=f59e496] [cursor=pointer]:
+                  - /url: https://www.163.com/sports/article/L0SUD95100058781.html?clickfrom=w_sports
+              - listitem [ref=f59e497]:
+                - link "当选MVP!C罗眼含热泪：身穿若塔21号球衣谢场 手指天空告慰好兄弟" [ref=f59e498] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TEDJMP05566VBM.html?clickfrom=w_sports
+              - listitem [ref=f59e499]:
+                - link "神剧情！41岁C罗进球被吹后点射扳平，终获淘汰赛首球+破20年魔咒" [ref=f59e500] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T4RUBT0529CA1F.html?clickfrom=w_sports
+              - listitem [ref=f59e501]:
+                - link "林诗栋0-3大勒止步16强！王皓暂停未改颓势 国乒男单7人全部出局" [ref=f59e502] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TLA0L205299VFU.html?clickfrom=w_sports
+              - listitem [ref=f59e503]:
+                - link "王楚钦1-3遭林德爆冷止步美国大满贯16强，第二局被2-11速通" [ref=f59e504] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TH8SK20549BAP0.html?clickfrom=w_sports
+            - list [ref=f59e505]:
+              - listitem [ref=f59e506]:
+                - link "5年8150万美元！伊森与火箭续约留守休城 继续辅佐杜兰特冲冠" [ref=f59e507] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T9FGUO0529BA9O.html?clickfrom=w_sports
+              - listitem [ref=f59e508]:
+                - link "争议？内置芯片扼杀克罗地亚绝平球！球迷愤怒：狂丢水瓶抗议判罚" [ref=f59e509] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TECRIA0529CA1F.html?clickfrom=w_sports
+              - listitem [ref=f59e510]:
+                - link "1年390万美元！李凯尔确定签约猛龙 与前马刺队友小卡再度联手" [ref=f59e511] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T1D3H50529BA9O.html?clickfrom=w_sports
+              - listitem [ref=f59e512]:
+                - link "西班牙杀出低调战神！29岁射手17场轰17球 比肩4大巨星 创7项纪录" [ref=f59e513] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T0FL570529CA1F.html?clickfrom=w_sports
+              - listitem [ref=f59e514]:
+                - link "斯基拉：美国足协准备续约波切蒂诺，新合同至2030年" [ref=f59e515] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TU2PD00549BAP0.html?clickfrom=w_sports
+              - listitem [ref=f59e516]:
+                - link "官方：马赫雷斯自宣从国家队中退役" [ref=f59e517] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TU2PJK0549BAP0.html?clickfrom=w_sports
+        - generic [ref=f59e519]:
+          - generic [ref=f59e520]:
+            - list [ref=f59e521]:
+              - listitem [ref=f59e522]:
+                - link "恩博洛破僵恩多耶建功，瑞士2-0阿尔及利亚，造世界杯独一份神迹" [ref=f59e523] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TPGB7I0549753N.html?clickfrom=w_sports
+                  - img "恩博洛破僵恩多耶建功，瑞士2-0阿尔及利亚，造世界杯独一份神迹" [ref=f59e524]
+                - generic [ref=f59e525]:
+                  - generic [ref=f59e526]: 中超/国际足球
+                  - link "恩博洛破僵恩多耶建功，瑞士2-0阿尔及利亚，造世界杯独一份神迹" [ref=f59e527] [cursor=pointer]:
+                    - /url: https://www.163.com/dy/article/L0TPGB7I0549753N.html?clickfrom=w_sports
+            - list [ref=f59e528]:
+              - listitem [ref=f59e529]:
+                - link "泪目！40岁魔笛告别世界杯：最后一舞谢幕 老友C罗送上安慰和拥抱" [ref=f59e530] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TDQBHK05566VBM.html?clickfrom=w_sports
+              - listitem [ref=f59e531]:
+                - link "领袖！C罗冲出替补席拥抱绝杀功臣：搂着他摸头 狂喜对手绝平被吹" [ref=f59e532] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TD9O7E05566VBM.html?clickfrom=w_sports
+              - listitem [ref=f59e533]:
+                - link "中足联官宣重磅罚单！52岁于根伟禁赛5场罚5万 辱骂+率队围堵裁判" [ref=f59e534] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0S6A2020529CA1F.html?clickfrom=w_sports
+              - listitem [ref=f59e535]:
+                - link "记者：西海岸主帅郑智共停赛8场，战海港仍无法在替补席指挥" [ref=f59e536] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0S604B60549BAP0.html?clickfrom=w_sports
+          - generic [ref=f59e538]:
+            - list [ref=f59e539]:
+              - listitem [ref=f59e540]:
+                - link "签一天短约！洛瑞将以猛龙球员身份正式退役：7号球衣也将退役" [ref=f59e541] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SUB0QI0529BA9O.html?clickfrom=w_sports
+                  - img "签一天短约！洛瑞将以猛龙球员身份正式退役：7号球衣也将退役" [ref=f59e542]
+                - generic [ref=f59e543]:
+                  - generic [ref=f59e544]: NBA/CBA
+                  - link "签一天短约！洛瑞将以猛龙球员身份正式退役：7号球衣也将退役" [ref=f59e545] [cursor=pointer]:
+                    - /url: https://www.163.com/dy/article/L0SUB0QI0529BA9O.html?clickfrom=w_sports
+            - list [ref=f59e546]:
+              - listitem [ref=f59e547]:
+                - link "Shams：安芬尼-西蒙斯2年1230万美元签约76人，第二年为球员选项" [ref=f59e548] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SN05PS0549BAP0.html?clickfrom=w_sports
+              - listitem [ref=f59e549]:
+                - link "莫兰特加盟开拓者改穿1号！生涯首次告别12号 力争找回全明星水准" [ref=f59e550] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T1SDNI0529BA9O.html?clickfrom=w_sports
+              - listitem [ref=f59e551]:
+                - link "中国男篮vs日本前瞻：杨瀚森领衔三塔PK霍金森 剑指主场双杀日本" [ref=f59e552] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SE0BUL0529RKNN.html?clickfrom=w_sports
+              - listitem [ref=f59e553]:
+                - link "郭士强展望中日对决：做好各种困难准备 杨瀚森磨合比较好" [ref=f59e554] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TPPS6K0529RKNN.html?clickfrom=w_sports
+        - generic [ref=f59e557]: 广告
+        - generic [ref=f59e558]:
+          - generic [ref=f59e559]:
+            - heading "娱乐" [level=2] [ref=f59e561]:
+              - link "娱乐" [ref=f59e562] [cursor=pointer]:
+                - /url: https://ent.163.com/
+            - generic [ref=f59e563]:
+              - link "电影" [ref=f59e564] [cursor=pointer]:
+                - /url: https://ent.163.com/movie/
+              - text: "|"
+              - link "电视" [ref=f59e565] [cursor=pointer]:
+                - /url: https://ent.163.com/tv/
+          - generic [ref=f59e566]:
+            - link "黄晓明深夜约会美女，分手原因曝光 黄晓明深夜约会美女，分手原因曝光" [ref=f59e567] [cursor=pointer]:
+              - /url: https://www.163.com/dy/article/L0TD61HF0556DZ1O.html?clickfrom=w_ent
+              - img "黄晓明深夜约会美女，分手原因曝光" [ref=f59e568]
+              - heading "黄晓明深夜约会美女，分手原因曝光" [level=3] [ref=f59e569]
+            - list [ref=f59e570]:
+              - listitem [ref=f59e571]:
+                - link "韩红以低成本公益获超额社会声誉，才是问题" [ref=f59e572] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TCAUUK0556BJG6.html?clickfrom=w_ent
+              - listitem [ref=f59e573]:
+                - link "面试于正剧组被要求拍私密部位？一众艺人被卷入" [ref=f59e574] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TBHVFM0556GO4V.html?clickfrom=w_ent
+              - listitem [ref=f59e575]:
+                - link "名媛马场偶遇没帮方媛P图！本尊生图被公开" [ref=f59e576] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T7K3P3055650SH.html?clickfrom=w_ent
+              - listitem [ref=f59e577]:
+                - link "70岁知名港星米雪疑遭男性骚扰，拒绝仍然被贴脸" [ref=f59e578] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T9UHJB0537B1I5.html?clickfrom=w_ent
+              - listitem [ref=f59e579]:
+                - link "白鹿晒花絮视频自证清白，是给演员泼脏水" [ref=f59e580] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TEF39J053469LG.html?clickfrom=w_ent
+          - generic [ref=f59e582]:
+            - link "凯特王妃现身温网公开观赛，蓝宝石耳坠耀眼 凯特王妃现身温网公开观赛，蓝宝石耳坠耀眼" [ref=f59e583] [cursor=pointer]:
+              - /url: https://www.163.com/dy/article/L0T8VRQQ0541A1O8.html?clickfrom=w_ent
+              - img "凯特王妃现身温网公开观赛，蓝宝石耳坠耀眼" [ref=f59e584]
+              - heading "凯特王妃现身温网公开观赛，蓝宝石耳坠耀眼" [level=3] [ref=f59e585]
+            - list [ref=f59e586]:
+              - listitem [ref=f59e587]:
+                - link "Lisa回泰国 韩国之旅未起水花 亚洲市场已难拿捏" [ref=f59e588] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TCO9QF0512VPQL.html?clickfrom=w_ent
+              - listitem [ref=f59e589]:
+                - link "蒋雯丽近况！陪91岁老母逛街，儿子又高又胖" [ref=f59e590] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TFPHB90553TET5.html?clickfrom=w_ent
+              - listitem [ref=f59e591]:
+                - link "香港“御用恶女”梁珊离世！曾出演《天龙八部》" [ref=f59e592] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T8OHBQ0556860A.html?clickfrom=w_ent
+              - listitem [ref=f59e593]:
+                - link "侯梦莎：最正确的决定就是嫁给我同行的丈夫" [ref=f59e594] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TCJB6Q0556BNMM.html?clickfrom=w_ent
+              - listitem [ref=f59e595]:
+                - link "张智霖儿子19岁寸头现身，资源不用反成热议焦点" [ref=f59e596] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TA2DBT05566RPP.html?clickfrom=w_ent
+      - generic [ref=f59e598]:
+        - generic [ref=f59e599]:
+          - heading "网易公开课" [level=2] [ref=f59e600]:
+            - link "网易公开课" [ref=f59e601] [cursor=pointer]:
+              - /url: https://open.163.com/#f=page163
+          - list [ref=f59e602]:
+            - listitem [ref=f59e603]:
+              - link "布洛芬是怎么给人止痛的？" [ref=f59e604] [cursor=pointer]:
+                - /url: https://open.163.com/newview/movie/free?clickfrom=w_mfgkk&pid=UHOB7APPJ&mid=XHOB7APQD
+                - img "布洛芬是怎么给人止痛的？" [ref=f59e605]
+              - link "布洛芬是怎么给人止痛的？" [ref=f59e607] [cursor=pointer]:
+                - /url: https://open.163.com/newview/movie/free?clickfrom=w_mfgkk&pid=UHOB7APPJ&mid=XHOB7APQD
+          - list [ref=f59e608]:
+            - listitem [ref=f59e609]:
+              - link "可以用棉签掏耳朵吗？" [ref=f59e610] [cursor=pointer]:
+                - /url: https://open.163.com/newview/movie/free?clickfrom=w_mfgkk&pid=MCCUU829H&mid=MCCUUFRA3
+            - listitem [ref=f59e611]:
+              - link "来猜猜你的心理年龄" [ref=f59e612] [cursor=pointer]:
+                - /url: https://open.163.com/newview/movie/free?clickfrom=w_mfgkk&pid=MD21TT9UM&mid=MD21TVFKA
+            - generic [ref=f59e613]:
+              - generic:
+                - insertion
+          - heading "知识公路" [level=2] [ref=f59e614]
+          - list [ref=f59e615]:
+            - listitem [ref=f59e616]:
+              - link "【疯狂的韩国】之1亿账户，冲进黄金时代？" [ref=f59e617] [cursor=pointer]:
+                - /url: https://www.163.com/v/video/VZ002SBEG.html?clickfrom=w_zsgl
+                - img "【疯狂的韩国】之1亿账户，冲进黄金时代？" [ref=f59e618]
+              - link "【疯狂的韩国】之1亿账户，冲进黄金时代？" [ref=f59e620] [cursor=pointer]:
+                - /url: https://www.163.com/v/video/VZ002SBEG.html?clickfrom=w_zsgl
+          - list [ref=f59e621]:
+            - listitem [ref=f59e622]:
+              - link "欧洲高温致命难题，中国人专治各种难题？" [ref=f59e623] [cursor=pointer]:
+                - /url: https://www.163.com/v/video/VZ002S6FO.html?clickfrom=w_zsgl
+            - listitem [ref=f59e624]:
+              - link "自由去闯，魏建军破圈圈粉年轻人" [ref=f59e625] [cursor=pointer]:
+                - /url: https://www.163.com/v/video/VZ002S8L5.html?clickfrom=w_zsgl
+            - generic [ref=f59e626]:
+              - generic:
+                - insertion
+        - link "广告" [ref=f59e628] [cursor=pointer]:
+          - /url: javascript:;
+        - generic [ref=f59e629]:
+          - heading "热议榜" [level=2] [ref=f59e630]
+          - list [ref=f59e631]:
+            - listitem [ref=f59e632]:
+              - link "大量欧洲客户从中国网购空调 空运一台运费2000元" [ref=f59e633] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TEO3AP0514D3UH.html?clickfrom=w_gt
+              - generic [ref=f59e634]: 封面新闻2747跟贴
+            - listitem [ref=f59e635]:
+              - link "国乒男单无缘美国大满贯8强" [ref=f59e636] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TLV4M80001899O.html?clickfrom=w_gt
+              - generic [ref=f59e637]: 北京日报2878跟贴
+            - listitem [ref=f59e638]:
+              - link "C罗送别魔笛" [ref=f59e639] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TDHC220001899O.html?clickfrom=w_gt
+              - generic [ref=f59e640]: 北京青年报2634跟贴
+              - link "火星网友：惊心动魄的补时阶段，神的黄昏写满了悲壮与感伤，致敬魔笛，致敬克罗地亚！" [ref=f59e641] [cursor=pointer]:
+                - /url: https://comment.tie.163.com/L0TDHC220001899O.html?clickfrom=w_gt
+                - generic [ref=f59e642]:
+                  - img [ref=f59e643]
+                  - text: 火星网友：惊心动魄的补时阶段，神的黄昏写满了悲壮与感伤，致敬魔笛，致敬克罗地亚！
+        - link "广告" [ref=f59e647] [cursor=pointer]:
+          - /url: javascript:;
+    - generic [ref=f59e649]:
+      - generic [ref=f59e650]:
+        - generic [ref=f59e651]:
+          - generic [ref=f59e652]:
+            - heading "财经" [level=2] [ref=f59e654]:
+              - link "财经" [ref=f59e655] [cursor=pointer]:
+                - /url: https://money.163.com/
+            - generic [ref=f59e656]:
+              - link "股票" [ref=f59e657] [cursor=pointer]:
+                - /url: https://money.163.com/stock/
+              - text: "|"
+              - link "基金" [ref=f59e658] [cursor=pointer]:
+                - /url: https://money.163.com/fund/
+          - generic [ref=f59e659]:
+            - link "AI“鬼故事”不断，市场开始重估？ AI“鬼故事”不断，市场开始重估？" [ref=f59e661] [cursor=pointer]:
+              - /url: https://www.163.com/dy/article/L0TC1E3J05198NMR.html?clickfrom=w_money
+              - img "AI“鬼故事”不断，市场开始重估？" [ref=f59e662]
+              - heading "AI“鬼故事”不断，市场开始重估？" [level=3] [ref=f59e663]
+            - link "A股上半年新开户2016万户，同比增长60% A股上半年新开户2016万户，同比增长60%" [ref=f59e665] [cursor=pointer]:
+              - /url: https://www.163.com/dy/article/L0SF1IIP0519JFL1.html?clickfrom=w_money
+              - img "A股上半年新开户2016万户，同比增长60%" [ref=f59e666]
+              - heading "A股上半年新开户2016万户，同比增长60%" [level=3] [ref=f59e667]
+          - generic [ref=f59e668]:
+            - list [ref=f59e670]:
+              - listitem [ref=f59e671]:
+                - link "中国汽车出口超预期" [ref=f59e672] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SEMU100519DDQ2.html?clickfrom=w_money
+            - list [ref=f59e674]:
+              - listitem [ref=f59e675]:
+                - link "亚经协会长落马！滥发头衔靠会敛财，协会反腐力度持续升级" [ref=f59e676] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUP45V0530IU8N.html?clickfrom=w_money
+          - generic [ref=f59e677]:
+            - list [ref=f59e679]:
+              - listitem [ref=f59e680]:
+                - link "茉莉奶白：无妄之灾？不服，将上诉！" [ref=f59e681] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUSITN0519HF8U.html?clickfrom=w_money
+            - list [ref=f59e683]:
+              - listitem [ref=f59e684]:
+                - link "华谊兄弟全资电影子公司新增千万执行标的，债务压力持续加剧" [ref=f59e685] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TU3PI90530IU8N.html?clickfrom=w_money
+          - generic [ref=f59e686]:
+            - list [ref=f59e688]:
+              - listitem [ref=f59e689]:
+                - link "必吃榜的10年“信任实验”" [ref=f59e690] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TU67T80519A8F3.html?clickfrom=w_money
+            - list [ref=f59e692]:
+              - listitem [ref=f59e693]:
+                - link "凭啥凌晨入住中午就被撵？这家酒店让打工人住满24小时被同行骂惨了" [ref=f59e694] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TTRSMV0552HNAY.html?clickfrom=w_money
+          - generic [ref=f59e695]:
+            - list [ref=f59e697]:
+              - listitem [ref=f59e698]:
+                - link "15亿存贷议案被否！七匹狼同意票43.3%，资金归集模式陷信任危机" [ref=f59e699] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TTHDNJ0530IU8N.html?clickfrom=w_money
+            - list [ref=f59e701]:
+              - listitem [ref=f59e702]:
+                - link "茉莉奶白因商标像LV被判赔1030万，网友却因该不该罚款吵翻了天" [ref=f59e703] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TTQVB80552HNAY.html?clickfrom=w_money
+          - generic [ref=f59e706]:
+            - generic:
+              - insertion
+        - generic [ref=f59e709]:
+          - link "广告" [ref=f59e710] [cursor=pointer]:
+            - /url: https://corp.163.com/gb/legal.html
+          - link "广告" [ref=f59e711] [cursor=pointer]:
+            - /url: https://corp.163.com/gb/legal.html
+      - generic [ref=f59e712]:
+        - generic [ref=f59e713]:
+          - heading "财经独家" [level=2] [ref=f59e714]:
+            - link "财经独家" [ref=f59e715] [cursor=pointer]:
+              - /url: https://money.163.com/special/caijingyuanchuang/?clickfrom=w_money
+          - list [ref=f59e716]:
+            - listitem [ref=f59e717]:
+              - generic "网易财经ESG" [ref=f59e718]:
+                - img "网易财经ESG" [ref=f59e719]
+              - link "普惠下沉、金融健康、AI治理……蚂蚁消金ESG观察|ESG案例" [ref=f59e720] [cursor=pointer]:
+                - /url: https://www.163.com/money/article/L0TJ8GRA00258299.html?clickfrom=w_money
+            - listitem [ref=f59e721]:
+              - generic "网易财经" [ref=f59e722]:
+                - img "网易财经" [ref=f59e723]
+              - link "A股再现天价离婚，男方“净身出户”？| 司见" [ref=f59e724] [cursor=pointer]:
+                - /url: https://www.163.com/money/article/L0SBNJO500258105.html?clickfrom=w_money
+            - listitem [ref=f59e725]:
+              - generic "网易号外" [ref=f59e726]:
+                - img "网易号外" [ref=f59e727]
+              - link "LV起诉茉莉奶白商标图案侵权胜诉" [ref=f59e728] [cursor=pointer]:
+                - /url: https://www.163.com/money/article/L0RGCKV200258105.html?clickfrom=w_money
+            - listitem [ref=f59e729]:
+              - generic "网易财经" [ref=f59e730]:
+                - img "网易财经" [ref=f59e731]
+              - link "混基红黑榜：冠军光环的另一面 吴昊为何业绩冰火两重天？" [ref=f59e732] [cursor=pointer]:
+                - /url: https://www.163.com/money/article/L0RCDIT400258105.html?clickfrom=w_money
+        - link "广告" [ref=f59e734] [cursor=pointer]:
+          - /url: javascript:;
+    - generic [ref=f59e735]:
+      - generic [ref=f59e736]:
+        - generic [ref=f59e737]:
+          - heading "汽车" [level=2] [ref=f59e740]:
+            - link "汽车" [ref=f59e741] [cursor=pointer]:
+              - /url: https://auto.163.com/
+          - generic [ref=f59e742]:
+            - link "有纯电有增程 还有二代VLA支持 小鹏MONA L03预售价14.38万起 有纯电有增程 还有二代VLA支持 小鹏MONA L03预售价14.38万起" [ref=f59e744] [cursor=pointer]:
+              - /url: https://www.163.com/auto/article/L0S48ENR0008856R.html?clickfrom=w_auto
+              - img "有纯电有增程 还有二代VLA支持 小鹏MONA L03预售价14.38万起" [ref=f59e745]
+              - heading "有纯电有增程 还有二代VLA支持 小鹏MONA L03预售价14.38万起" [level=3] [ref=f59e746]
+            - link "云辇-A/后轮转向/天神之眼B 比亚迪海豹08上市19.69万起 云辇-A/后轮转向/天神之眼B 比亚迪海豹08上市19.69万起" [ref=f59e748] [cursor=pointer]:
+              - /url: https://www.163.com/auto/article/L0S3MKQK0008856R.html?clickfrom=w_auto
+              - img "云辇-A/后轮转向/天神之眼B 比亚迪海豹08上市19.69万起" [ref=f59e749]
+              - heading "云辇-A/后轮转向/天神之眼B 比亚迪海豹08上市19.69万起" [level=3] [ref=f59e750]
+          - generic [ref=f59e751]:
+            - list [ref=f59e753]:
+              - listitem [ref=f59e754]:
+                - link "字少事大 极氪9X五座版正式开启预售" [ref=f59e755] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VKVVVQ9FV.html?clickfrom=w_auto
+            - list [ref=f59e757]:
+              - listitem [ref=f59e758]:
+                - link "5分钟充好，实测达成率超79%，方程豹钛7EV闪充版要做全能方盒子" [ref=f59e759] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VKVTV51AP.html?clickfrom=w_auto
+          - generic [ref=f59e760]:
+            - list [ref=f59e762]:
+              - listitem [ref=f59e763]:
+                - link "iCAR V27首轮大版本OTA推送，超140项升级直击用车痛点" [ref=f59e764] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TGSVID0527WFL8.html?clickfrom=w_auto
+            - list [ref=f59e766]:
+              - listitem [ref=f59e767]:
+                - link "2027款路虎发现发布：全系标配3.0T直六，入门版取消四缸发动机" [ref=f59e768] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TH0MIR05470LT8.html?clickfrom=w_auto
+          - generic [ref=f59e769]:
+            - list [ref=f59e771]:
+              - listitem [ref=f59e772]:
+                - link "脱胎换骨的全新坦克300来了 还能继续当销冠吗？| KenTV" [ref=f59e773] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VJVVN23P3.html?clickfrom=w_auto
+            - list [ref=f59e775]:
+              - listitem [ref=f59e776]:
+                - link "实测2027款新探险者 豪华硬核再升级" [ref=f59e777] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VOVVMBGMA.html?clickfrom=w_auto
+          - generic [ref=f59e778]:
+            - list [ref=f59e780]:
+              - listitem [ref=f59e781]:
+                - link "越野≠粗糙颠簸！全新猛士M817兼顾军工硬实力与豪华舒适" [ref=f59e782] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VLVVM7VGU.html?clickfrom=w_auto
+            - list [ref=f59e784]:
+              - listitem [ref=f59e785]:
+                - link "全新一代天工08开启预售，限时权益后17.98万元" [ref=f59e786] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VAVVM6M5F.html?clickfrom=w_auto
+          - generic [ref=f59e787]:
+            - list [ref=f59e789]:
+              - listitem [ref=f59e790]:
+                - link "1.5T插混/标配激光雷达，领克07GT预售16.58万起" [ref=f59e791] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TF82HM0527F74U.html?clickfrom=w_auto
+            - list [ref=f59e793]:
+              - listitem [ref=f59e794]:
+                - link "实拍18款奔驰s450路试23p驾驶辅助系统使用效果" [ref=f59e795] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VVVVLA9RE.html?clickfrom=w_auto
+          - generic [ref=f59e798]:
+            - generic:
+              - insertion
+        - generic [ref=f59e802]:
+          - heading "科技" [level=2] [ref=f59e805]:
+            - link "科技" [ref=f59e806] [cursor=pointer]:
+              - /url: https://tech.163.com/
+          - generic [ref=f59e807]:
+            - link "特斯拉交付超预期7.4万辆，股价却大跌7.5% 特斯拉交付超预期7.4万辆，股价却大跌7.5%" [ref=f59e808] [cursor=pointer]:
+              - /url: https://www.163.com/tech/article/L0T801GD00097U7T.html?clickfrom=w_tech
+              - img "特斯拉交付超预期7.4万辆，股价却大跌7.5%" [ref=f59e809]
+              - heading "特斯拉交付超预期7.4万辆，股价却大跌7.5%" [level=3] [ref=f59e810]
+            - generic [ref=f59e811]:
+              - link "305亿营收、43%毛利率、52%靠亚马逊 “充电宝之王”安克创新首日破发 305亿营收、43%毛利率、52%靠亚马逊 “充电宝之王”安克创新首日破发" [ref=f59e812] [cursor=pointer]:
+                - /url: https://www.163.com/tech/article/L0RCFMPP00098IEO.html?clickfrom=w_tech
+                - img "305亿营收、43%毛利率、52%靠亚马逊 “充电宝之王”安克创新首日破发" [ref=f59e813]
+                - heading "305亿营收、43%毛利率、52%靠亚马逊 “充电宝之王”安克创新首日破发" [level=3] [ref=f59e814]
+              - link "杀疯了！深圳一天跑出两家200亿具身智能公司 杀疯了！深圳一天跑出两家200亿具身智能公司" [ref=f59e815] [cursor=pointer]:
+                - /url: https://www.163.com/tech/article/L0JTTK2900098IEO.html?clickfrom=w_tech
+                - img "杀疯了！深圳一天跑出两家200亿具身智能公司" [ref=f59e816]
+                - heading "杀疯了！深圳一天跑出两家200亿具身智能公司" [level=3] [ref=f59e817]
+            - link "外媒上手苹果iOS 27 AI扩图功能：生成画面自然 外媒上手苹果iOS 27 AI扩图功能：生成画面自然" [ref=f59e818] [cursor=pointer]:
+              - /url: https://www.163.com/dy/article/L03H1KMC0511B8LM.html?clickfrom=w_mobile
+              - img "外媒上手苹果iOS 27 AI扩图功能：生成画面自然" [ref=f59e819]
+              - heading "外媒上手苹果iOS 27 AI扩图功能：生成画面自然" [level=3] [ref=f59e820]
+          - generic [ref=f59e821]:
+            - list [ref=f59e822]:
+              - listitem [ref=f59e823]:
+                - link "扎克伯格：Meta智能体没跑起来 组织重组没理顺" [ref=f59e824] [cursor=pointer]:
+                  - /url: https://www.163.com/tech/article/L0T9DGQC00097U7T.html?clickfrom=w_tech
+              - listitem [ref=f59e825]:
+                - link "马斯克不承认，但SpaceX就该造AI手机" [ref=f59e826] [cursor=pointer]:
+                  - /url: https://www.163.com/tech/article/L0RFSPK400097U7T.html?clickfrom=w_tech
+              - listitem [ref=f59e827]:
+                - link "快手宣布可灵AI融资20亿美元，投前估值约150亿美元" [ref=f59e828] [cursor=pointer]:
+                  - /url: https://www.163.com/tech/article/L0TBF6MU00097U7T.html?clickfrom=w_tech
+              - listitem [ref=f59e829]:
+                - link "特斯拉Model Y L电动汽车在美国上市，6.2万美元" [ref=f59e830] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TH8UHK0511B8LM.html?clickfrom=w_tech
+              - listitem [ref=f59e831]:
+                - link "不起火、不爆炸，国标的要求能做到吗？" [ref=f59e832] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SLJFHP051196HN.html?clickfrom=w_tech
+            - list [ref=f59e834]:
+              - listitem [ref=f59e835]:
+                - link "彻底杀死提示词比赛，Agent Loop是什么鬼？" [ref=f59e836] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0S3OH74051100B9.html?clickfrom=w_tech
+              - listitem [ref=f59e837]:
+                - link "欧盟推“欧洲制造”卡中国，内部先吵起来了" [ref=f59e838] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TH8H4F051481US.html?clickfrom=w_tech
+              - listitem [ref=f59e839]:
+                - link "“一听到就想吐”，他们开始集体抵制AI，画师开直播自证" [ref=f59e840] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TDPS9N05148UNS.html?clickfrom=w_tech
+              - listitem [ref=f59e841]:
+                - link "iOS 27引入Trust Insights框架，本地分析行为模式抵御电信诈骗" [ref=f59e842] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T83IHR0511B8LM.html?clickfrom=w_tech
+              - listitem [ref=f59e843]:
+                - link "iPhone 18 Pro只是开胃菜！苹果下半年新品汇总：16款陆续登场" [ref=f59e844] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TCVUBR0511CPVM.html?clickfrom=w_tech
+            - list [ref=f59e846]:
+              - listitem [ref=f59e847]:
+                - link "手机" [ref=f59e848] [cursor=pointer]:
+                  - /url: https://mobile.163.com/
+                - link "大折叠屏怎么选：vivo X Fold6领衔，AI工作台、轻薄全能办公神器" [ref=f59e849] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TKOU9005118VMB.html?clickfrom=w_mobile
+              - listitem [ref=f59e850]:
+                - link "三星不再死磕1200万！Galaxy S27系列升级1600万方形前摄：看齐苹果" [ref=f59e851] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TKTJ200511CPVM.html?clickfrom=w_mobile
+              - listitem [ref=f59e852]:
+                - link "被苹果起诉的爆料人普罗瑟辩解：我确实见过iOS26测试版" [ref=f59e853] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TJLDJE0511B8LM.html?clickfrom=w_mobile
+              - listitem [ref=f59e854]:
+                - link "3299元起！OPPO Reno16全新半夏青配色开售：3D悬浮幸运草设计" [ref=f59e855] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TJLHFR0511CPVM.html?clickfrom=w_mobile
+              - listitem [ref=f59e856]:
+                - link "苹果iPhone 18 Pro Max电池首曝：5187mAh容量，欣旺达生产" [ref=f59e857] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TIF47R0511B8LM.html?clickfrom=w_mobile
+      - generic [ref=f59e860]:
+        - generic [ref=f59e861]:
+          - heading "健康" [level=2] [ref=f59e862]:
+            - link "健康" [ref=f59e863] [cursor=pointer]:
+              - /url: https://jiankang.163.com/
+          - link "幼儿园视力报告，5个误区一次说清 幼儿园视力报告，5个误区一次说清" [ref=f59e864] [cursor=pointer]:
+            - /url: https://www.163.com/jiankang/article/L0OS7GQ600388AD5.html?clickfrom=w_jk
+            - img "幼儿园视力报告，5个误区一次说清" [ref=f59e865]
+            - heading "幼儿园视力报告，5个误区一次说清" [level=3] [ref=f59e866]
+          - list [ref=f59e867]:
+            - listitem [ref=f59e868]:
+              - link "夏天出汗，这6种气味当心是疾病信号！" [ref=f59e869] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T7G5M8052583KJ.html?clickfrom=w_jk
+            - listitem [ref=f59e870]:
+              - link "每天摇胯100 次，骨盆正了，双腿细又直" [ref=f59e871] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T7QF0G0514C4ET.html?clickfrom=w_jk
+        - generic [ref=f59e872]:
+          - heading "公益" [level=2] [ref=f59e873]:
+            - link "公益" [ref=f59e874] [cursor=pointer]:
+              - /url: https://gongyi.163.com/
+          - link "[公益]网易公益一块屏落地泰顺 [公益]网易公益一块屏落地泰顺" [ref=f59e875] [cursor=pointer]:
+            - /url: https://www.163.com/gongyi/article/IHO9P3TP009397UM.html?clickfrom=w_gongyi
+            - img "[公益]网易公益一块屏落地泰顺" [ref=f59e876]
+            - heading "[公益]网易公益一块屏落地泰顺" [level=3] [ref=f59e877]
+          - list [ref=f59e878]:
+            - listitem [ref=f59e879]:
+              - link "[公益]关注罕见病" [ref=f59e880] [cursor=pointer]:
+                - /url: https://www.163.com/gongyi/article/H26DHKGS009397VD.html?clickfrom=w_gongyi
+            - listitem [ref=f59e881]:
+              - link "[公益]网易向杭州捐赠首批4000件抗疫物资" [ref=f59e882] [cursor=pointer]:
+                - /url: https://www.163.com/gongyi/article/GUTDN26U00939803.html?clickfrom=w_gongyi
+        - link "广告" [ref=f59e884] [cursor=pointer]:
+          - /url: javascript:;
+        - generic [ref=f59e885]:
+          - heading "游戏" [level=2] [ref=f59e886]:
+            - link "游戏" [ref=f59e887] [cursor=pointer]:
+              - /url: https://tech.163.com/game/
+          - link "《杀戮尖塔2》最新更新上线 多项平衡性调整实施 《杀戮尖塔2》最新更新上线 多项平衡性调整实施" [ref=f59e888] [cursor=pointer]:
+            - /url: https://www.163.com/dy/article/L0TUP12H0526D8LR.html?clickfrom=w_game
+            - img "《杀戮尖塔2》最新更新上线 多项平衡性调整实施" [ref=f59e889]
+            - heading "《杀戮尖塔2》最新更新上线 多项平衡性调整实施" [level=3] [ref=f59e890]
+          - list [ref=f59e891]:
+            - listitem [ref=f59e892]:
+              - link "猛冲畅销榜第8，《逆战：未来》玩得也太大了吧？" [ref=f59e893] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TUE1CV052682V2.html?clickfrom=w_game
+            - listitem [ref=f59e894]:
+              - link "索尼停实体光盘毁了孩子的圣诞节：开机还要先下游戏" [ref=f59e895] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TTVQBC0526K1KN.html?clickfrom=w_game
+            - listitem [ref=f59e896]:
+              - link "网传老麦回归《GTA6》？IGN报道来源被查:真相大白" [ref=f59e897] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TTVOU50526K1KN.html?clickfrom=w_game
+        - generic [ref=f59e899]:
+          - link "广告" [ref=f59e900] [cursor=pointer]:
+            - /url: https://corp.163.com/gb/legal.html
+          - iframe [ref=f59e901]:
+            - generic [active] [ref=f61e1]:
+              - link [ref=f61e2] [cursor=pointer]:
+                - /url: https://g.163.com/effect/c?s=307943&AID=332554&FlightID=2058&Values=2765131323&Redirect=https://www.163.com/dy/media/T1495590561605.html
+              - img [ref=f61e3]
+    - generic [ref=f59e902]:
+      - generic [ref=f59e903]:
+        - generic [ref=f59e904]:
+          - generic [ref=f59e905]:
+            - heading "时尚" [level=2] [ref=f59e908]:
+              - link "时尚" [ref=f59e909] [cursor=pointer]:
+                - /url: https://fashion.163.com
+            - generic [ref=f59e910]:
+              - link "小说IP改不好的很多，但改这么雷霆的真是少见" [ref=f59e911] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TS48JJ051884GP.html?clickfrom=w_fashion
+                - img "小说IP改不好的很多，但改这么雷霆的真是少见" [ref=f59e912]
+              - link "小说IP改不好的很多，但改这么雷霆的真是少见" [ref=f59e913] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TS48JJ051884GP.html?clickfrom=w_fashion
+                - heading "小说IP改不好的很多，但改这么雷霆的真是少见" [level=3] [ref=f59e914]
+            - list [ref=f59e915]:
+              - listitem [ref=f59e916]:
+                - link "今日热点：《野狗骨头》定档；贺峻霖对接回应花字争议……" [ref=f59e917] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TS2TGK051884GP.html?clickfrom=w_fashion
+              - listitem [ref=f59e918]:
+                - link "这位顶流的美商绝了！我的穿搭思路直接被打开" [ref=f59e919] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SISE830518825T.html?clickfrom=w_fashion
+              - listitem [ref=f59e920]:
+                - link "A-Lin已经这样了，徐佳莹你怎么睡得着！" [ref=f59e921] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SA2POP051283QK.html?clickfrom=w_fashion
+              - listitem [ref=f59e922]:
+                - link "夏天的裙子流行“剪一刀”，谁穿谁美！" [ref=f59e923] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0S9PD550518DCRR.html?clickfrom=w_fashion
+          - generic [ref=f59e926]:
+            - heading "教育" [level=2] [ref=f59e929]:
+              - link "教育" [ref=f59e930] [cursor=pointer]:
+                - /url: https://edu.163.com/
+            - list [ref=f59e931]:
+              - listitem [ref=f59e932]:
+                - link "教育部：坚决杜绝用手机布置作业、要求学生利用手机完成作业或要求家长检查批改作业等现象" [ref=f59e933] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VI004PQUF.html?clickfrom=w_edu
+              - listitem [ref=f59e934]:
+                - link "这是人类历史上最大规模的学历提升运动" [ref=f59e935] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VR003JQMV.html?clickfrom=w_edu
+              - listitem [ref=f59e936]:
+                - link "教育部：严控暑期作业总量，不得以“夏令营”等名义变相组织考试" [ref=f59e937] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TQIVUC05268MTU.html?clickfrom=w_edu
+              - listitem [ref=f59e938]:
+                - link "小学生数学，真的不难" [ref=f59e939] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VRVRTBOKG.html?clickfrom=w_edu
+            - list [ref=f59e941]:
+              - listitem [ref=f59e942]:
+                - link "孩子锁房门、顶嘴、冷暴力？青春期的10级释怀，救救焦虑的家长" [ref=f59e943] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L03LCKSH0536N0RG.html?clickfrom=w_edu
+              - listitem [ref=f59e944]:
+                - link "已知半圆的直径是12，求图中阴影部分面积是多少？" [ref=f59e945] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VRVJI0PU5.html?clickfrom=w_edu
+              - listitem [ref=f59e946]:
+                - link "补形加一半模型，是破题核心思维" [ref=f59e947] [cursor=pointer]:
+                  - /url: https://www.163.com/v/video/VRVS0AFC0.html?clickfrom=w_edu
+              - listitem [ref=f59e948]:
+                - link "高分扎堆，“分数通胀”是怎么产生的？" [ref=f59e949] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TMH5SL05361S61.html?clickfrom=w_edu
+        - generic [ref=f59e951]:
+          - link "广告" [ref=f59e952] [cursor=pointer]:
+            - /url: https://corp.163.com/gb/legal.html
+          - link "广告" [ref=f59e953] [cursor=pointer]:
+            - /url: https://corp.163.com/gb/legal.html
+      - generic [ref=f59e954]:
+        - generic [ref=f59e955]:
+          - heading "艺术" [level=2] [ref=f59e956]:
+            - link "艺术" [ref=f59e957] [cursor=pointer]:
+              - /url: https://art.163.com/
+          - link "当代画家 张奇人物油画作品选 当代画家 张奇人物油画作品选" [ref=f59e958] [cursor=pointer]:
+            - /url: https://www.163.com/dy/article/L0TNT79I05219O3P.html?clickfrom=w_art
+            - img "当代画家 张奇人物油画作品选" [ref=f59e959]
+            - heading "当代画家 张奇人物油画作品选" [level=3] [ref=f59e960]
+          - list [ref=f59e961]:
+            - listitem [ref=f59e962]:
+              - link "焦明远油画作品" [ref=f59e963] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TNS3NV05219O3P.html?clickfrom=w_art
+            - listitem [ref=f59e964]:
+              - link "北京夫妻改造亮马河边41㎡婚房：再小的房子，也能变成" [ref=f59e965] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TIH5NH052582BB.html?clickfrom=w_art
+        - link "广告" [ref=f59e967] [cursor=pointer]:
+          - /url: javascript:;
+    - generic [ref=f59e968]:
+      - generic [ref=f59e969]:
+        - generic [ref=f59e970]:
+          - generic [ref=f59e971]:
+            - generic [ref=f59e972]:
+              - heading "家居" [level=2] [ref=f59e974]:
+                - link "家居" [ref=f59e975] [cursor=pointer]:
+                  - /url: https://home.163.com/
+              - link "案例库" [ref=f59e977] [cursor=pointer]:
+                - /url: https://photo.home.163.com
+            - list [ref=f59e978]:
+              - listitem [ref=f59e979]:
+                - link "床单有这3个特征，赶紧扔！可能是“害人床单”，赶紧自查" [ref=f59e980] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUCPBH0556EL1O.html?clickfrom=w_house
+              - listitem [ref=f59e981]:
+                - link "第二次装修，坚持这6个设计不变，如今入住3年，越住越舒服" [ref=f59e982] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUC5040556EL1O.html?clickfrom=w_house
+              - listitem [ref=f59e983]:
+                - link "流行就是一个轮回，干装修设计这么多年，突然发现，原来..." [ref=f59e984] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TR7ONR0520AAO5.html?clickfrom=w_house
+              - listitem [ref=f59e985]:
+                - link "一眼沦陷！用完彻底上头的 10 件宝藏好物" [ref=f59e986] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TQ81IC0520825B.html?clickfrom=w_house
+              - listitem [ref=f59e987]:
+                - link "腾讯搬进“企鹅岛”！从华强北30㎡到80万㎡海上总部，2.8万人上岛办公" [ref=f59e988] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TPK7MO05188AIB.html?clickfrom=w_house
+            - list [ref=f59e989]:
+              - listitem [ref=f59e990]:
+                - link "168.5㎡人文透天宅，谁看了不心动？" [ref=f59e991] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TPIF8V05188AIB.html?clickfrom=w_house
+              - listitem [ref=f59e992]:
+                - link "夏天床单、被罩多久洗一次比较好？很多人做错，难怪螨虫成堆" [ref=f59e993] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TN25VD0556EL1O.html?clickfrom=w_house
+              - listitem [ref=f59e994]:
+                - link "为什么酒店退房都不“查房”，不怕客人乱来吗？内行人说出了实情" [ref=f59e995] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TN1GQP0556EL1O.html?clickfrom=w_house
+            - list [ref=f59e1000]:
+              - listitem [ref=f59e1001]:
+                - link "绿地外滩中心" [ref=f59e1002] [cursor=pointer]:
+                  - /url: https://xf.house.163.com/sh/CEPO.html?clickfrom=w_xhouse
+                  - img [ref=f59e1003]
+                  - heading "绿地外滩中心" [level=5] [ref=f59e1004]
+                - paragraph [ref=f59e1005]:
+                  - link "黄浦" [ref=f59e1006] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CEPO.html?clickfrom=w_xhouse
+                  - link "14.25万/㎡" [ref=f59e1007] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CEPO.html?clickfrom=w_xhouse
+              - listitem [ref=f59e1008]:
+                - link "中国中铁诺德璟宸" [ref=f59e1009] [cursor=pointer]:
+                  - /url: https://xf.house.163.com/sh/CSMW.html?clickfrom=w_xhouse
+                  - img [ref=f59e1010]
+                  - heading "中国中铁诺德璟宸" [level=5] [ref=f59e1011]
+                - paragraph [ref=f59e1012]:
+                  - link "浦东" [ref=f59e1013] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CSMW.html?clickfrom=w_xhouse
+                  - link "3.00万/㎡" [ref=f59e1014] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CSMW.html?clickfrom=w_xhouse
+              - listitem [ref=f59e1015]:
+                - link "保利中企和颂" [ref=f59e1016] [cursor=pointer]:
+                  - /url: https://xf.house.163.com/sh/CScc.html?clickfrom=w_xhouse
+                  - img [ref=f59e1017]
+                  - heading "保利中企和颂" [level=5] [ref=f59e1018]
+                - paragraph [ref=f59e1019]:
+                  - link "宝山" [ref=f59e1020] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CScc.html?clickfrom=w_xhouse
+                  - link "4.75万/㎡" [ref=f59e1021] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CScc.html?clickfrom=w_xhouse
+          - generic [ref=f59e1022]:
+            - generic [ref=f59e1023]:
+              - heading "房产" [level=2] [ref=f59e1025]:
+                - link "房产" [ref=f59e1026] [cursor=pointer]:
+                  - /url: https://house.163.com/
+              - link "楼盘库" [ref=f59e1028] [cursor=pointer]:
+                - /url: https://xf.house.163.com/sh/search/0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-1-0-0-0-0-0.html
+            - list [ref=f59e1029]:
+              - listitem [ref=f59e1030]:
+                - link "上半年公积金新政密集落地 效力持续释放" [ref=f59e1031] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TB6AQE0514CQIE.html?clickfrom=w_house
+              - listitem [ref=f59e1032]:
+                - link "卖完大店开小店 宜家业务“急转弯”" [ref=f59e1033] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TAJTRJ0534AAOK.html?clickfrom=w_house
+              - listitem [ref=f59e1034]:
+                - link "豪宅周边产品，为什么火了？" [ref=f59e1035] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TC3NKC0512B07B.html?clickfrom=w_house
+              - listitem [ref=f59e1036]:
+                - link "万科新总裁的那些事儿" [ref=f59e1037] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SQL7LN0519D45U.html?clickfrom=w_house
+            - list [ref=f59e1039]:
+              - listitem [ref=f59e1040]:
+                - link "深化住房公积金制度改革 扩大消费需求" [ref=f59e1041] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0SK71GK051590L9.html?clickfrom=w_house
+              - listitem [ref=f59e1042]:
+                - link "速查！你的账户可能多了一笔钱" [ref=f59e1043] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T5SJL00550AN9P.html?clickfrom=w_house
+              - listitem [ref=f59e1044]:
+                - link "2026年度江苏住房公积金结息超140亿元" [ref=f59e1045] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T6BABB05346936.html?clickfrom=w_house
+              - listitem [ref=f59e1046]:
+                - link "苏州老房翻新五强发布，实测拆改至质保全流程" [ref=f59e1047] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T4CD7V0530TV08.html?clickfrom=w_house
+            - list [ref=f59e1051]:
+              - listitem [ref=f59e1052]:
+                - link "保利光合上城" [ref=f59e1053] [cursor=pointer]:
+                  - /url: https://xf.house.163.com/sh/CScb.html?clickfrom=w_xhouse
+                  - img [ref=f59e1054]
+                  - heading "保利光合上城" [level=5] [ref=f59e1055]
+                - paragraph [ref=f59e1056]:
+                  - link "闵行" [ref=f59e1057] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CScb.html?clickfrom=w_xhouse
+                  - link "6.99万/㎡" [ref=f59e1058] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CScb.html?clickfrom=w_xhouse
+              - listitem [ref=f59e1059]:
+                - link "湖畔天下" [ref=f59e1060] [cursor=pointer]:
+                  - /url: https://xf.house.163.com/sh/0RKN.html?clickfrom=w_xhouse
+                  - img [ref=f59e1061]
+                  - heading "湖畔天下" [level=5] [ref=f59e1062]
+                - paragraph [ref=f59e1063]:
+                  - link "嘉定" [ref=f59e1064] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/0RKN.html?clickfrom=w_xhouse
+                  - link "5.20万/㎡" [ref=f59e1065] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/0RKN.html?clickfrom=w_xhouse
+              - listitem [ref=f59e1066]:
+                - link "佳运·瑞璟湾" [ref=f59e1067] [cursor=pointer]:
+                  - /url: https://xf.house.163.com/sh/CSdL.html?clickfrom=w_xhouse
+                  - img [ref=f59e1068]
+                  - heading "佳运·瑞璟湾" [level=5] [ref=f59e1069]
+                - paragraph [ref=f59e1070]:
+                  - link "宝山" [ref=f59e1071] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CSdL.html?clickfrom=w_xhouse
+                  - link "6.43万/㎡" [ref=f59e1072] [cursor=pointer]:
+                    - /url: https://xf.house.163.com/sh/CSdL.html?clickfrom=w_xhouse
+        - generic [ref=f59e1073]:
+          - iframe [ref=f59e1075]:
+            - generic [active] [ref=f66e1]:
+              - link [ref=f66e2] [cursor=pointer]:
+                - /url: https://g.163.com/effect/c?s=309035&AID=333716&FlightID=3637&Values=1286326408&Redirect=https://hongcai.163.com/html/lottery_promotion.html?from=khdkpdt_lotterynews
+              - img [ref=f66e3]
+          - generic [ref=f59e1076]: 广告
+      - generic [ref=f59e1077]:
+        - generic [ref=f59e1078]:
+          - heading "云课堂" [level=2] [ref=f59e1079]:
+            - link "云课堂" [ref=f59e1080] [cursor=pointer]:
+              - /url: https://study.163.com/?utm_source=163.com&utm_medium=web_studycolumn&utm_campaign=business
+          - link "网易力荐-200门严选好课 网易力荐-200门严选好课" [ref=f59e1081] [cursor=pointer]:
+            - /url: https://study.163.com/topics/yanxuan?inLoc=sy_banner_0&clickfrom=w_ykt
+            - img "网易力荐-200门严选好课" [ref=f59e1082]
+            - heading "网易力荐-200门严选好课" [level=3] [ref=f59e1083]
+          - list [ref=f59e1084]:
+            - listitem [ref=f59e1085]:
+              - link "ChatGPT应用与Python开发实战" [ref=f59e1086] [cursor=pointer]:
+                - /url: https://study.163.com/course/introduction/1213373825.htm?inLoc=lmxq_sjlm_480000004203006_480000004203015&share=1&shareId=1017786079&clickfrom=w_ykt
+            - listitem [ref=f59e1087]:
+              - link "【500集新课】AI创作四部曲" [ref=f59e1088] [cursor=pointer]:
+                - /url: https://study.163.com/course/introduction/1213574808.htm?inLoc=ss_ssjg_tjlb_%E8%AE%BE%E8%AE%A1%E8%BD%AF%E4%BB%B6%E9%80%9A&share=1&shareId=1017786079&clickfrom=w_ykt
+            - listitem [ref=f59e1089]:
+              - link "Tensorflow深度学习入门与实战" [ref=f59e1090] [cursor=pointer]:
+                - /url: https://study.163.com/course/introduction/1004573006.htm?inLoc=lmxq_tjkc_400000001316004&clickfrom=w_ykt
+            - listitem [ref=f59e1091]:
+              - link "知识图谱实战系列(Python版)" [ref=f59e1092] [cursor=pointer]:
+                - /url: https://study.163.com/course/introduction/1210653810.htm?inLoc=lmxq_tjkc_400000001316004&clickfrom=w_ykt
+            - listitem [ref=f59e1093]:
+              - link "【升级版】和秋叶一起学Office" [ref=f59e1094] [cursor=pointer]:
+                - /url: https://study.163.com/course/introduction/1005105013.htm?inLoc=lmxq_tjkc_480000003124025&clickfrom=w_ykt
+            - listitem [ref=f59e1095]:
+              - link "CSP/NOIP/C++信息学奥赛-初赛篇" [ref=f59e1096] [cursor=pointer]:
+                - /url: https://study.163.com/course/introduction/1210723808.htm?inLoc=lmxq_sjlm_400000001334002_400000001327003&clickfrom=w_ykt
+        - link "广告" [ref=f59e1098] [cursor=pointer]:
+          - /url: javascript:;
+    - generic [ref=f59e1099]:
+      - generic [ref=f59e1100]:
+        - generic [ref=f59e1101]:
+          - generic [ref=f59e1102]:
+            - heading "网易号" [level=2] [ref=f59e1105]:
+              - link "网易号" [ref=f59e1106] [cursor=pointer]:
+                - /url: https://dy.163.com/#indexdy
+            - generic [ref=f59e1107]:
+              - link "SK海力士单日市值蒸发1万亿元，AI故事讲不下去了？" [ref=f59e1108] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T49J1Q051983MB.html?clickfrom=w_dy
+                - img "SK海力士单日市值蒸发1万亿元，AI故事讲不下去了？" [ref=f59e1109]
+              - link "SK海力士单日市值蒸发1万亿元，AI故事讲不下去了？" [ref=f59e1110] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0T49J1Q051983MB.html?clickfrom=w_dy
+                - heading "SK海力士单日市值蒸发1万亿元，AI故事讲不下去了？" [level=3] [ref=f59e1111]
+            - list [ref=f59e1112]:
+              - listitem [ref=f59e1113]:
+                - link "Fable 5 内心「小作文」曝光，这次真不做人了" [ref=f59e1114] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUGE1N0511CSAO.html?clickfrom=w_dy
+              - listitem [ref=f59e1115]:
+                - link "15分钟一局的王者荣耀，成了数学博士生的避难所。" [ref=f59e1116] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TU7R2B051196HN.html?clickfrom=w_dy
+              - listitem [ref=f59e1117]:
+                - link "两场地震，和你口袋里的「地震仪」" [ref=f59e1118] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TU31DF05118O8G.html?clickfrom=w_dy
+              - listitem [ref=f59e1119]:
+                - link "花100多万，赌一个香港本科" [ref=f59e1120] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0T781D60514BE2Q.html?clickfrom=w_dy
+          - generic [ref=f59e1121]:
+            - heading "政务" [level=2] [ref=f59e1124]:
+              - link "政务" [ref=f59e1125] [cursor=pointer]:
+                - /url: https://gov.163.com/
+            - list [ref=f59e1126]:
+              - listitem [ref=f59e1127]:
+                - link "新华视点｜立足特色兴产业 绘就乡村振兴多彩画卷" [ref=f59e1128] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK9SH5905346RC6.html?clickfrom=w_gov
+              - listitem [ref=f59e1129]:
+                - link "独家专访 | 神舟二十三号航天员乘组就位 星图已展待起笔" [ref=f59e1130] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK8MCLS05346RC6.html?clickfrom=w_gov
+              - listitem [ref=f59e1131]:
+                - link "美新一代“星舰”首飞 完成大部分目标" [ref=f59e1132] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK7HI6L05346RC6.html?clickfrom=w_gov
+              - listitem [ref=f59e1133]:
+                - link "神舟二十三号航天员乘组首次集体亮相" [ref=f59e1134] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK6HGRC0514R9M0.html?clickfrom=w_gov
+            - list [ref=f59e1135]:
+              - listitem [ref=f59e1136]:
+                - link "神舟二十三号航天员张志远：赶上好时代 心有所向 梦有所成" [ref=f59e1137] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK3D27905346RC6.html?clickfrom=w_gov
+              - listitem [ref=f59e1138]:
+                - link "香港特区行政长官李家超祝贺香港载荷专家参与神舟二十三号任务" [ref=f59e1139] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK32OD905346RC6.html?clickfrom=w_gov
+              - listitem [ref=f59e1140]:
+                - link "从一瓶海水读出海洋物种“家底”" [ref=f59e1141] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTK1L30105346RC6.html?clickfrom=w_gov
+              - listitem [ref=f59e1142]:
+                - link "浙江金华：电力护航特大产业项目建设" [ref=f59e1143] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/KTJUKJIV05346RC6.html?clickfrom=w_gov
+        - generic [ref=f59e1144]:
+          - generic [ref=f59e1145]:
+            - heading "故事精选" [level=2] [ref=f59e1148]:
+              - link "故事精选" [ref=f59e1149] [cursor=pointer]:
+                - /url: https://m.163.com/touch/story?from=pc163
+            - generic [ref=f59e1150]:
+              - link "家宴上小姑子扇我儿子，媳妇反手扇回三巴掌，三天后我取出60万" [ref=f59e1151] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0DTVKNO0553XDV7.html?clickfrom=w_story
+                - img "家宴上小姑子扇我儿子，媳妇反手扇回三巴掌，三天后我取出60万" [ref=f59e1152]
+              - link "家宴上小姑子扇我儿子，媳妇反手扇回三巴掌，三天后我取出60万" [ref=f59e1153] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0DTVKNO0553XDV7.html?clickfrom=w_story
+                - heading "家宴上小姑子扇我儿子，媳妇反手扇回三巴掌，三天后我取出60万" [level=3] [ref=f59e1154]
+            - list [ref=f59e1155]:
+              - listitem [ref=f59e1156]:
+                - link "85岁大爷网贷200万，8家催收查完档案后摆手：这钱谁也不敢收" [ref=f59e1157] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0C03VHI0553XDV7.html?clickfrom=w_story
+              - listitem [ref=f59e1158]:
+                - link "我爸97岁了，真是个狠人，一看自己站不起来了，100天把自己解决" [ref=f59e1159] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0F2VDJ40553FV3Z.html?clickfrom=w_story
+              - listitem [ref=f59e1160]:
+                - link "男子含泪放生十年鹦鹉，打开笼子它突然开口说话，主人听完崩溃" [ref=f59e1161] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0DUHDF40553XDV7.html?clickfrom=w_story
+              - listitem [ref=f59e1162]:
+                - link "听乔布斯的话，不要再迎合这个世界了：与其所得无几，不如做自己" [ref=f59e1163] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L09VR4FL0521BCF5.html?clickfrom=w_story
+          - generic [ref=f59e1164]:
+            - heading "文化" [level=2] [ref=f59e1167]:
+              - link "文化" [ref=f59e1168] [cursor=pointer]:
+                - /url: https://culture.163.com/
+            - generic [ref=f59e1169]:
+              - link "捐赠文物后，收藏单位可以任意处置受赠文物吗？" [ref=f59e1170] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/KH8K9AIN0530WJIN.html?clickfrom=w_wh
+                - img "捐赠文物后，收藏单位可以任意处置受赠文物吗？" [ref=f59e1171]
+              - link "捐赠文物后，收藏单位可以任意处置受赠文物吗？" [ref=f59e1172] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/KH8K9AIN0530WJIN.html?clickfrom=w_wh
+                - heading "捐赠文物后，收藏单位可以任意处置受赠文物吗？" [level=3] [ref=f59e1173]
+            - list [ref=f59e1174]:
+              - listitem [ref=f59e1175]:
+                - link "“海南被盗佛像疑现身北京观复博物馆”，观复声明：已上报主管部门" [ref=f59e1176] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUTPHE0530SFP3.html?clickfrom=w_wh
+              - listitem [ref=f59e1177]:
+                - link "丹青赤子：英雄模范肖像艺术展在鲁美启幕" [ref=f59e1178] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUGJRM0514B0JK.html?clickfrom=w_wh
+              - listitem [ref=f59e1179]:
+                - link "百余件汉代楚国文物亮相北京大葆台遗址博物馆" [ref=f59e1180] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUDJTR0514R9KQ.html?clickfrom=w_wh
+              - listitem [ref=f59e1181]:
+                - link "鱼：千载纹韵 灵鳞入画" [ref=f59e1182] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUCOGP0514B0JK.html?clickfrom=w_wh
+        - generic [ref=f59e1184]: 广告
+        - generic [ref=f59e1185]:
+          - generic [ref=f59e1186]:
+            - heading "旅游" [level=2] [ref=f59e1189]:
+              - link "旅游" [ref=f59e1190] [cursor=pointer]:
+                - /url: https://travel.163.com/
+            - generic [ref=f59e1191]:
+              - link "到大理采菌子，秀北山就别来了，人车比蘑菇还多！" [ref=f59e1192] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TV2UPH0536702E.html?clickfrom=w_travel
+                - img "到大理采菌子，秀北山就别来了，人车比蘑菇还多！" [ref=f59e1193]
+              - link "到大理采菌子，秀北山就别来了，人车比蘑菇还多！" [ref=f59e1194] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TV2UPH0536702E.html?clickfrom=w_travel
+                - heading "到大理采菌子，秀北山就别来了，人车比蘑菇还多！" [level=3] [ref=f59e1195]
+            - list [ref=f59e1196]:
+              - listitem [ref=f59e1197]:
+                - link "坂美公园正式对外开放！宠物友好治愈公园上新啦～" [ref=f59e1198] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TUDIBP0514R9KQ.html?clickfrom=w_travel
+              - listitem [ref=f59e1199]:
+                - link "跟着品牌去旅行 | 赴东阿千年胶香，解锁中医药文旅真实底色" [ref=f59e1200] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TTUVMG05505AV6.html?clickfrom=w_travel
+              - listitem [ref=f59e1201]:
+                - link "九寨沟一男子被挤落入钙化池，游客质疑无护栏，景区回应：踩踏也会对钙化池造成破坏，将反馈安装护栏的建议" [ref=f59e1202] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TT1HFI0550B6IS.html?clickfrom=w_travel
+              - listitem [ref=f59e1203]:
+                - link "中传文创携手新巴尔虎右旗 赋能“鸡鸣三国”文旅新生态——共绘边境草原文旅融合新图" [ref=f59e1204] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TSOD3K05505AV6.html?clickfrom=w_travel
+              - listitem [ref=f59e1205]:
+                - link "突破百万客流！暑期玩雪热持续走高！华发前海激活冰雪新经济" [ref=f59e1206] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TSMI4105129QAF.html?clickfrom=w_travel
+              - listitem [ref=f59e1207]:
+                - link "九寨沟一男子被挤落入钙化池，游客质疑无护栏，景区回应" [ref=f59e1208] [cursor=pointer]:
+                  - /url: https://www.163.com/dy/article/L0TRI9D50530WJIN.html?clickfrom=w_travel
+          - generic [ref=f59e1209]:
+            - heading "LOFTER" [level=2] [ref=f59e1212]:
+              - link "LOFTER" [ref=f59e1213] [cursor=pointer]:
+                - /url: https://www.lofter.com/?act=qb163rk_20141104_11
+            - generic [ref=f59e1214]:
+              - link "雪夜双侠，倒影皆成对" [ref=f59e1215] [cursor=pointer]:
+                - /url: https://fdddw.lofter.com/post/1d9dc9f9_2be11cb3b?clickfrom=w_lofter
+                - img "雪夜双侠，倒影皆成对" [ref=f59e1216]
+              - link "雪夜双侠，倒影皆成对" [ref=f59e1217] [cursor=pointer]:
+                - /url: https://fdddw.lofter.com/post/1d9dc9f9_2be11cb3b?clickfrom=w_lofter
+                - heading "雪夜双侠，倒影皆成对" [level=3] [ref=f59e1218]
+            - list [ref=f59e1219]:
+              - listitem [ref=f59e1220]:
+                - link "【鼠泉】奇遇·思芳十年" [ref=f59e1221] [cursor=pointer]:
+                  - /url: https://avegekelp.lofter.com/post/204dfd9d_2bdeb42ff?clickfrom=w_lofter
+              - listitem [ref=f59e1222]:
+                - link "【桐心薇泯】千禧年轶事" [ref=f59e1223] [cursor=pointer]:
+                  - /url: https://sky31net.lofter.com/post/4C74C368_2BDD5C0D7#?clickfrom=w_lofter
+              - listitem [ref=f59e1224]:
+                - link "【藕饼】三部曲之一：长生殿" [ref=f59e1225] [cursor=pointer]:
+                  - /url: https://quomodocunquize.lofter.com/post/4C00C7D7_2BDC83DCA#?clickfrom=w_lofter
+              - listitem [ref=f59e1226]:
+                - link "【厄敌】即使记忆消散，我也会一次次奔向你" [ref=f59e1227] [cursor=pointer]:
+                  - /url: https://haiche73348.lofter.com/post/4c3949e1_2be9683a3?clickfrom=w_lofter
+              - listitem [ref=f59e1228]:
+                - link "【厄敌】盐豆不盐了，是我先喜欢你的" [ref=f59e1229] [cursor=pointer]:
+                  - /url: https://shuchengtaoyao.lofter.com/post/30bd3ce7_2beac7b0d?clickfrom=w_lofter
+              - listitem [ref=f59e1230]:
+                - link "【创作者故事】我在老福特画oc" [ref=f59e1231] [cursor=pointer]:
+                  - /url: https://loftergrowup.lofter.com/post/77509649_2bebbe50a?clickfrom=w_lofter
+        - generic [ref=f59e1233]:
+          - heading "网易动态" [level=3] [ref=f59e1234]
+          - list [ref=f59e1235]:
+            - listitem [ref=f59e1236]:
+              - link "网易公布2024年第二季度财报" [ref=f59e1237] [cursor=pointer]:
+                - /url: https://wp.m.163.com/163%2Fnewcmslog%2F2Q24_NTES_Earnings_Release_Master_0821_CN.pdf?Signature=7kcckI5ew4VbEXDMVK6TsJz%2FZ0uF2Dzva0vd4Cr0RPk%3D&Expires=2040955519&NOSAccessKeyId=7f81bb97dd5e47d4a35ace0927b5aec2&clickfrom=w_wydt
+            - listitem [ref=f59e1238]:
+              - link "网易公布2024年第一季度财报" [ref=f59e1239] [cursor=pointer]:
+                - /url: https://wp.m.163.com/163%2Fnewcmslog%2F1Q24+NTES+Earnings+Release_Master_CN_0520.pdf?Signature=xunl6Xw7krqj6k%2FbEUHnIkgYiqR%2F%2BZcu1FSGEMGzGjA%3D&Expires=2032411543&NOSAccessKeyId=7f81bb97dd5e47d4a35ace0927b5aec2&clickfrom=w_wydt
+            - listitem [ref=f59e1240]:
+              - link "网易公布2023年第四季度财报" [ref=f59e1241] [cursor=pointer]:
+                - /url: https://wp.m.163.com/163%2Fnewcmslog%2F4Q23+NTES+Earnings+Release_Master_CN_0228+_clean.pdf?Signature=nrDDwVbkmz7aSNDBMUIc4Oh%2FB8XCSaYaaiaDMayqZEE%3D&Expires=2025157285&NOSAccessKeyId=7f81bb97dd5e47d4a35ace0927b5aec2&clickfrom=w_wydt
+            - listitem [ref=f59e1242]:
+              - link "网易公布2023年第三季度财报" [ref=f59e1243] [cursor=pointer]:
+                - /url: https://wp.m.163.com/163%2Fnewcmslog%2F3Q23+NTES+Earnings+Release_Master_CN_1115.pdf?Signature=SfhHQzgzaKdEYz5mv64dHjIfhedjIqGXAdWOGpRvri0%3D&Expires=2015926150&NOSAccessKeyId=7f81bb97dd5e47d4a35ace0927b5aec2&clickfrom=w_wydt
+      - generic [ref=f59e1244]:
+        - generic [ref=f59e1245]:
+          - heading "严选" [level=2] [ref=f59e1246]:
+            - link "严选" [ref=f59e1247] [cursor=pointer]:
+              - /url: https://you.163.com/?from=web_fc_menhu_mkrukou_1
+          - link "人体工学转椅撑腰护颈 人体工学转椅撑腰护颈" [ref=f59e1248] [cursor=pointer]:
+            - /url: https://you.163.com/item/detail?id=4002622&from=out_ynzy_mkrukou_2&clickfrom=w_yx
+            - img "人体工学转椅撑腰护颈" [ref=f59e1249]
+            - heading "人体工学转椅撑腰护颈" [level=3] [ref=f59e1250]
+          - list [ref=f59e1251]:
+            - listitem [ref=f59e1252]:
+              - link "【浴室香氛】满室留香，限时特价14.9元！" [ref=f59e1253] [cursor=pointer]:
+                - /url: http://you.163.com/item/detail?id=3828008&from=out_ynzy_mkrukou_4&clickfrom=w_yx
+            - listitem [ref=f59e1254]:
+              - link "【男式双肩包】32功能区格，商务出行方便好用！" [ref=f59e1255] [cursor=pointer]:
+                - /url: https://you.163.com/item/detail?id=1197008&from=out_ynzy_mkrukou_5&clickfrom=w_yx
+            - listitem [ref=f59e1256]:
+              - link "【全价猫粮】多肉零谷物，升级低便臭配方" [ref=f59e1257] [cursor=pointer]:
+                - /url: https://you.163.com/item/detail?id=1318002&from=out_ynzy_mkrukou_6&clickfrom=w_yx
+        - link "广告" [ref=f59e1259] [cursor=pointer]:
+          - /url: javascript:;
+        - generic [ref=f59e1260]:
+          - heading "热闻榜" [level=2] [ref=f59e1261]
+          - list [ref=f59e1262]:
+            - listitem [ref=f59e1263]:
+              - link "义乌9.42平方米商铺拍出1700万元，仅含使用权且只能经营饰品，商城：位置好人流量高" [ref=f59e1264] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0P81R6G053469LG.html?clickfrom=w_hot
+              - generic [ref=f59e1265]:
+                - text: 233.8万热度极目新闻
+                - link "21513跟贴" [ref=f59e1266] [cursor=pointer]:
+                  - /url: https://comment.tie.163.com/L0P81R6G053469LG.html?clickfrom=w_hot
+            - listitem [ref=f59e1267]:
+              - link "女生硕士研究生毕业，与近百张证书合影，当事人：本硕期间获得奖学金等共计五六万" [ref=f59e1268] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0P43KET0534P59R.html?clickfrom=w_hot
+              - generic [ref=f59e1269]:
+                - text: 234.9万热度潇湘晨报
+                - link "7810跟贴" [ref=f59e1270] [cursor=pointer]:
+                  - /url: https://comment.tie.163.com/L0P43KET0534P59R.html?clickfrom=w_hot
+            - listitem [ref=f59e1271]:
+              - link "从699分到爱心接力：少年向上 社会向善丨中听" [ref=f59e1272] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0P160AU0550B6IS.html?clickfrom=w_hot
+              - generic [ref=f59e1273]:
+                - text: 234万热度大象新闻
+                - link "2966跟贴" [ref=f59e1274] [cursor=pointer]:
+                  - /url: https://comment.tie.163.com/L0P160AU0550B6IS.html?clickfrom=w_hot
+            - listitem [ref=f59e1275]:
+              - link "每人每月增至960元 江苏官宣：全省上调" [ref=f59e1276] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0QTAAI600019SNS.html?clickfrom=w_hot
+              - generic [ref=f59e1277]:
+                - text: 221.6万热度环球网
+                - link "981跟贴" [ref=f59e1278] [cursor=pointer]:
+                  - /url: https://comment.tie.163.com/L0QTAAI600019SNS.html?clickfrom=w_hot
+            - listitem [ref=f59e1279]:
+              - link "C罗穿21号球衣致敬已故队友若塔" [ref=f59e1280] [cursor=pointer]:
+                - /url: https://www.163.com/dy/article/L0TDR9320001899O.html?clickfrom=w_hot
+              - generic [ref=f59e1281]:
+                - text: 171.8万热度看看新闻Knews
+                - link "2500跟贴" [ref=f59e1282] [cursor=pointer]:
+                  - /url: https://comment.tie.163.com/L0TDR9320001899O.html?clickfrom=w_hot
+        - link "广告" [ref=f59e1284] [cursor=pointer]:
+          - /url: javascript:;
+    - generic [ref=f59e1285]:
+      - iframe [ref=f59e1287]:
+        - generic [active] [ref=f65e1]:
+          - link [ref=f65e2] [cursor=pointer]:
+            - /url: https://g.163.com/effect/c?s=307925&AID=332351&FlightID=3989&Values=3209581687&Redirect=https://www.163.com/dy/media/T1616589597231.html
+          - img [ref=f65e3]
+      - generic [ref=f59e1288]: 广告
+  - generic [ref=f59e1290]:
+    - generic [ref=f59e1291]:
+      - generic [ref=f59e1292]:
+        - paragraph [ref=f59e1293]:
+          - link "增值电信业务经营许可证粤B2-20090191" [ref=f59e1294] [cursor=pointer]:
+            - /url: https://cms-bucket.ws.126.net/2024/0417/5cc4f9d1j00sc2fut0065c000un017cc.jpg
+        - paragraph [ref=f59e1295]:
+          - link "增值电信业务经营许可证B2-20090058" [ref=f59e1296] [cursor=pointer]:
+            - /url: https://cms-bucket.ws.126.net/2024/0417/92a4257cp00sc2fw800o7c001p0017cc.png
+        - paragraph [ref=f59e1297]:
+          - link "互联网新闻信息服务许可证" [ref=f59e1298] [cursor=pointer]:
+            - /url: https://static.ws.126.net/163/f2e/libs/licensed20241111.pdf
+        - paragraph [ref=f59e1299]:
+          - link "广东省通信管理局" [ref=f59e1300] [cursor=pointer]:
+            - /url: https://gdca.miit.gov.cn/
+        - paragraph [ref=f59e1301]:
+          - link "粤公网安备 44010602006299号" [ref=f59e1302] [cursor=pointer]:
+            - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=44010602006299
+      - generic [ref=f59e1303]:
+        - paragraph [ref=f59e1304]:
+          - link "国际联网备案" [ref=f59e1305] [cursor=pointer]:
+            - /url: http://cms-bucket.ws.126.net/2023/0411/fe2eccb9j00rsxgj5002ec000m800gfc.jpg
+        - paragraph [ref=f59e1306]:
+          - link "北京互联网举报中心" [ref=f59e1307] [cursor=pointer]:
+            - /url: http://www.bjjubao.org/index.htm
+        - paragraph [ref=f59e1308]:
+          - link "中国互联网举报中心" [ref=f59e1309] [cursor=pointer]:
+            - /url: http://www.12377.cn
+        - paragraph [ref=f59e1310]:
+          - link "不良信息举报平台" [ref=f59e1311] [cursor=pointer]:
+            - /url: https://www.163.com/special/0077jt/tipoff.html
+        - paragraph [ref=f59e1312]:
+          - link "文明办网举报电话" [ref=f59e1313] [cursor=pointer]:
+            - /url: http://www.wenming.cn/
+      - generic [ref=f59e1314]:
+        - paragraph [ref=f59e1315]:
+          - link "北京网络行业协会" [ref=f59e1316] [cursor=pointer]:
+            - /url: http://www.bnia.cn/
+        - paragraph [ref=f59e1317]:
+          - link "广播电视节目制作经营许可证" [ref=f59e1318] [cursor=pointer]:
+            - /url: https://cms-bucket.ws.126.net/2025/0227/7166f4bcp00ssc5hq008wc000rr00jac.png
+        - paragraph [ref=f59e1319]:
+          - link "北京地区联合辟谣平台" [ref=f59e1320] [cursor=pointer]:
+            - /url: http://py.qianlong.com/
+        - paragraph [ref=f59e1321]:
+          - link "粤网文[2023]3253-227号" [ref=f59e1322] [cursor=pointer]:
+            - /url: http://cms-bucket.ws.126.net/2023/0907/07a26f50j00s0lx5r004lc0010b01foc.jpg
+        - paragraph [ref=f59e1323]: 互联网药品信息服务备案凭证 粤网药信备字（2026）第00084号
+      - generic [ref=f59e1324]:
+        - paragraph [ref=f59e1325]: 北京网通提供网络带宽
+        - paragraph [ref=f59e1326]:
+          - link "举报邮箱：jubao@vip.163.com" [ref=f59e1327] [cursor=pointer]:
+            - /url: mailto:jubao@vip.163.com
+        - paragraph [ref=f59e1328]:
+          - generic [ref=f59e1329]: 违法和不良信息举报电话：0571-89853167
+        - paragraph [ref=f59e1330]:
+          - link "营业执照" [ref=f59e1331] [cursor=pointer]:
+            - /url: https://cms-bucket.ws.126.net/2025/1029/6361711bp00t4w1ey00euc000uq00lic.png
+        - paragraph [ref=f59e1332]:
+          - link "信息网络传播视听节目许可证" [ref=f59e1333] [cursor=pointer]:
+            - /url: https://cms-bucket.ws.126.net/2024/0606/ac25db36j00semz2h004bc000gj01wwc.jpg
+        - paragraph [ref=f59e1334]:
+          - link "互联网宗教信息服务许可证-京（2026）0000011" [ref=f59e1335] [cursor=pointer]:
+            - /url: https://cms-bucket.ws.126.net/2026/0121/785b2803p00t97iva008zc000fe00lvc.png
+    - generic [ref=f59e1336]:
+      - paragraph [ref=f59e1337]:
+        - link "工业和信息化部备案管理系统网站 粤B2-20090191-18" [ref=f59e1338] [cursor=pointer]:
+          - /url: https://beian.miit.gov.cn/#/Integrated/index
+      - paragraph [ref=f59e1339]: 主办单位：广州网易计算机系统有限公司
+      - paragraph [ref=f59e1340]: Operated by Guangzhou NetEase Computer System Co., Ltd.
+    - generic [ref=f59e1341]:
+      - link "中国互联网联合辟谣平台" [ref=f59e1342] [cursor=pointer]:
+        - /url: https://www.piyao.org.cn/
+        - img "中国互联网联合辟谣平台" [ref=f59e1343]
+      - img "适老化无障碍服务" [ref=f59e1345]
+  - generic [ref=f59e1348]:
+    - generic [ref=f59e1349]: © 1997-2026 网易公司版权所有
+    - link "About NetEase" [ref=f59e1350] [cursor=pointer]:
+      - /url: https://corp.163.com/
+    - text: "|"
+    - link "公司简介" [ref=f59e1351] [cursor=pointer]:
+      - /url: https://corp.163.com/gb/about/overview.html
+    - text: "|"
+    - link "联系方法" [ref=f59e1352] [cursor=pointer]:
+      - /url: https://corp.163.com/gb/contactus.html
+    - text: "|"
+    - link "招聘信息" [ref=f59e1353] [cursor=pointer]:
+      - /url: https://corp.163.com/gb/job/job.html
+    - text: "|"
+    - link "客户服务" [ref=f59e1354] [cursor=pointer]:
+      - /url: https://help.163.com/
+    - text: "|"
+    - link "隐私政策" [ref=f59e1355] [cursor=pointer]:
+      - /url: https://corp.163.com/gb/legal.html
+    - text: "|"
+    - link "不良信息举报 Complaint Center" [ref=f59e1356] [cursor=pointer]:
+      - /url: https://www.163.com/special/0077jt/tipoff.html
+    - text: "|"
+    - link "廉正举报" [ref=f59e1357] [cursor=pointer]:
+      - /url: https://jubao.163.com/
+    - text: "|"
+    - link "侵权投诉" [ref=f59e1358] [cursor=pointer]:
+      - /url: https://corp.163.com/special/008397U0/reporting_infringements.html

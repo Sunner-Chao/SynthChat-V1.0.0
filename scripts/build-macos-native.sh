@@ -295,7 +295,7 @@ node <<'EOF'
 const fs = require("fs");
 const config = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
 const resources = Object.values(config.bundle?.resources || {});
-const required = ["skills", "public/pet", "data/tts", "data/emoji"];
+const required = ["synthchat-data/skills", "synthchat-data/public", "synthchat-data/data"];
 const missing = required.filter((item) => !resources.includes(item));
 if (missing.length) {
   console.error(`Tauri bundle.resources is missing: ${missing.join(", ")}`);

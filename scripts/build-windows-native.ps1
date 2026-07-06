@@ -133,8 +133,8 @@ if (-not $SkipPreflight) {
     throw "Expected WebView2 offlineInstaller mode for fresh Windows packaging, got '$webviewMode'."
   }
   $resourceTargets = @($config.bundle.resources.PSObject.Properties | ForEach-Object { [string]$_.Value })
-  if (($resourceTargets -notcontains "skills") -or ($resourceTargets -notcontains "public/pet") -or ($resourceTargets -notcontains "data/tts") -or ($resourceTargets -notcontains "data/emoji")) {
-    throw "Tauri bundle.resources must include skills, public/pet, data/tts, and data/emoji."
+  if (($resourceTargets -notcontains "synthchat-data/skills") -or ($resourceTargets -notcontains "synthchat-data/public") -or ($resourceTargets -notcontains "synthchat-data/data")) {
+    throw "Tauri bundle.resources must include synthchat-data/skills, synthchat-data/public, and synthchat-data/data."
   }
 }
 

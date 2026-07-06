@@ -1,0 +1,223 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - button "跳至内容" [ref=e3] [cursor=pointer]:
+      - generic [ref=e5]: 跳至内容
+    - button "辅助功能反馈" [ref=e6] [cursor=pointer]:
+      - generic [ref=e8]: 辅助功能反馈
+    - generic [ref=e9]:
+      - link "返回到必应搜索" [ref=e10] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "返回到必应搜索" [level=1] [ref=e11]
+      - search [ref=e12]:
+        - button "搜索" [ref=e15] [cursor=pointer]
+        - searchbox "在此处输入你的搜索 — 输入时会显示搜索建议" [ref=e16]: AI大模型 企业创新 行业案例 制造业 金融 医疗 零售 2024
+        - button "使用图像搜索" [ref=e22] [cursor=pointer]
+    - complementary "帐户奖励和偏好设置" [ref=e24]:
+      - button "Microsoft Rewards" [ref=e25] [cursor=pointer]
+      - link "登录" [ref=e26] [cursor=pointer]:
+        - /url: javascript:void(0)
+        - generic "登录" [ref=e27]
+    - navigation "主菜单" [ref=e28]:
+      - list [ref=e29]:
+        - listitem [ref=e30]:
+          - link "全部" [ref=e31] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=e32]:
+          - link "搜索" [ref=e33] [cursor=pointer]:
+            - /url: /copilotsearch?q=AI%e5%a4%a7%e6%a8%a1%e5%9e%8b+%e4%bc%81%e4%b8%9a%e5%88%9b%e6%96%b0+%e8%a1%8c%e4%b8%9a%e6%a1%88%e4%be%8b+%e5%88%b6%e9%80%a0%e4%b8%9a+%e9%87%91%e8%9e%8d+%e5%8c%bb%e7%96%97+%e9%9b%b6%e5%94%ae+2024&FORM=CSSCOP
+            - img [ref=e34]
+            - text: 搜索
+        - listitem [ref=e36]:
+          - link "购物" [ref=e37] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=a83501f8f4e23e2cb7c7f1cdc7e86e0f655071f23be9658ca05c93110f5d562fJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3Nob3A_cT1BSSVlNSVhNCVhNyVlNiVhOCVhMSVlNSU5ZSU4YislZTQlYmMlODElZTQlYjglOWElZTUlODglOWIlZTYlOTYlYjArJWU4JWExJThjJWU0JWI4JTlhJWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3KyVlOSU5YiViNiVlNSU5NCVhZSsyMDI0JkZPUk09U0hPUFRC&ntb=1
+        - listitem [ref=e38]:
+          - link "图片" [ref=e39] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=cfa364bf627530f5ea000a9c7a594e3d5d1f1d137b1e2213d5a214f1eba9e1f6JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L2ltYWdlcy9zZWFyY2g_cT1BSSVlNSVhNCVhNyVlNiVhOCVhMSVlNSU5ZSU4YislZTQlYmMlODElZTQlYjglOWElZTUlODglOWIlZTYlOTYlYjArJWU4JWExJThjJWU0JWI4JTlhJWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3KyVlOSU5YiViNiVlNSU5NCVhZSsyMDI0JkZPUk09SERSU0Mz&ntb=1
+        - listitem [ref=e40]:
+          - link "视频" [ref=e41] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=886bf1d9c0d6bdd5635b457a89d83c700c52d56d92c12df43fe2ca5bd5eca3feJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3ZpZGVvcy9zZWFyY2g_cT1BSSVlNSVhNCVhNyVlNiVhOCVhMSVlNSU5ZSU4YislZTQlYmMlODElZTQlYjglOWElZTUlODglOWIlZTYlOTYlYjArJWU4JWExJThjJWU0JWI4JTlhJWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3KyVlOSU5YiViNiVlNSU5NCVhZSsyMDI0JkZPUk09SERSU0M0&ntb=1
+        - listitem [ref=e42]:
+          - link "地图" [ref=e43] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4f762983ad4331334dcd4477ee9042c1e8adb6a93fdb92635fb769d42f433751JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L21hcHM_cT1BSSVlNSVhNCVhNyVlNiVhOCVhMSVlNSU5ZSU4YislZTQlYmMlODElZTQlYjglOWElZTUlODglOWIlZTYlOTYlYjArJWU4JWExJThjJWU0JWI4JTlhJWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3KyVlOSU5YiViNiVlNSU5NCVhZSsyMDI0JkZPUk09SERSU0M2&ntb=1
+        - listitem [ref=e44]:
+          - link "Copilot" [ref=e45] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=fcbedbc3e746b2ceb99f5fcdb6f14ff9e12228d20220a582d776146cce28e3e5JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L2NoYXQ_cHJvbXB0PUFJJWU1JWE0JWE3JWU2JWE4JWExJWU1JTllJThiKyVlNCViYyU4MSVlNCViOCU5YSVlNSU4OCU5YiVlNiU5NiViMCslZTglYTElOGMlZTQlYjglOWElZTYlYTElODglZTQlYmUlOGIrJWU1JTg4JWI2JWU5JTgwJWEwJWU0JWI4JTlhKyVlOSU4NyU5MSVlOCU5ZSU4ZCslZTUlOGMlYmIlZTclOTYlOTcrJWU5JTliJWI2JWU1JTk0JWFlKzIwMjQmc2VuZHF1ZXJ5PTEmRk9STT1TQ0NPRFg&ntb=1
+        - listitem [ref=e46]:
+          - button "更多" [ref=e47] [cursor=pointer]:
+            - img [ref=e49]
+            - text: 更多
+  - main "搜索结果" [ref=e52]:
+    - generic [ref=e54]: 约 2 个结果
+    - generic [ref=e65]:
+      - list [ref=e66]:
+        - listitem [ref=e67]:
+          - list [ref=e68]:
+            - listitem [ref=e69]:
+              - generic [ref=e70]:
+                - generic [ref=e71] [cursor=pointer]:
+                  - generic [ref=e76]: OpenAI
+                  - generic [ref=e77]:
+                    - generic [ref=e78]: https://chatgpt.com › サインアップ
+                    - button "关于我们的广告" [ref=e79]:
+                      - img "关于我们的广告" [ref=e81]
+                - heading "ChatGPT：すぐ簡単に使えるAI | 毎日のAIコンパニオンに | ChatGPTでタスクを簡素化" [level=2] [ref=e82]:
+                  - link "ChatGPT：すぐ簡単に使えるAI | 毎日のAIコンパニオンに | ChatGPTでタスクを簡素化" [ref=e83] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e80telYD-XCTBTkH7MDWfUvTVUCUyjPGQEx-eGjtkw1tCBBbKX6vFzi8DjvndZFNK_nPG4FNYiZSVHtOzAP5SMEzrBWtjhYif-05uXy1O1fWqmjCxmWmAFD-kYor0hY-Wr2Iu_3Gj0yUQ04GZ6vA-6AdV5RN3zt-l9024eSCRZkNKL52cQGE9ayFKYq99S7_zONo9O9jBNB0DqdGDvBeMKDHg-Aok&u=aHR0cHMlM2ElMmYlMmZjaGF0Z3B0LmNvbSUzZnV0bV9zb3VyY2UlM2RtaWNyb3NvZnQlMjZ1dG1fbWVkaXVtJTNkcGFpZF9zZWFyY2glMjZ1dG1fY2FtcGFpZ24lM2RNU0ZUX0NfU0VNX0JOQl9Db3JlLUdlbmVyaWNfQ0hUX0JBVV9BQ1FfUEVSX01JWF9BTExfQVBBQ19KUF9KQV8xMTA2MjUlMjZjX2lkJTNkNTcwNjEyOTI0JTI2Y19hZ2lkJTNkMTE4NjM3NTAzNjM3MTExNyUyNmNfY3JpZCUzZCUyNmNfa3dpZCUzZGt3ZC03NDE0ODg4NjI3NzU4NCUzYWxvYy05NiUyNmNfaW1zJTNkJTI2Y19wbXMlM2QxNDAwMzElMjZjX253JTNkbyUyNmNfZHZjJTNkYyUyNm1zY2xraWQlM2QwNjA2MzljZWFlOWUxZDI4ODViZDUzOGFmNzM3MWZiYw&rlid=060639ceae9e1d2885bd538af7371fbc&ntb=1
+                    - text: ChatGPT：すぐ簡単に使える
+                    - strong [ref=e84]: AI
+                    - text: "| 毎日の"
+                    - strong [ref=e85]: AI
+                    - text: コンパニオンに | ChatGPTでタスクを簡素化
+                - generic [ref=e87]:
+                  - generic [ref=e90]: 广告
+                  - text: 公式ChatGPTで
+                  - strong [ref=e91]: AI
+                  - text: のパワーをご体験ください。誰でも無料でご利用いただけます。. ChatGPTを使うと、答えがもらえて毎日のタスクがシンプルに。質問するだけでChatGPTがお手伝い。
+      - list [ref=e92]:
+        - listitem [ref=e93]:
+          - link "知乎专栏" [ref=e95] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4461c17056d57376a2d146e91f072a3ae2357f8551b82d0a3e4c787d622b0e42JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC83MDgyODE5NjE&ntb=1
+            - generic [ref=e100]:
+              - generic [ref=e101]: 知乎专栏
+              - generic [ref=e104]: https://zhuanlan.zhihu.com
+          - heading "强推｜99个大模型案例，覆盖工业、金融、医疗、教育、文创 ..." [level=2] [ref=e105]:
+            - link "强推｜99个大模型案例，覆盖工业、金融、医疗、教育、文创 ..." [ref=e106] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=4461c17056d57376a2d146e91f072a3ae2357f8551b82d0a3e4c787d622b0e42JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC83MDgyODE5NjE&ntb=1
+          - paragraph [ref=e108]: 大模型应用场景实现全面开花。 本次案例涉及 10 余个不同行业，其中医疗、金融、文娱传媒、政务、能源与工业是主要应用场景。 AI …
+        - listitem [ref=e109]:
+          - link "百度开发者中心" [ref=e111] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=c880aea05569e006a1d48ab4f35109890bdc7076065823f5d7f6e656b070f4d3JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NDEzODI1MQ&ntb=1
+            - generic [ref=e116]:
+              - generic [ref=e117]: 百度开发者中心
+              - generic [ref=e120]: https://developer.baidu.com › article › detail.html
+          - heading "AI大模型61个落地场景：从产业革新到生活赋能的全景解析" [level=2] [ref=e121]:
+            - link "AI大模型61个落地场景：从产业革新到生活赋能的全景解析" [ref=e122] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=c880aea05569e006a1d48ab4f35109890bdc7076065823f5d7f6e656b070f4d3JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NDEzODI1MQ&ntb=1
+          - paragraph [ref=e124]: 2025年10月13日 · 简介： 本文深度解析人工智能大模型在61个核心场景中的技术落地路径，涵盖智能制造、智慧医疗、金融科技等八 …
+        - listitem [ref=e125]:
+          - link "百度开发者中心" [ref=e127] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=fc123836b3292723ecf6cf1994d682c37056c025782ae721c84f9e5bed2abe4dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NTUyNzk1NQ&ntb=1
+            - generic [ref=e132]:
+              - generic [ref=e133]: 百度开发者中心
+              - generic [ref=e136]: https://developer.baidu.com › article › detail.html
+          - heading "AI大模型驱动产业变革：三大领域20个实践案例全景解析" [level=2] [ref=e137]:
+            - link "AI大模型驱动产业变革：三大领域20个实践案例全景解析" [ref=e138] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=fc123836b3292723ecf6cf1994d682c37056c025782ae721c84f9e5bed2abe4dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NTUyNzk1NQ&ntb=1
+          - paragraph [ref=e140]: 2025年12月26日 · 本文通过20个行业标杆案例，深度解析AI大模型在医疗、金融、制造三大领域的创新应用场景、技术实现路径及产 …
+        - listitem [ref=e141]:
+          - link "头豹3.0" [ref=e143] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=3b8e584c86b8d3d878f097f956cd2208b396bb04ca96fafd30560e995e89f3b2JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuZnJvc3RjaGluYS5jb20vY29udGVudC9pbnNpZ2h0L2RldGFpbC82Nzc3YjExZTA5ZjVlYjBlNTA4YmUyMTQ&ntb=1
+            - generic [ref=e148]:
+              - generic [ref=e149]: 头豹3.0
+              - generic [ref=e152]: https://www.frostchina.com › content › insight › detail
+          - heading "沙利文发布《2024年中国大模型行业应用优秀案例白皮书》" [level=2] [ref=e153]:
+            - link "沙利文发布《2024年中国大模型行业应用优秀案例白皮书》" [ref=e154] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=3b8e584c86b8d3d878f097f956cd2208b396bb04ca96fafd30560e995e89f3b2JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuZnJvc3RjaGluYS5jb20vY29udGVudC9pbnNpZ2h0L2RldGFpbC82Nzc3YjExZTA5ZjVlYjBlNTA4YmUyMTQ&ntb=1
+          - paragraph [ref=e156]: 本白皮书旨在深入分析AI大模型在各行业的应用背景、企业级产品应用竞争力以及优秀案例，为行业参与者提供了宝贵的实践经验分享 …
+        - listitem [ref=e157]:
+          - link "Scribd" [ref=e159] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=777a273800117b118f0feb848090b0050f39bb8c7ce6c5318d070787873479bbJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc2NyaWJkLmNvbS9kb2N1bWVudC84MzI3OTExOTYvJUU1JUE0JUE3JUU2JUE4JUExJUU1JTlFJThCJUU4JUExJThDJUU0JUI4JTlBJUU1JUJBJTk0JUU3JTk0JUE4LSVFNSU4RCU4MSVFNSVBNCVBNyVFNSU4NSVCOCVFOCU4QyU4MyVFNiVBMSU4OCVFNCVCRSU4QiVFOSU5QiU4Ng&ntb=1
+            - generic [ref=e164]:
+              - generic [ref=e165]: Scribd
+              - generic [ref=e168]: https://www.scribd.com › document
+          - heading "大模型行业应用 十大典范案例集" [level=2] [ref=e169]:
+            - link "大模型行业应用 十大典范案例集":
+              - /url: https://www.bing.com/ck/a?!&&p=777a273800117b118f0feb848090b0050f39bb8c7ce6c5318d070787873479bbJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc2NyaWJkLmNvbS9kb2N1bWVudC84MzI3OTExOTYvJUU1JUE0JUE3JUU2JUE4JUExJUU1JTlFJThCJUU4JUExJThDJUU0JUI4JTlBJUU1JUJBJTk0JUU3JTk0JUE4LSVFNSU4RCU4MSVFNSVBNCVBNyVFNSU4NSVCOCVFOCU4QyU4MyVFNiVBMSU4OCVFNCVCRSU4QiVFOSU5QiU4Ng&ntb=1
+          - paragraph [ref=e171]: 大模型行业应用 十大典范案例集 2024 DIIRC 大模型行业应用十大典范案例集展示了大模型技术在各行业的成功应用，旨在推动产业智 …
+        - listitem [ref=e172]:
+          - link "知乎专栏" [ref=e174] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=8df668f7dd90af72ee1b2452a409b5c7fb36df7d4dbddac6b12bd9be71e9e06dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC8yNDE0MjkyMDgxMg&ntb=1
+            - generic [ref=e179]:
+              - generic [ref=e180]: 知乎专栏
+              - generic [ref=e183]: https://zhuanlan.zhihu.com
+          - heading "要么拥抱大模型，要么被时代抛弃！附800+份AI大模型赋能 ..." [level=2] [ref=e184]:
+            - link "要么拥抱大模型，要么被时代抛弃！附800+份AI大模型赋能 ...":
+              - /url: https://www.bing.com/ck/a?!&&p=8df668f7dd90af72ee1b2452a409b5c7fb36df7d4dbddac6b12bd9be71e9e06dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC8yNDE0MjkyMDgxMg&ntb=1
+          - paragraph [ref=e186]: 2024年，中文大模型技术迎来爆发式突破！ SuperCLUE团队最新测评显示，国内头部大模型综合能力已逼近国际顶尖水平（《中文大 …
+        - listitem [ref=e187]:
+          - link "Scribd" [ref=e189] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=137e7ef7941bd337c802f01c4a89b7fcf87ebd554d12806153a82c8feacdaf04JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc2NyaWJkLmNvbS9kb2N1bWVudC84MjUwNjU1NDQvMjAyNCVFNSVCOSVCNCVFNCVCOCVBRCVFNSU5QiVCRCVFNSVBNCVBNyVFNiVBOCVBMSVFNSU5RSU4QiVFOCVBMSU4QyVFNCVCOCU5QSVFNSVCQSU5NCVFNyU5NCVBOCVFNCVCQyU5OCVFNyVBNyU4MCVFNiVBMSU4OCVFNCVCRSU4QiVFNyU5OSVCRCVFNyU5QSVBRSVFNCVCOSVBNg&ntb=1
+            - generic [ref=e194]:
+              - generic [ref=e195]: Scribd
+              - generic [ref=e198]: https://www.scribd.com › document
+          - heading "2024年中国大模型行业应用优秀案例白皮书" [level=2] [ref=e199]:
+            - link "2024年中国大模型行业应用优秀案例白皮书":
+              - /url: https://www.bing.com/ck/a?!&&p=137e7ef7941bd337c802f01c4a89b7fcf87ebd554d12806153a82c8feacdaf04JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc2NyaWJkLmNvbS9kb2N1bWVudC84MjUwNjU1NDQvMjAyNCVFNSVCOSVCNCVFNCVCOCVBRCVFNSU5QiVCRCVFNSVBNCVBNyVFNiVBOCVBMSVFNSU5RSU4QiVFOCVBMSU4QyVFNCVCOCU5QSVFNSVCQSU5NCVFNyU5NCVBOCVFNCVCQyU5OCVFNyVBNyU4MCVFNiVBMSU4OCVFNCVCRSU4QiVFNyU5OSVCRCVFNyU5QSVBRSVFNCVCOSVBNg&ntb=1
+          - paragraph [ref=e201]: f交通行业大模型应用与优秀案例 • AI大模型赋能的超强路况环境感知力是智慧交通建设的基础，也是实现 高效交通管理、安全系统管 …
+        - listitem [ref=e202]:
+          - list [ref=e203]:
+            - listitem [ref=e204]:
+              - generic [ref=e205]:
+                - generic [ref=e206] [cursor=pointer]:
+                  - generic [ref=e211]: OpenAI
+                  - generic [ref=e212]:
+                    - generic [ref=e213]: https://chatgpt.com › サインアップ
+                    - button "关于我们的广告" [ref=e214]:
+                      - img "关于我们的广告" [ref=e216]
+                - heading "ChatGPT：すぐ簡単に使えるAI | 毎日のAIコンパニオンに | ChatGPTでタスクを簡素化" [level=2] [ref=e217]:
+                  - link "ChatGPT：すぐ簡単に使えるAI | 毎日のAIコンパニオンに | ChatGPTでタスクを簡素化" [ref=e218] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e8LkM_gACxXxDOGphkqI-sVTVUCUxqbnFyTh6pLSjdgP38qofZ3TZ7-LWp8pGYYTBoN9G3L3KlbmG2Rv1S_quh9A0qfcBvkiEGN8EltS0LtwmSxEdhq5lilL_oy58wdtebVsFBwZtKt1WnUQ6M0EVsfgiaI2pk4uVha48nG8lhTjRE5AdtSNa-5laPs7IEdvro7dXACdU4XucCPeh77GshOg32-Ig&u=aHR0cHMlM2ElMmYlMmZjaGF0Z3B0LmNvbSUzZnV0bV9zb3VyY2UlM2RtaWNyb3NvZnQlMjZ1dG1fbWVkaXVtJTNkcGFpZF9zZWFyY2glMjZ1dG1fY2FtcGFpZ24lM2RNU0ZUX0NfU0VNX0JOQl9Db3JlLUdlbmVyaWNfQ0hUX0JBVV9BQ1FfUEVSX01JWF9BTExfQVBBQ19KUF9KQV8xMTA2MjUlMjZjX2lkJTNkNTcwNjEyOTI0JTI2Y19hZ2lkJTNkMTE4NjM3NTAzNjM3MTExNyUyNmNfY3JpZCUzZCUyNmNfa3dpZCUzZGt3ZC03NDE0ODg4NjI3NzU4NCUzYWxvYy05NiUyNmNfaW1zJTNkJTI2Y19wbXMlM2QxNDAwMzElMjZjX253JTNkbyUyNmNfZHZjJTNkYyUyNm1zY2xraWQlM2RjNzliNjQ5NWMxNzYxMWY3N2U5NzBlZDE5OGRmMjdiMg&rlid=c79b6495c17611f77e970ed198df27b2&ntb=1
+                    - text: ChatGPT：すぐ簡単に使える
+                    - strong [ref=e219]: AI
+                    - text: "| 毎日の"
+                    - strong [ref=e220]: AI
+                    - text: コンパニオンに | ChatGPTでタスクを簡素化
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - generic [ref=e225]: 广告
+                    - text: 公式ChatGPTで
+                    - strong [ref=e226]: AI
+                    - text: のパワーをご体験ください。誰でも無料でご利用いただけます。. ChatGPTを使うと、答えがもらえて毎日のタスクがシンプルに。質問するだけでChatGPTがお手伝い。
+                  - paragraph [ref=e227]: 何百万人の利用者の仲間に · ChatGPTに何でも尋ねよう · ChatGPT：信頼できるAI
+        - listitem [ref=e228]:
+          - generic [ref=e229]:
+            - heading "深入了解 AI大模型 企业创新 行业案例 制造业 金融 医疗 零售 2024" [level=2] [ref=e230]:
+              - text: 深入了解
+              - strong [ref=e231]: AI大模型 企业创新 行业案例 制造业 金融 医疗 零售 2024
+            - list [ref=e232]:
+              - listitem [ref=e233]:
+                - link "ai大模型案例分析" [ref=e234] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=62f93b4a9d6da6b63fd59e554563eca72406ce09af54e27977b0492eace4b08cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3NlYXJjaD9xPWFpJWU1JWE0JWE3JWU2JWE4JWExJWU1JTllJThiJWU2JWExJTg4JWU0JWJlJThiJWU1JTg4JTg2JWU2JTllJTkwJkZPUk09UVNSRTE&ntb=1
+                  - generic [ref=e236]:
+                    - text: ai大模型
+                    - strong [ref=e237]: 案
+                    - text: 例
+                    - strong [ref=e238]: 分析
+              - listitem [ref=e239]:
+                - link "ai大模型案例白皮书" [ref=e240] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=30eaf263e296846a7d99b542341c3a8e761ecc151b91511b2c3b2c8f0ebc2b61JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3NlYXJjaD9xPWFpJWU1JWE0JWE3JWU2JWE4JWExJWU1JTllJThiJWU2JWExJTg4JWU0JWJlJThiJWU3JTk5JWJkJWU3JTlhJWFlJWU0JWI5JWE2JkZPUk09UVNSRTI&ntb=1
+                  - generic [ref=e242]:
+                    - text: ai大模型
+                    - strong [ref=e243]: 案
+                    - text: 例
+                    - strong [ref=e244]: 白皮书
+              - listitem [ref=e245]:
+                - link "ai大模型案例" [ref=e246] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=cf26efffdb16762414b3c57737c9331320d79b006d801501d9aa471521c3ba54JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3NlYXJjaD9xPWFpJWU1JWE0JWE3JWU2JWE4JWExJWU1JTllJThiJWU2JWExJTg4JWU0JWJlJThiJkZPUk09UVNSRTM&ntb=1
+                  - generic [ref=e248]:
+                    - text: ai大模型
+                    - strong [ref=e249]: 案
+                    - text: 例
+              - listitem [ref=e250]:
+                - link "ai大模型白皮书" [ref=e251] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=8a0de7e9aefd3a65b331bb8285cb7db6a5d68392a267c320acfee9ff32db5bdeJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3NlYXJjaD9xPWFpJWU1JWE0JWE3JWU2JWE4JWExJWU1JTllJThiJWU3JTk5JWJkJWU3JTlhJWFlJWU0JWI5JWE2JkZPUk09UVNSRTQ&ntb=1
+                  - generic [ref=e253]:
+                    - text: ai大模型
+                    - strong [ref=e254]: 白皮书
+              - listitem [ref=e255]:
+                - link "国外ai大模型" [ref=e256] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=2c01bdeb456d248dc28c65381d0929c23535d193539cfd49253c8ba4727c91ebJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3NlYXJjaD9xPSVlNSU5YiViZCVlNSVhNCU5NmFpJWU1JWE0JWE3JWU2JWE4JWExJWU1JTllJThiJkZPUk09UVNSRTU&ntb=1
+                  - generic [ref=e258]:
+                    - strong [ref=e259]: 国外
+                    - text: ai大模型
+      - complementary "更多结果" [ref=e260]:
+        - list
+  - contentinfo [ref=e261]:
+    - generic [ref=e262]:
+      - list:
+        - listitem [ref=e263]:
+          - link "隐私" [ref=e264] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=65e14e0db5602b42b8b59d064bae6fce9d9d154de5d2bbf58bdd907124970569JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1
+        - listitem [ref=e265]:
+          - link "条款" [ref=e266] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=edfc33725ae51257e466be872ce418499c27c48c3d4f59ed981ef0ea7287e85cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1

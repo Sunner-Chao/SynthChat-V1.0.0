@@ -1,0 +1,20 @@
+{
+  "conversationId": "conv-a0e689cac1594092b06ee45f2334de35",
+  "boundaryId": null,
+  "summary": "",
+  "summaryTokens": 0,
+  "summaryMessages": 0,
+  "lastCompressionSavingsPct": 100.0,
+  "ineffectiveCompressionCount": 0,
+  "lastRealPromptTokens": 14936,
+  "lastCompressionRoughTokens": 0,
+  "lastRoughTokensWhenRealPromptFit": 0,
+  "awaitingRealUsageAfterCompression": false,
+  "summaryFailureCooldownUntilMs": 0,
+  "lastSummaryError": null,
+  "lastSummaryFallbackUsed": false,
+  "lastSummaryDroppedCount": 0,
+  "lastCompressAborted": false,
+  "lastAuxSummaryError": null,
+  "lastAuxSummaryModel": null
+}

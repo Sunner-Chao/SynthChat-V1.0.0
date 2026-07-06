@@ -1888,7 +1888,7 @@ pub(super) async fn execute_recovery_internal_tool(
         error.as_deref(),
     )
     .await;
-    let event = ToolEvent {
+    let mut event = ToolEvent {
         status: Some(if ok { "completed" } else { "failed" }.into()),
         reference_id: None,
         call_id: Some(provider_tool_call_id(&replay_payload).unwrap_or_else(|| new_id("call"))),
@@ -1925,6 +1925,7 @@ pub(super) async fn execute_recovery_internal_tool(
             json!({"payload": replay_payload.clone()}),
         )),
     };
+    enrich_internal_tool_event_from_output(&mut event, &text);
     store.append_tool_trace(ToolTraceEntry {
         id: new_id("trace"),
         created_at: now_iso(),
@@ -1948,6 +1949,88 @@ pub(super) async fn execute_recovery_internal_tool(
         Err(AppError::BadRequest(error))
     } else {
         Ok((text, event))
+    }
+}
+
+fn enrich_internal_tool_event_from_output(event: &mut ToolEvent, output: &str) {
+    if event.tool_name != "image_generate" || !event.ok {
+        return;
+    }
+    let Ok(value) = serde_json::from_str::<Value>(output.trim()) else {
+        return;
+    };
+    let Some((path, mime_type)) = first_image_artifact_path(&value) else {
+        return;
+    };
+    let exists = Path::new(&path).is_file();
+    event.event_type = "image".into();
+    event.path = Some(path);
+    event.exists = Some(exists);
+    event.mime_type = Some(mime_type);
+}
+
+fn first_image_artifact_path(value: &Value) -> Option<(String, String)> {
+    if let Some(artifacts) = value.get("artifacts").and_then(Value::as_array) {
+        for artifact in artifacts {
+            if let Some(result) = image_artifact_path_from_value(artifact) {
+                return Some(result);
+            }
+        }
+    }
+    if let Some(artifact) = value.get("artifact") {
+        if let Some(result) = image_artifact_path_from_value(artifact) {
+            return Some(result);
+        }
+    }
+    image_artifact_path_from_value(value)
+}
+
+fn image_artifact_path_from_value(value: &Value) -> Option<(String, String)> {
+    let path = value
+        .get("path")
+        .or_else(|| value.get("filePath"))
+        .or_else(|| value.get("file_path"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|path| !path.is_empty())?;
+    let mime_type = value
+        .get("mimeType")
+        .or_else(|| value.get("mime_type"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|mime| !mime.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| image_mime_type_from_path(path));
+    if !mime_type.starts_with("image/") && !image_path_looks_like_image(path) {
+        return None;
+    }
+    Some((path.to_string(), mime_type))
+}
+
+fn image_path_looks_like_image(path: &str) -> bool {
+    matches!(
+        Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.to_ascii_lowercase())
+            .as_deref(),
+        Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "svg")
+    )
+}
+
+fn image_mime_type_from_path(path: &str) -> String {
+    match Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("jpg" | "jpeg") => "image/jpeg".into(),
+        Some("webp") => "image/webp".into(),
+        Some("gif") => "image/gif".into(),
+        Some("bmp") => "image/bmp".into(),
+        Some("svg") => "image/svg+xml".into(),
+        _ => "image/png".into(),
     }
 }
 

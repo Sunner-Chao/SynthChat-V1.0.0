@@ -1,0 +1,448 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - link "跳到主要内容" [ref=e2] [cursor=pointer]
+      - link "无障碍功能帮助" [ref=e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=zh-CN
+  - generic [ref=e8]:
+    - search [ref=e9]:
+      - generic [ref=e12]:
+        - link "前往 Google 首页" [ref=e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=zh-CN&ictx=0&sa=X&ved=0ahUKEwiLqKrG67eVAxXerlYBHaxQNd4QpYkNCAo
+          - img "前往 Google 首页" [ref=e14]
+        - generic [ref=e19]:
+          - combobox "搜索" [ref=e22]: 今日AI新闻 今日AI新闻
+          - generic [ref=e23]:
+            - button "清除" [ref=e25] [cursor=pointer]:
+              - img [ref=e27]
+            - generic [ref=e30]:
+              - button "按语音搜索" [ref=e31] [cursor=pointer]:
+                - img [ref=e32]
+              - button "按图搜索" [ref=e34] [cursor=pointer]:
+                - img [ref=e35]
+        - button "搜索" [ref=e37] [cursor=pointer]:
+          - img [ref=e40]
+    - generic [ref=e42]:
+      - button "设置" [ref=e44] [cursor=pointer]:
+        - img [ref=e47]
+      - button "分享" [ref=e50] [cursor=pointer]:
+        - img [ref=e54]
+      - generic [ref=e56]:
+        - button "Google 应用" [ref=e58] [cursor=pointer]:
+          - img [ref=e59]
+        - link "登录" [ref=e63] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=zh-CN&passive=true&continue=https://www.google.com/search%3Fq%3D%25E4%25BB%258A%25E6%2597%25A5AI%25E6%2596%25B0%25E9%2597%25BB%26tbs%3Dqdr:d&ec=futura_srp_og_si_72236_p
+  - generic [ref=e65]:
+    - navigation [ref=e71]:
+      - generic [ref=e77]:
+        - list [ref=e78]:
+          - listitem [ref=e79]:
+            - link "AI 模式" [ref=e82] [cursor=pointer]:
+              - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&udm=50&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lQrIS1sy0-mCikVLMvyllSZDlsuRaSJ6inFnU4DAPw-CMRMI8N_G_FJcIAe2LDUHZotyCX7B5MCM2hV2WnMo67P6epnmr_FTqkY-_Ld1eVbJ2uw5CqmXALWhwTSCpi3WNlT9w7GhP1ioXjvyI4SfFS8JZ3zRg&aep=1&ntc=1&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q2J8OegQIDxAD
+              - generic [ref=e85]: AI 模式
+          - listitem [ref=e86]:
+            - link "全部" [disabled] [ref=e87]:
+              - generic [ref=e89]: 全部
+          - listitem [ref=e90]:
+            - link "视频" [ref=e91] [cursor=pointer]:
+              - /url: /search?sca_esv=915d55120818ba1d&udm=7&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lQrIS1sy0-mCikVLMvyllSZDlsuRaSJ6inFnU4DAPw-CMRMI8N_G_FJcIAe2LDUHZotyCX7B5MCM2hV2WnMo67P6epnmr_FTqkY-_Ld1eVbJ2uw5CqmXALWhwTSCpi3WNlT9w7GhP1ioXjvyI4SfFS8JZ3zRg&q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4QtKgLegQIFRAB
+              - generic [ref=e93]: 视频
+          - listitem [ref=e94]:
+            - link "新闻" [ref=e95] [cursor=pointer]:
+              - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&tbm=nws&source=lnms&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lQrIS1sy0-mCikVLMvyllSZDlsuRaSJ6inFnU4DAPw-CMRMI8N_G_FJcIAe2LDUHZotyCX7B5MCM2hV2WnMo67P6epnmr_FTqkY-_Ld1eVbJ2uw5CqmXALWhwTSCpi3WNlT9w7GhP1ioXjvyI4SfFS8JZ3zRg&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q0pQJegQIFBAB
+              - generic [ref=e97]: 新闻
+          - listitem [ref=e98]:
+            - link "图片" [ref=e99] [cursor=pointer]:
+              - /url: /search?sca_esv=915d55120818ba1d&udm=2&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lQrIS1sy0-mCikVLMvyllSZDlsuRaSJ6inFnU4DAPw-CMRMI8N_G_FJcIAe2LDUHZotyCX7B5MCM2hV2WnMo67P6epnmr_FTqkY-_Ld1eVbJ2uw5CqmXALWhwTSCpi3WNlT9w7GhP1ioXjvyI4SfFS8JZ3zRg&q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4QtKgLegQIERAB
+              - generic [ref=e101]: 图片
+          - listitem [ref=e102]:
+            - link "短视频" [ref=e103] [cursor=pointer]:
+              - /url: /search?sca_esv=915d55120818ba1d&udm=39&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lQrIS1sy0-mCikVLMvyllSZDlsuRaSJ6inFnU4DAPw-CMRMI8N_G_FJcIAe2LDUHZotyCX7B5MCM2hV2WnMo67P6epnmr_FTqkY-_Ld1eVbJ2uw5CqmXALWhwTSCpi3WNlT9w7GhP1ioXjvyI4SfFS8JZ3zRg&q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Qs6gLegQIExAB
+              - generic [ref=e105]: 短视频
+          - listitem [ref=e106]:
+            - link "购物" [ref=e107] [cursor=pointer]:
+              - /url: /search?sca_esv=915d55120818ba1d&udm=28&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lQrIS1sy0-mCikVLMvyllSZDlsuRaSJ6inFnU4DAPw-CMRMI8N_G_FJcIAe2LDUHZotyCX7B5MCM2hV2WnMo67P6epnmr_FTqkY-_Ld1eVbJ2uw5CqmXALWhwTSCpi3WNlT9w7GhP1ioXjvyI4SfFS8JZ3zRg&q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&ved=1t:220175&ictx=111
+              - generic [ref=e109]: 购物
+          - listitem [ref=e110]:
+            - button "更多过滤条件" [ref=e111] [cursor=pointer]:
+              - generic "更多过滤条件" [ref=e112]:
+                - generic [ref=e113]:
+                  - generic [ref=e114]: 更多
+                  - img [ref=e116]
+        - button "工具" [ref=e119] [cursor=pointer]:
+          - generic [ref=e121]:
+            - generic [ref=e122]: 工具
+            - img [ref=e124]
+    - heading "搜索结果" [level=1] [ref=e126]
+    - main [ref=e132]:
+      - generic [ref=e136]:
+        - generic [ref=e139]:
+          - heading "网页搜索结果" [level=2] [ref=e140]
+          - generic [ref=e141]:
+            - generic [ref=e144]:
+              - link "AI日报- 每天三分钟关注AI行业趋势_AIBase AIBase https://news.aibase.com › daily" [ref=e146] [cursor=pointer]:
+                - /url: https://news.aibase.com/zh/daily
+                - heading "AI日报- 每天三分钟关注AI行业趋势_AIBase" [level=3] [ref=e147]
+                - generic [ref=e153]:
+                  - generic [ref=e155]: AIBase
+                  - generic [ref=e157]: https://news.aibase.com › daily
+              - button "关于这条结果的详细信息" [ref=e160] [cursor=pointer]:
+                - img [ref=e163]
+            - generic [ref=e166]:
+              - generic [ref=e167]:
+                - generic [ref=e168]: 7小时前
+                - text: —
+              - generic [ref=e169]:
+                - emphasis [ref=e170]: AI
+                - text: 日报：可灵
+                - emphasis [ref=e171]: AI
+                - text: 将完成30亿美元融资；支付宝
+                - emphasis [ref=e172]: AI
+                - text: 生活助理“阿宝”正式公测；Kimi K3 或于本月发布. 欢迎来到【
+                - emphasis [ref=e173]: AI
+                - text: 日报】栏目!这里是你每天探索人工智能世界的指南，每天我们为你 ...
+            - generic [ref=e175]:
+              - text: 缺少字词： 今日 ‎| 必须包含：
+              - link "今日" [ref=e176] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=%22%E4%BB%8A%E6%97%A5%22+AI%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q5t4CegQIIhAB
+        - generic [ref=e180]:
+          - generic [ref=e183]:
+            - link "AI 人工智慧 TechNews 科技新報 https://technews.tw › category › ai" [ref=e185] [cursor=pointer]:
+              - /url: https://technews.tw/category/ai/
+              - heading "AI 人工智慧" [level=3] [ref=e186]
+              - generic [ref=e192]:
+                - generic [ref=e194]: TechNews 科技新報
+                - generic [ref=e196]: https://technews.tw › category › ai
+            - generic [ref=e197]:
+              - generic [ref=e198]: ·
+              - link "转为简体网页" [ref=e199] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://technews.tw/category/ai/&hl=zh-CN&sl=zh-TW&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e202] [cursor=pointer]:
+              - img [ref=e205]
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]: 1小时前
+              - text: —
+            - generic [ref=e211]:
+              - text: AI 人工智慧 ·
+              - emphasis [ref=e212]: SK 海力士砸1,100 兆韓圜布局韓國
+              - text: ！ · 阿里巴巴傳禁Claude，員工7/10 前須解除安裝Anthropic 產品 · 韓國砸37 兆推半導體三大超級計畫！ · SK 崔泰源離婚案天價贍養 ...
+        - generic [ref=e216]:
+          - generic [ref=e219]:
+            - link "2026.07.03 全球AI 新闻日报| AITNT AI TNT https://m.aitntnews.com › ainews › zh-CN" [ref=e221] [cursor=pointer]:
+              - /url: https://m.aitntnews.com/ainews/zh-CN
+              - heading "2026.07.03 全球AI 新闻日报| AITNT" [level=3] [ref=e222]
+              - generic [ref=e228]:
+                - generic [ref=e230]: AI TNT
+                - generic [ref=e232]: https://m.aitntnews.com › ainews › zh-CN
+            - button "关于这条结果的详细信息" [ref=e235] [cursor=pointer]:
+              - img [ref=e238]
+          - generic [ref=e241]:
+            - generic [ref=e242]: 16小时前 —
+            - generic [ref=e243]:
+              - text: Meta CEO扎克伯格7月2日内部承认，
+              - emphasis [ref=e244]: AI
+              - text: 智能体研发过去至少四个月未如预期提速，押注的新组织架构尚未见效。今年5月Meta裁员约8000人并将7000人调岗至
+              - emphasis [ref=e245]: AI
+              - text: 团队，但效果不佳。同期， ...
+        - generic [ref=e249]:
+          - generic [ref=e251]:
+            - heading "视频" [level=2] [ref=e252]
+            - button "关于这条结果的详细信息" [ref=e253] [cursor=pointer]:
+              - img [ref=e256]
+          - generic [ref=e259]:
+            - generic [ref=e266]:
+              - generic [ref=e267]:
+                - link "新聞今日談｜高市早苗訪印想翻身？攜百家企業奔印度、喊建AI ... YouTube 鳳凰衛視PhoenixTV Official 14小时前" [ref=e269] [cursor=pointer]:
+                  - /url: https://www.youtube.com/watch?v=X3BKH5aI_Co
+                  - heading "新聞今日談｜高市早苗訪印想翻身？攜百家企業奔印度、喊建AI ... YouTube 鳳凰衛視PhoenixTV Official 14小时前" [level=3] [ref=e270]:
+                    - generic [ref=e273]: 新聞今日談｜高市早苗訪印想翻身？攜百家企業奔印度、喊建AI ...
+                    - generic [ref=e275]:
+                      - generic [ref=e276]:
+                        - text: YouTube
+                        - generic [ref=e277]: · 鳳凰衛視PhoenixTV Official
+                      - generic [ref=e278]: 14小时前
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - text: YouTube
+                          - generic: · 鳳凰衛視PhoenixTV Official
+                    - button "关于这条结果的详细信息" [ref=e279] [cursor=pointer]:
+                      - img [ref=e282]
+              - button "新聞今日談｜高市早苗訪印想翻身？攜百家企業奔印度、喊建AI ...，由鳳凰衛視PhoenixTV Official上传到YouTube上. 在 Google 上播放. 25:16" [ref=e284] [cursor=pointer]:
+                - generic [ref=e285]:
+                  - img [ref=e291]
+                  - generic [ref=e294]:
+                    - generic [ref=e295]: 25:16
+                    - img [ref=e298]
+            - generic [ref=e304]:
+              - generic [ref=e305]:
+                - link "[新闻直播间]全球首个地层学AI大模型发布地球46亿年演化历史 ... CCTV 21小时前" [ref=e307] [cursor=pointer]:
+                  - /url: https://tv.cctv.com/2026/07/03/VIDEi06o8lRY0VtCviMe6fhE260703.shtml
+                  - heading "[新闻直播间]全球首个地层学AI大模型发布地球46亿年演化历史 ... CCTV 21小时前" [level=3] [ref=e308]:
+                    - generic [ref=e311]: "[新闻直播间]全球首个地层学AI大模型发布地球46亿年演化历史 ..."
+                    - generic [ref=e313]:
+                      - generic [ref=e314]: CCTV
+                      - generic [ref=e315]: 21小时前
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: CCTV
+                    - button "关于这条结果的详细信息" [ref=e316] [cursor=pointer]:
+                      - img [ref=e319]
+              - link "CCTV上的视频《[新闻直播间]全球首个地层学AI大模型发布地球46亿年演化历史 ...》. 在CCTV上播放." [ref=e321] [cursor=pointer]:
+                - /url: https://tv.cctv.com/2026/07/03/VIDEi06o8lRY0VtCviMe6fhE260703.shtml
+                - img [ref=e325]
+            - generic [ref=e332]:
+              - generic [ref=e333]:
+                - link "[新闻直播间]AI赋能传统梨园数字化解锁戏曲新潮玩法 CCTV 19小时前" [ref=e335] [cursor=pointer]:
+                  - /url: https://tv.cctv.com/2026/07/03/VIDEbRqrLp3Btzxy14o6oyIv260703.shtml
+                  - heading "[新闻直播间]AI赋能传统梨园数字化解锁戏曲新潮玩法 CCTV 19小时前" [level=3] [ref=e336]:
+                    - generic [ref=e339]: "[新闻直播间]AI赋能传统梨园数字化解锁戏曲新潮玩法"
+                    - generic [ref=e341]:
+                      - generic [ref=e342]: CCTV
+                      - generic [ref=e343]: 19小时前
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: CCTV
+                    - button "关于这条结果的详细信息" [ref=e344] [cursor=pointer]:
+                      - img [ref=e347]
+              - link "CCTV上的视频《[新闻直播间]AI赋能传统梨园数字化解锁戏曲新潮玩法》. 在CCTV上播放." [ref=e349] [cursor=pointer]:
+                - /url: https://tv.cctv.com/2026/07/03/VIDEbRqrLp3Btzxy14o6oyIv260703.shtml
+                - img [ref=e353]
+          - link "查看所有视频" [ref=e358] [cursor=pointer]:
+            - /url: /search?sca_esv=915d55120818ba1d&udm=7&q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8ccDKAJ6BAgZEAQ
+            - separator [ref=e359]
+            - generic [ref=e360]:
+              - generic [ref=e361]: 查看全部
+              - img [ref=e363]
+        - generic [ref=e367]:
+          - heading "网页搜索结果" [level=2] [ref=e368]
+          - generic [ref=e369]:
+            - generic [ref=e372]:
+              - link "新浪AI热点小时报丨2026年07月04日07时 手机新浪网 https://k.sina.com.cn › ..." [ref=e374] [cursor=pointer]:
+                - /url: https://k.sina.com.cn/article_7857201856_1d45362c001907rwoy.html?from=digit
+                - heading "新浪AI热点小时报丨2026年07月04日07时" [level=3] [ref=e375]
+                - generic [ref=e381]:
+                  - generic [ref=e383]: 手机新浪网
+                  - generic [ref=e385]: https://k.sina.com.cn › ...
+              - button "关于这条结果的详细信息" [ref=e388] [cursor=pointer]:
+                - img [ref=e391]
+            - generic [ref=e394]:
+              - generic [ref=e395]:
+                - generic [ref=e396]: 2小时前
+                - text: —
+              - generic [ref=e397]:
+                - text: 每日
+                - emphasis [ref=e398]: 新闻
+                - text: 摘录 · 1、首届
+                - emphasis [ref=e399]: AI
+                - text: 世界杯，什么变了？ · 2、产业出题，科技答题！ · 3、马斯克泼冷水！ · 4、
+                - emphasis [ref=e400]: AI
+                - text: 全球“追虾”激活百年数据，一只“龙虾”拼出南极磷虾地图 · 5、Deepseek调价居然和 ...
+        - generic [ref=e404]:
+          - generic [ref=e407]:
+            - link "综合日报- AI日报、今日热点日报与新闻热榜解读 糖果梦热榜 https://tgmeng.com › 日报" [ref=e409] [cursor=pointer]:
+              - /url: https://tgmeng.com/daily/
+              - heading "综合日报- AI日报、今日热点日报与新闻热榜解读" [level=3] [ref=e410]
+              - generic [ref=e416]:
+                - generic [ref=e418]: 糖果梦热榜
+                - generic [ref=e420]: https://tgmeng.com › 日报
+            - button "关于这条结果的详细信息" [ref=e423] [cursor=pointer]:
+              - img [ref=e426]
+          - generic [ref=e429]:
+            - generic [ref=e430]: 21小时前 —
+            - generic [ref=e431]:
+              - text: 综合日报 ·
+              - emphasis [ref=e432]: AI算力叙事重构全球市场剧烈波动世界杯赛程升温
+              - text: · 世界杯冷门频发AI产业竞速国内政策落地 · 世界杯爆冷与AI产业落地提速共振A股科技主线领涨上半年收官 · AI商业化 ...
+        - generic [ref=e436]:
+          - generic [ref=e439]:
+            - link "中国发布全球首个地层学AI大模型给地球建“共享数据库” 中国网 http://www.china.com.cn › txt › content_118581553" [ref=e441] [cursor=pointer]:
+              - /url: http://www.china.com.cn/txt/2026-07/03/content_118581553.shtml
+              - heading "中国发布全球首个地层学AI大模型给地球建“共享数据库”" [level=3] [ref=e442]
+              - generic [ref=e448]:
+                - generic [ref=e450]: 中国网
+                - generic [ref=e452]: http://www.china.com.cn › txt › content_118581553
+            - button "关于这条结果的详细信息" [ref=e455] [cursor=pointer]:
+              - img [ref=e458]
+          - generic [ref=e461]:
+            - generic [ref=e462]: 18小时前 —
+            - generic [ref=e463]:
+              - text: 7月3日，记者从正在苏州举行的第五届国际地层学大会上获悉，中国科学家面向全球发布了首个地层学
+              - emphasis [ref=e464]: AI
+              - text: 大模型及智能全球地层剖面对比系统等新工具。这意味着，地球46亿年的 ...
+        - generic [ref=e468]:
+          - generic [ref=e471]:
+            - link "今日AI 新聞｜2026.07.03 AI 發展再加速，今天有8 ... Instagram · kushiro_iot 被赞过 1 次" [ref=e473] [cursor=pointer]:
+              - /url: https://www.instagram.com/p/DaUBwwOxZMH/
+              - heading "今日AI 新聞｜2026.07.03 AI 發展再加速，今天有8 ..." [level=3] [ref=e474]
+              - generic [ref=e480]:
+                - generic [ref=e482]: Instagram · kushiro_iot
+                - generic [ref=e484]: 被赞过 1 次
+            - button "关于这条结果的详细信息" [ref=e487] [cursor=pointer]:
+              - img [ref=e490]
+          - generic [ref=e494]:
+            - emphasis [ref=e495]: AI 資本熱潮持續 2026 上半年AI 融資規模創歷史新高
+            - text: ，但市場也開始關注泡沫風險。 下週AI 大事連發聯合國AI 峰會、SpaceX 納入Nasdaq-100、白宮AI 新框架，都將影響全球 ...
+        - generic [ref=e499]:
+          - generic [ref=e502]:
+            - link "理財投資- 創意無限生成AI終結知識產權時代 信報網站 https://www.hkej.com › article › 創意..." [ref=e504] [cursor=pointer]:
+              - /url: https://www.hkej.com/dailynews/investment/article/4449395/%E5%89%B5%E6%84%8F%E7%84%A1%E9%99%90%E7%94%9F%E6%88%90+AI%E7%B5%82%E7%B5%90%E7%9F%A5%E8%AD%98%E7%94%A2%E6%AC%8A%E6%99%82%E4%BB%A3
+              - heading "理財投資- 創意無限生成AI終結知識產權時代" [level=3] [ref=e505]
+              - generic [ref=e511]:
+                - generic [ref=e513]: 信報網站
+                - generic [ref=e515]: https://www.hkej.com › article › 創意...
+            - generic [ref=e516]:
+              - generic [ref=e517]: ·
+              - link "转为简体网页" [ref=e518] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://www.hkej.com/dailynews/investment/article/4449395/%25E5%2589%25B5%25E6%2584%258F%25E7%2584%25A1%25E9%2599%2590%25E7%2594%259F%25E6%2588%2590%2BAI%25E7%25B5%2582%25E7%25B5%2590%25E7%259F%25A5%25E8%25AD%2598%25E7%2594%25A2%25E6%25AC%258A%25E6%2599%2582%25E4%25BB%25A3&hl=zh-CN&sl=zh-TW&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e521] [cursor=pointer]:
+              - img [ref=e524]
+          - generic [ref=e527]:
+            - generic [ref=e528]:
+              - generic [ref=e529]: 7小时前
+              - text: —
+            - generic [ref=e530]:
+              - text: 近年人工智能（
+              - emphasis [ref=e531]: AI
+              - text: ）發展速度遠超市場預期。從文字、圖片、影片到音樂創作，甚至產品設計，程式編碼等，
+              - emphasis [ref=e532]: AI
+              - text: 已經由輔助工具逐步演變成內容生產者。究竟
+              - emphasis [ref=e533]: AI
+              - text: 創作或
+              - emphasis [ref=e534]: AI
+              - text: 輔助創作的 ...
+        - generic [ref=e538]:
+          - generic [ref=e541]:
+            - link "今日最夯股／AI 應用暢旺、榮科轉虧為盈股價量增漲停 - 經濟日報 經濟日報 https://money.udn.com › money › story" [ref=e543] [cursor=pointer]:
+              - /url: https://money.udn.com/money/story/5607/9605728?from=edn_newestlist_cate_side
+              - heading "今日最夯股／AI 應用暢旺、榮科轉虧為盈股價量增漲停 - 經濟日報" [level=3] [ref=e544]
+              - generic [ref=e550]:
+                - generic [ref=e552]: 經濟日報
+                - generic [ref=e554]: https://money.udn.com › money › story
+            - generic [ref=e555]:
+              - generic [ref=e556]: ·
+              - link "转为简体网页" [ref=e557] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://money.udn.com/money/story/5607/9605728?from%3Dedn_newestlist_cate_side&hl=zh-CN&sl=zh-TW&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e560] [cursor=pointer]:
+              - img [ref=e563]
+          - generic [ref=e566]:
+            - generic [ref=e567]: 13小时前 —
+            - generic [ref=e568]:
+              - emphasis [ref=e569]: 今日
+              - text: 最夯股／
+              - emphasis [ref=e570]: AI
+              - text: 應用暢旺、榮科轉虧為盈股價量增漲停 · 猜你喜歡 · 7月3日盤前／
+              - emphasis [ref=e571]: AI
+              - text: 雜音不斷台股籌碼凌亂指數劇烈波動 ·
+              - emphasis [ref=e572]: AI
+              - text: 板材料進入缺貨與漲價循環這四檔賺「量」更要賺「價」.
+      - generic [ref=e574]:
+        - generic [ref=e579]:
+          - heading "用户还搜索了" [level=2] [ref=e581]
+          - generic [ref=e583]:
+            - generic [ref=e584]:
+              - link "人工智能ai新闻" [ref=e588] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BDai%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgmEAE
+                - generic [ref=e589]:
+                  - generic [ref=e594]: 人工智能ai新闻
+                  - img [ref=e598]
+              - link "Ai 科技 新闻" [ref=e603] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E7%A7%91%E6%8A%80+%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgtEAE
+                - generic [ref=e604]:
+                  - generic [ref=e609]: Ai 科技 新闻
+                  - img [ref=e613]
+              - link "Ai 资讯 网站" [ref=e618] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E8%B5%84%E8%AE%AF+%E7%BD%91%E7%AB%99&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgsEAE
+                - generic [ref=e619]:
+                  - generic [ref=e624]: Ai 资讯 网站
+                  - img [ref=e628]
+              - link "Ai 最新 进展" [ref=e633] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E6%9C%80%E6%96%B0+%E8%BF%9B%E5%B1%95&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgpEAE
+                - generic [ref=e634]:
+                  - generic [ref=e639]: Ai 最新 进展
+                  - img [ref=e643]
+            - generic [ref=e645]:
+              - link "Ai 行业 新闻" [ref=e649] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E8%A1%8C%E4%B8%9A+%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgqEAE
+                - generic [ref=e650]:
+                  - generic [ref=e655]: Ai 行业 新闻
+                  - img [ref=e659]
+              - link "Ai 最新 技术" [ref=e664] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E6%9C%80%E6%96%B0+%E6%8A%80%E6%9C%AF&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgrEAE
+                - generic [ref=e665]:
+                  - generic [ref=e670]: Ai 最新 技术
+                  - img [ref=e674]
+              - link "Ai 前沿 新闻" [ref=e679] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E5%89%8D%E6%B2%BF+%E6%96%B0%E9%97%BB&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgoEAE
+                - generic [ref=e680]:
+                  - generic [ref=e685]: Ai 前沿 新闻
+                  - img [ref=e689]
+              - link "Ai 最新 新聞" [ref=e694] [cursor=pointer]:
+                - /url: /search?sca_esv=915d55120818ba1d&tbs=qdr:d&q=Ai+%E6%9C%80%E6%96%B0+%E6%96%B0%E8%81%9E&sa=X&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q1QJ6BAgnEAE
+                - generic [ref=e695]:
+                  - generic [ref=e700]: Ai 最新 新聞
+                  - img [ref=e704]
+        - navigation [ref=e706]:
+          - heading "网页导航" [level=1] [ref=e707]
+          - text: "1"
+          - link "Page 2" [ref=e710] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=10&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAE
+            - text: "2"
+          - link "Page 3" [ref=e712] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=20&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAG
+            - text: "3"
+          - link "Page 4" [ref=e714] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=30&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAI
+            - text: "4"
+          - link "Page 5" [ref=e716] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=40&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAK
+            - text: "5"
+          - link "Page 6" [ref=e718] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=50&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAM
+            - text: "6"
+          - link "Page 7" [ref=e720] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=60&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAO
+            - text: "7"
+          - link "Page 8" [ref=e722] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=70&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAQ
+            - text: "8"
+          - link "Page 9" [ref=e724] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=80&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAS
+            - text: "9"
+          - link "Page 10" [ref=e726] [cursor=pointer]:
+            - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=90&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8tMDegQIJBAU
+            - text: "10"
+          - heading "下一页" [level=2] [ref=e728]:
+            - link "下一页" [ref=e729] [cursor=pointer]:
+              - /url: /search?q=%E4%BB%8A%E6%97%A5AI%E6%96%B0%E9%97%BB&sca_esv=915d55120818ba1d&tbs=qdr:d&ei=xF1Iaou2Kt7d2roPrKHV8Q0&start=10&sa=N&sstk=AU9db-AS1qMho9vuZ114W1md4NHLnNEzu9VclM9sMsVAZpSuRj9zgfCh1HxHUf5eRUxtiVm6IeadAV021cHxflLENYnL6KmvqZ8U8Q&ved=2ahUKEwiLqKrG67eVAxXerlYBHaxQNd4Q8NMDegQIJBAW
+              - generic [ref=e731]: 下一页
+      - navigation
+    - contentinfo [ref=e732]:
+      - heading "页脚链接" [level=1] [ref=e733]
+      - generic [ref=e737]:
+        - generic [ref=e739]:
+          - text: 日本
+          - generic [ref=e741]:
+            - button "江东区 - 是根据您的 IP 地址推断出来的" [ref=e743] [cursor=pointer]:
+              - generic [ref=e744]: 江东区
+              - generic [ref=e746]:
+                - text: "-"
+                - generic [ref=e747]: 是根据您的 IP 地址推断出来的
+            - text: "-"
+            - button "更新位置信息" [ref=e749] [cursor=pointer]: 更新位置信息
+        - generic [ref=e752]:
+          - link "帮助" [ref=e753] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=zh-CN&fg=1
+          - link "发送反馈" [ref=e754] [cursor=pointer]:
+            - /url: "#"
+          - link "隐私权" [ref=e755] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=zh-CN&fg=1
+          - link "条款" [ref=e756] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=zh-CN&fg=1

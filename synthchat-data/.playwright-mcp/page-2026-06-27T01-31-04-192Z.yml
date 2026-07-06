@@ -1,0 +1,426 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - list [ref=e6]:
+        - listitem [ref=e7]:
+          - link "首页" [ref=e8] [cursor=pointer]:
+            - /url: //www.bilibili.com
+            - img [ref=e9]
+            - generic [ref=e11]: 首页
+        - listitem [ref=e12]:
+          - link "番剧" [ref=e13] [cursor=pointer]:
+            - /url: //www.bilibili.com/anime/
+        - listitem [ref=e14]:
+          - link "直播" [ref=e15] [cursor=pointer]:
+            - /url: //live.bilibili.com
+        - listitem [ref=e16]:
+          - link "游戏中心" [ref=e17] [cursor=pointer]:
+            - /url: //game.bilibili.com/platform
+        - listitem [ref=e18]:
+          - link "会员购" [ref=e19] [cursor=pointer]:
+            - /url: //show.bilibili.com/platform/home.html?msource=pc_web
+        - listitem [ref=e20]:
+          - link "漫画" [ref=e21] [cursor=pointer]:
+            - /url: //manga.bilibili.com?from=bill_top_mnav
+        - listitem [ref=e22]:
+          - link "赛事" [ref=e23] [cursor=pointer]:
+            - /url: //www.bilibili.com/match/home/
+        - listitem [ref=e24]:
+          - link "下载客户端" [ref=e25] [cursor=pointer]:
+            - /url: //app.bilibili.com
+            - img [ref=e26]
+            - generic [ref=e29]: 下载客户端
+      - generic [ref=e33]:
+        - textbox "危机合约" [ref=e35]
+        - img [ref=e37] [cursor=pointer]
+      - list [ref=e39]:
+        - listitem [ref=e40] [cursor=pointer]:
+          - listitem [ref=e41]:
+            - generic [ref=e43]: 登录
+        - listitem [ref=e44] [cursor=pointer]:
+          - listitem [ref=e46]:
+            - link [ref=e47]:
+              - /url: //account.bilibili.com/big
+              - img [ref=e48]
+        - listitem [ref=e52] [cursor=pointer]:
+          - img [ref=e54]
+        - listitem [ref=e57] [cursor=pointer]:
+          - img [ref=e59]
+        - listitem [ref=e65] [cursor=pointer]:
+          - img [ref=e67]
+        - listitem [ref=e70] [cursor=pointer]:
+          - img [ref=e72]
+        - listitem [ref=e74] [cursor=pointer]:
+          - img [ref=e76]
+        - listitem [ref=e80] [cursor=pointer]:
+          - listitem [ref=e81]:
+            - img [ref=e84]
+    - generic [ref=e87]:
+      - generic [ref=e89]:
+        - link "B站 b站" [ref=e90] [cursor=pointer]:
+          - /url: //www.bilibili.com
+          - img "B站 b站" [ref=e91]
+        - link "一键直达17周年庆全程回顾！" [ref=e92] [cursor=pointer]:
+          - /url: //www.bilibili.com/anniversary-17
+      - link [ref=e93] [cursor=pointer]:
+        - /url: //www.bilibili.com/anniversary-17
+    - generic [ref=e94]:
+      - generic [ref=e95]:
+        - link "动态" [ref=e96] [cursor=pointer]:
+          - /url: //t.bilibili.com
+          - img [ref=e98]
+          - generic [ref=e103]: 动态
+        - link "热门" [ref=e104] [cursor=pointer]:
+          - /url: //www.bilibili.com/v/popular/all
+          - img [ref=e106]
+          - generic [ref=e108]: 热门
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - link "番剧" [ref=e111] [cursor=pointer]:
+            - /url: //www.bilibili.com/anime/
+          - link "电影" [ref=e112] [cursor=pointer]:
+            - /url: //www.bilibili.com/movie/
+          - link "国创" [ref=e113] [cursor=pointer]:
+            - /url: //www.bilibili.com/guochuang/
+          - link "电视剧" [ref=e114] [cursor=pointer]:
+            - /url: //www.bilibili.com/tv/
+          - link "综艺" [ref=e115] [cursor=pointer]:
+            - /url: //www.bilibili.com/variety/
+          - link "纪录片" [ref=e116] [cursor=pointer]:
+            - /url: //www.bilibili.com/documentary/
+          - link "动画" [ref=e117] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/douga/
+          - link "游戏" [ref=e118] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/game/
+          - link "鬼畜" [ref=e119] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/kichiku/
+          - link "音乐" [ref=e120] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/music/
+          - link "舞蹈" [ref=e121] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/dance/
+          - link "影视" [ref=e122] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/cinephile/
+          - link "娱乐" [ref=e123] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/ent/
+          - link "知识" [ref=e124] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/knowledge/
+          - link "科技数码" [ref=e125] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/tech/
+          - link "资讯" [ref=e126] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/information/
+          - link "美食" [ref=e127] [cursor=pointer]:
+            - /url: //www.bilibili.com/c/food/
+          - generic [ref=e128]:
+            - text: 更多
+            - img [ref=e129]
+        - generic [ref=e132]:
+          - link "专栏" [ref=e133] [cursor=pointer]:
+            - /url: //www.bilibili.com/read/home/
+            - generic [ref=e134]: 专栏
+          - link "直播" [ref=e135] [cursor=pointer]:
+            - /url: //live.bilibili.com
+            - generic [ref=e136]: 直播
+          - link "活动" [ref=e137] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/era/reward-activity-list-page.html#/list
+            - generic [ref=e138]: 活动
+          - link "课堂" [ref=e139] [cursor=pointer]:
+            - /url: //www.bilibili.com/cheese/?csource=common_hp_channelclass_icon
+            - generic [ref=e140]: 课堂
+          - link "社区中心" [ref=e141] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/activity-5zJxM3spoS.html
+            - generic [ref=e142]: 社区中心
+          - link "新歌热榜" [ref=e143] [cursor=pointer]:
+            - /url: //music.bilibili.com/pc/music-center/
+            - generic [ref=e144]: 新歌热榜
+  - main [ref=e145]:
+    - generic [ref=e147]:
+      - generic [ref=e148]:
+        - generic [ref=e155]:
+          - generic [ref=e156]:
+            - link "看球点外卖，大牌更优惠" [ref=e160] [cursor=pointer]:
+              - /url: https://www.bilibili.com/blackboard/era/PYxQCDVfEdQix6Cf.html?spm_id_from=333.40138.0.0
+              - img "看球点外卖，大牌更优惠" [ref=e162]
+            - link "进 来 脸 红！表白当天共浴灵池？" [ref=e166] [cursor=pointer]:
+              - /url: https://www.bilibili.com/bangumi/play/ep4393051
+              - img "进 来 脸 红！表白当天共浴灵池？" [ref=e168]
+            - link "夯爆了！超能打的镇魂街IP动作手游！" [ref=e172] [cursor=pointer]:
+              - /url: //www.bilibili.com/video/BV1zx7K6hEAR?track_id=
+              - img "夯爆了！超能打的镇魂街IP动作手游！" [ref=e174]
+            - link "全新活动限时上线！" [ref=e178] [cursor=pointer]:
+              - /url: //cm.bilibili.com/cm/api/fees/pc/sync/v2?msg=a%7C4697%2Cb%7Cbilibili%2Cc%7C0%2Cd%7C1%2Ce%7CCAAQABiAwKeDzLn2ohAgACgAMCQ42SRCHzE3ODI1MjM4NjUyODBxMTBhODVhMTU4YTgxcTkzMDNIwNHOtfAzUgblmInlhbRaBua1meaxn2IG5Lit5Zu9aP%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwFw%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FAXiAgICAwCGAAQCIAfiXBZIBDDYwLjE2My41OC45M5oBAKABALIBING0UBhWBIDvgeRSUxffnVaODP5auhu%2BZS2fZap5wknVugGPBmh0dHBzOi8vZ2FtZS1kYXRhLWFwaS5iaWxpZ2FtZS5jb20vdjIvYXBpL2NsaWNrL3BjX2JpbGk%2FYWNjb3VudF9pZD0zNiZjYW1wYWlnbl9pZD1fX0NBTVBBSUdOSURfXyZ1bml0X2lkPV9fVU5JVElEX18mY3JlYXRpdmVfaWQ9MTE3MjU4Mjc1MTQyNDYwMjExMiZzdXBwbHlfY2FsbGJhY2s9cGJhZXMuRlViQ1N6NDF4WXI3S0pMZThxOXdlV0pUa1BFUW5VcmVISS1vMkd2aWxGMUM3aVYtS2dST1N6Y3BhSlE0UzVGTW9WTGYxRXdST3prU1g4SXFPdlBuY2clM0QlM0QmY2FsbGJhY2tfdXJsPWh0dHBzJTNhJTJmJTJmY20uYmlsaWJpbGkuY29tJTJmY29udiUyZmFwaSUyZmNvbnZlcnNpb24lMmZhZCUyZmNiJTJmdjElM2Z0cmFja19pZCUzZHBiYWVzLkZVYkNTejQxeFlyN0tKTGU4cTl3ZVdKVGtQRVFuVXJlSEktbzJHdmlsRjFDN2lWLUtnUk9TemNwYUpRNFM1Rk1vVkxmMUV3Uk96a1NYOElxT3ZQbmNnJTNEJTNEJm1pZD0wJmlwPTYwLjE2My41OC45MyZyZXF1ZXN0X2lkPTE3ODI1MjM4NjUyODBxMTBhODVhMTU4YTgxcTkzMDMmdHM9X19UU19fJnVhPU1vemlsbGElMkY1LjArJTI4V2luZG93cytOVCsxMC4wJTNCK1dpbjY0JTNCK3g2NCUyOStBcHBsZVdlYktpdCUyRjUzNy4zNislMjhLSFRNTCUyQytsaWtlK0dlY2tvJTI5K0Nocm9tZSUyRjE0OS4wLjAuMCtTYWZhcmklMkY1MzcuMzYmc2hvcnRfdHJhY2tpZD00MDY1NzllYzkxZjI1MTIwMDAxMGQwZDkwODhkOTA5NiZhZF9jaGFubmVsX2lkPTMmYWRfZj00ZjNlY2YwMDIxZTA0NTgxYTkwYzQ2NGM3ODg5OTVlYiZnYW1lX2lkPTE4MsIBANIBANgBjALgAQDoAQDwAQCAAgKIAgC4AgDAAgDQAgDYAgDqAgDwAt6%2BK%2FgCAIgDAJIDAKgDALADALgDAMIDAMgDn40G0gObAXsiMSI6IjExNzI1ODI3NTE0MjQ2MDIxMTIiLCIyIjoiMzYiLCIzIjoiMzYiLCI2IjoiMzZfMCIsIjEyIjoiNDY5NyIsIjEzIjoiNyIsIjE0IjoiMCIsIjE1IjoiMCIsIjE2IjoiN18wIiwiMTciOiI0Njk0IiwiMTkiOiI4NDk4NCIsIjI1IjoiMTI5MCIsIjI2IjoiMTI5MSJ94AMA6AMA8AMA%2BgMFb3RoZXKCBAludWxsOm51bGyYBACgBACqBAQIABAEsAQA4gSQAjU2LnsicHNJZCI6MTM1NDU0LCJ2MiI6IkE5cThOY2Jta2p3eVU2Z2dNeVJyRU00ZnFtbXZRS0Z6LUlwYks5NWV6ZnFHNTFtUk9nYlYtLTd5QWM3UkdWdERTSC1sdU5Fcy13ZnMwN1Z4UnJOMDFicl9UM2J0YTZyaGd5amJSVUozM3l1ZzJ3RE0zVVZPV2Z4YVRFYkZUUmwwTFBQSmIzbnRFakFsYmdmNjd3dWdMRFFuVS1HX0lPSk5aQ3FRZVo3ekluUjQ3VWNtbXhXeDBiSklkZyJ9OzYzLnsicHNJZCI6MTM1Mzg2LCJ2MiI6IkFJREEifTs3MC57InBzSWQiOjExNDc4MCwidjIiOiJBQSJ9%2BgQCe32QBYAEkAWABpAFgQaQBYEIkAWCBpAFBJAFhQKQBY4CkAWPBpAFmAKQBRmQBZoCkAWdApAFnwKQBSaQBaYGkAWrBJAFrwSQBbAEkAWxBJAFsgSQBTOQBbMCkAW0BJAFtwKQBbcIkAW4BJAFugaQBTuQBUOQBcMCkAVIkAXICJAFzAKQBc4CkAVTkAXTApAF1gKQBdcCkAXYApAF2gKQBdwCkAXfApAFYpAF5QSQBe0EkAXwApAF%2BwKQBf8CkAWEAZAFhgGQBYYDkAWIAZAFiQGQBY0DkAWSA5AFkweQBZQDkAWYA5AFmBGQBZsDkAWcA5AFoQeQBaIDkAWkA5AFpwOQBawBkAWwA5AFsQGQBbEDkAWzAZAFtAGQBcADkAXBA5AFxgWQBcgBkAXNA5AF0AGQBdADkAXTA5AF1wOQBdgBkAXfBZAF5QOQBegBkAXoA5AF6gOQBesDkAXxAZAF8gOQBfUDkAX3A5AF%2BAOQBfoDkAX7A5AF%2FwOgBQDIBQfSBQDgBQM%3D%2Cf%7Cclick_sync_3%2Cg%7C1%2Ch%7C3%2Ci%7C%2Cj%7C%2Ck%7C1782523863917%2Cl%7C4694%2Cm%7C1782523863595%2Cn%7C1%2Co%7C0%2Cp%7Cad_card&ts=1782523863917
+              - img "全新活动限时上线！" [ref=e180]
+            - link "既已跃海而出，您又如何置身之外呢？" [ref=e184] [cursor=pointer]:
+              - /url: https://www.bilibili.com/bangumi/play/ep3409888
+              - img "既已跃海而出，您又如何置身之外呢？" [ref=e186]
+            - link "快用康师傅冰红茶爆改万物" [ref=e190] [cursor=pointer]:
+              - /url: https://www.bilibili.com/blackboard/era/KKVL1onCtTSTyFMB.html
+              - img "快用康师傅冰红茶爆改万物" [ref=e192]
+            - link "收官之作，小谢尔顿童年落幕！" [ref=e196] [cursor=pointer]:
+              - /url: https://www.bilibili.com/bangumi/play/ep4427774
+              - img "收官之作，小谢尔顿童年落幕！" [ref=e198]
+            - link "三角洲行动S10新赛季AZ3攻略站" [ref=e202] [cursor=pointer]:
+              - /url: https://www.bilibili.com/blackboard/era/QmNccxZ4WBzXT4Xz.html
+              - img "三角洲行动S10新赛季AZ3攻略站" [ref=e204]
+            - link "投稿高考相关内容，赢现金流量！" [ref=e208] [cursor=pointer]:
+              - /url: https://www.bilibili.com/blackboard/era/bkW0rNd9znQuejB0.html
+              - img "投稿高考相关内容，赢现金流量！" [ref=e210]
+            - link "看球点外卖，大牌更优惠" [ref=e214] [cursor=pointer]:
+              - /url: https://www.bilibili.com/blackboard/era/PYxQCDVfEdQix6Cf.html?spm_id_from=333.40138.0.0
+              - img "看球点外卖，大牌更优惠" [ref=e216]
+            - link "进 来 脸 红！表白当天共浴灵池？" [ref=e220] [cursor=pointer]:
+              - /url: https://www.bilibili.com/bangumi/play/ep4393051
+              - img "进 来 脸 红！表白当天共浴灵池？" [ref=e222]
+          - generic:
+            - link "进 来 脸 红！表白当天共浴灵池？" [ref=e225] [cursor=pointer]:
+              - /url: https://www.bilibili.com/bangumi/play/ep4393051
+              - generic [ref=e226]: 进 来 脸 红！表白当天共浴灵池？
+            - list [ref=e228]:
+              - listitem [ref=e229] [cursor=pointer]
+              - listitem [ref=e232] [cursor=pointer]
+              - listitem [ref=e235] [cursor=pointer]
+              - listitem [ref=e238] [cursor=pointer]
+              - listitem [ref=e241] [cursor=pointer]
+              - listitem [ref=e244] [cursor=pointer]
+              - listitem [ref=e247] [cursor=pointer]
+              - listitem [ref=e250] [cursor=pointer]
+              - listitem [ref=e253] [cursor=pointer]
+          - generic [ref=e256]:
+            - button [ref=e257]:
+              - img [ref=e258]
+            - button [ref=e260]:
+              - img [ref=e261]
+        - generic [ref=e266]:
+          - link "功率只有100瓦：人类到底有多节能？ 49.2万 503 03:50" [ref=e267] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV15Ljd6tEeK
+            - generic [ref=e268]:
+              - img "功率只有100瓦：人类到底有多节能？" [ref=e271]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 49.2万
+                    - generic:
+                      - img
+                      - generic: "503"
+                  - generic: 03:50
+          - generic [ref=e273]:
+            - heading "功率只有100瓦：人类到底有多节能？" [level=3] [ref=e274]:
+              - link "功率只有100瓦：人类到底有多节能？" [ref=e275] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV15Ljd6tEeK
+            - link "上将王司徒 · 06-25" [ref=e277] [cursor=pointer]:
+              - /url: //space.bilibili.com/1271916102
+              - img [ref=e278]
+              - generic "上将王司徒" [ref=e282]
+              - generic [ref=e283]: · 06-25
+        - generic [ref=e287]:
+          - link "众所周知，永远不要质疑老爹的话。除非是面具篇 21.8万 231 17:53" [ref=e288] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV1Dm7b6yEVD
+            - generic [ref=e289]:
+              - img "众所周知，永远不要质疑老爹的话。除非是面具篇" [ref=e292]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 21.8万
+                    - generic:
+                      - img
+                      - generic: "231"
+                  - generic: 17:53
+          - generic [ref=e294]:
+            - heading "众所周知，永远不要质疑老爹的话。除非是面具篇" [level=3] [ref=e295]:
+              - link "众所周知，永远不要质疑老爹的话。除非是面具篇" [ref=e296] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV1Dm7b6yEVD
+            - link "勇者时昭 · 22小时前" [ref=e298] [cursor=pointer]:
+              - /url: //space.bilibili.com/3493136850488160
+              - img [ref=e299]
+              - generic "勇者时昭" [ref=e303]
+              - generic [ref=e304]: · 22小时前
+        - generic [ref=e308]:
+          - link "- 每个人都有他们自己的故事。 36.8万 697 11:51" [ref=e309] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV1tx7x6AEKX
+            - generic [ref=e310]:
+              - img "- 每个人都有他们自己的故事。" [ref=e313]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 36.8万
+                    - generic:
+                      - img
+                      - generic: "697"
+                  - generic: 11:51
+          - generic [ref=e315]:
+            - heading "- 每个人都有他们自己的故事。" [level=3] [ref=e316]:
+              - link "- 每个人都有他们自己的故事。" [ref=e317] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV1tx7x6AEKX
+            - link "内向的手机店老板 · 06-25" [ref=e319] [cursor=pointer]:
+              - /url: //space.bilibili.com/3707016581221211
+              - img [ref=e320]
+              - generic "内向的手机店老板" [ref=e324]
+              - generic [ref=e325]: · 06-25
+        - generic [ref=e329]:
+          - link "失明症+极限模式+无存档，通关凋灵风暴！！！ 12.2万 977 38:25" [ref=e330] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV1sg7V6RE8H
+            - generic [ref=e331]:
+              - img "失明症+极限模式+无存档，通关凋灵风暴！！！" [ref=e334]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 12.2万
+                    - generic:
+                      - img
+                      - generic: "977"
+                  - generic: 38:25
+          - generic [ref=e336]:
+            - heading "失明症+极限模式+无存档，通关凋灵风暴！！！" [level=3] [ref=e337]:
+              - link "失明症+极限模式+无存档，通关凋灵风暴！！！" [ref=e338] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV1sg7V6RE8H
+            - link "Mythend · 20小时前" [ref=e340] [cursor=pointer]:
+              - /url: //space.bilibili.com/298276958
+              - img [ref=e341]
+              - generic "Mythend" [ref=e345]
+              - generic [ref=e346]: · 20小时前
+        - generic [ref=e350]:
+          - link "【涤墨作战】单人镀层620分 7.1万 95 04:26" [ref=e351] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV1q37j6DEAa
+            - generic [ref=e352]:
+              - img "【涤墨作战】单人镀层620分" [ref=e355]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 7.1万
+                    - generic:
+                      - img
+                      - generic: "95"
+                  - generic: 04:26
+          - generic [ref=e357]:
+            - heading "【涤墨作战】单人镀层620分" [level=3] [ref=e358]:
+              - link "【涤墨作战】单人镀层620分" [ref=e359] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV1q37j6DEAa
+            - link "星海攻略组 · 11小时前" [ref=e361] [cursor=pointer]:
+              - /url: //space.bilibili.com/32206964
+              - img [ref=e362]
+              - generic "星海攻略组" [ref=e366]
+              - generic [ref=e367]: · 11小时前
+        - generic [ref=e371]:
+          - link "末日高架桥，我们被困了100天！ 170.9万 4146 24:23" [ref=e372] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV1rZjr6aErt
+            - generic [ref=e373]:
+              - img "末日高架桥，我们被困了100天！" [ref=e376]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 170.9万
+                    - generic:
+                      - img
+                      - generic: "4146"
+                  - generic: 24:23
+          - generic [ref=e378]:
+            - heading "末日高架桥，我们被困了100天！" [level=3] [ref=e379]:
+              - link "末日高架桥，我们被困了100天！" [ref=e380] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV1rZjr6aErt
+            - link "马里奥红叔 · 06-20" [ref=e382] [cursor=pointer]:
+              - /url: //space.bilibili.com/680447
+              - img [ref=e383]
+              - generic "马里奥红叔" [ref=e387]
+              - generic [ref=e388]: · 06-20
+        - generic [ref=e392]:
+          - link "生活小妙招 184.7万 4 02:23" [ref=e393] [cursor=pointer]:
+            - /url: https://www.bilibili.com/video/BV16r7A6XEAQ
+            - generic [ref=e394]:
+              - img "生活小妙招" [ref=e397]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - generic: 184.7万
+                    - generic:
+                      - img
+                      - generic: "4"
+                  - generic: 02:23
+          - generic [ref=e399]:
+            - heading "生活小妙招" [level=3] [ref=e400]:
+              - link "生活小妙招" [ref=e401] [cursor=pointer]:
+                - /url: https://www.bilibili.com/video/BV16r7A6XEAQ
+            - link "小福猪动漫 · 06-22" [ref=e403] [cursor=pointer]:
+              - /url: //space.bilibili.com/3707007286642999
+              - img [ref=e404]
+              - generic "小福猪动漫" [ref=e408]
+              - generic [ref=e409]: · 06-22
+        - generic [ref=e419]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e420]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e421]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e432]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e433]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e434]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e444]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e445]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+        - generic [ref=e446]:
+          - generic:
+            - generic:
+              - generic:
+                - paragraph
+                - paragraph
+                - paragraph
+      - button "换一换" [ref=e457] [cursor=pointer]:
+        - img [ref=e458]
+        - generic [ref=e462]: 换一换
+  - img [ref=e467] [cursor=pointer]

@@ -1,0 +1,17 @@
+{
+  "id": "conv-b639644654364cdcaeff9767ec77aa55",
+  "title": "Subagent 1 · researcher",
+  "updatedAt": "2026-07-04T10:11:57.924650200+00:00",
+  "lastMessage": "已达到本轮 agent 迭代预算（8/8），当前没有得到最终回答。\n\nIteration 1 tool browser_navigate result:",
+  "personaId": "default",
+  "wechatAccountId": null,
+  "agentId": "agent-1782466838742",
+  "createdAt": "2026-07-01T00:04:33.819320900+00:00",
+  "metadata": {
+    "internal": true,
+    "internalSubagent": true,
+    "parentRunId": "run-153ef9e396124b238626cd830e3d9751",
+    "subagentIndex": 1,
+    "transport": "synthchat"
+  }
+}

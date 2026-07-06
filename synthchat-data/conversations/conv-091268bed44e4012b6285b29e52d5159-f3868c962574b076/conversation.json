@@ -1,0 +1,17 @@
+{
+  "id": "conv-091268bed44e4012b6285b29e52d5159",
+  "title": "Subagent 1 · subagent",
+  "updatedAt": "2026-07-04T10:11:57.924650200+00:00",
+  "lastMessage": "{\"action\":\"final\",\"content\":\"# AI绘画工具使用合规指南：你的专属创意护航手册\\n\\n你好呀，小孙！作为你的私人助理，我帮你整理了一份超详细的AI绘画工具使用合规指南。最近看到不少小伙伴因为不了解规则而遇到麻烦",
+  "personaId": "default",
+  "wechatAccountId": null,
+  "agentId": "agent-1782466838742",
+  "createdAt": "2026-07-03T06:19:08.895776600+00:00",
+  "metadata": {
+    "internal": true,
+    "internalSubagent": true,
+    "parentRunId": "run-e0834a5a82a948d881c9ae643f40af8d",
+    "subagentIndex": 1,
+    "transport": "synthchat"
+  }
+}

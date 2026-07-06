@@ -1,0 +1,479 @@
+- generic [active] [ref=f2e1]:
+  - generic:
+    - generic:
+      - link "跳到主要内容" [ref=f2e2] [cursor=pointer]
+      - link "无障碍功能帮助" [ref=f2e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=zh-CN
+  - generic [ref=f2e8]:
+    - search [ref=f2e9]:
+      - generic [ref=f2e12]:
+        - link "前往 Google 首页" [ref=f2e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=zh-CN&ictx=0&sa=X&ved=0ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQpYkNCAw
+          - img "前往 Google 首页" [ref=f2e14]
+        - generic [ref=f2e15]:
+          - combobox "搜索" [ref=f2e18]: today AI news 2024-08-20 today AI news 2024-08-20
+          - generic [ref=f2e19]:
+            - button "清除" [ref=f2e21] [cursor=pointer]:
+              - img [ref=f2e23]
+            - generic [ref=f2e26]:
+              - button "按语音搜索" [ref=f2e27] [cursor=pointer]:
+                - img [ref=f2e28]
+              - button "按图搜索" [ref=f2e30] [cursor=pointer]:
+                - img [ref=f2e31]
+        - button "搜索" [ref=f2e33] [cursor=pointer]:
+          - img [ref=f2e36]
+    - generic [ref=f2e38]:
+      - button "设置" [ref=f2e40] [cursor=pointer]:
+        - img [ref=f2e43]
+      - button "分享" [ref=f2e46] [cursor=pointer]:
+        - img [ref=f2e50]
+      - generic [ref=f2e52]:
+        - button "Google 应用" [ref=f2e54] [cursor=pointer]:
+          - img [ref=f2e55]
+        - link "登录" [ref=f2e59] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=zh-CN&passive=true&continue=https://www.google.com/search%3Fq%3Dtoday%2BAI%2Bnews%2B2024-08-20%26sei%3DKfRFapDuKICZkPIPt_zOmQ0&ec=futura_srp_og_si_72236_p
+  - generic [ref=f2e61]:
+    - navigation [ref=f2e67]:
+      - generic [ref=f2e73]:
+        - list [ref=f2e74]:
+          - listitem [ref=f2e75]:
+            - link "AI 模式" [ref=f2e78] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&udm=50&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5x_ILMucyRWIwHmWdWtVhIOMdvdlTm0I1IIQlcEACMav2sCjLSTF52SbLlJS2cacalQJ1dJqTC1h-muTydERnvEJaR-6uUv3EVg-Cs2LKk1fecbieXFjie0iXvk4NmN5Pmv-ISnYosJV-AVTcdGLPZBHZ6Qtw&aep=1&ntc=1&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ2J8OegQIDBAD
+              - generic [ref=f2e81]: AI 模式
+          - listitem [ref=f2e82]:
+            - link "全部" [disabled] [ref=f2e83]:
+              - generic [ref=f2e85]: 全部
+          - listitem [ref=f2e86]:
+            - link "新闻" [ref=f2e87] [cursor=pointer]:
+              - /url: /search?sca_esv=47fdd52eba661d26&q=today+AI+news+2024-08-20&tbm=nws&source=lnms&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5x_ILMucyRWIwHmWdWtVhIOMdvdlTm0I1IIQlcEACMav2sCjLSTF52SbLlJS2cacalQJ1dJqTC1h-muTydERnvEJaR-6uUv3EVg-Cs2LKk1fecbieXFjie0iXvk4NmN5Pmv-ISnYosJV-AVTcdGLPZBHZ6Qtw&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ0pQJegQIEBAB
+              - generic [ref=f2e89]: 新闻
+          - listitem [ref=f2e90]:
+            - link "视频" [ref=f2e91] [cursor=pointer]:
+              - /url: /search?sca_esv=47fdd52eba661d26&udm=7&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5x_ILMucyRWIwHmWdWtVhIOMdvdlTm0I1IIQlcEACMav2sCjLSTF52SbLlJS2cacalQJ1dJqTC1h-muTydERnvEJaR-6uUv3EVg-Cs2LKk1fecbieXFjie0iXvk4NmN5Pmv-ISnYosJV-AVTcdGLPZBHZ6Qtw&q=today+AI+news+2024-08-20&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQtKgLegQIERAB
+              - generic [ref=f2e93]: 视频
+          - listitem [ref=f2e94]:
+            - link "短视频" [ref=f2e95] [cursor=pointer]:
+              - /url: /search?sca_esv=47fdd52eba661d26&udm=39&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5x_ILMucyRWIwHmWdWtVhIOMdvdlTm0I1IIQlcEACMav2sCjLSTF52SbLlJS2cacalQJ1dJqTC1h-muTydERnvEJaR-6uUv3EVg-Cs2LKk1fecbieXFjie0iXvk4NmN5Pmv-ISnYosJV-AVTcdGLPZBHZ6Qtw&q=today+AI+news+2024-08-20&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQs6gLegQIExAB
+              - generic [ref=f2e97]: 短视频
+          - listitem [ref=f2e98]:
+            - link "图片" [ref=f2e99] [cursor=pointer]:
+              - /url: /search?sca_esv=47fdd52eba661d26&udm=2&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5x_ILMucyRWIwHmWdWtVhIOMdvdlTm0I1IIQlcEACMav2sCjLSTF52SbLlJS2cacalQJ1dJqTC1h-muTydERnvEJaR-6uUv3EVg-Cs2LKk1fecbieXFjie0iXvk4NmN5Pmv-ISnYosJV-AVTcdGLPZBHZ6Qtw&q=today+AI+news+2024-08-20&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQtKgLegQIEhAB
+              - generic [ref=f2e101]: 图片
+          - listitem [ref=f2e102]:
+            - link "购物" [ref=f2e103] [cursor=pointer]:
+              - /url: /search?sca_esv=47fdd52eba661d26&udm=28&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5x_ILMucyRWIwHmWdWtVhIOMdvdlTm0I1IIQlcEACMav2sCjLSTF52SbLlJS2cacalQJ1dJqTC1h-muTydERnvEJaR-6uUv3EVg-Cs2LKk1fecbieXFjie0iXvk4NmN5Pmv-ISnYosJV-AVTcdGLPZBHZ6Qtw&q=today+AI+news+2024-08-20&ved=1t:220175&ictx=111
+              - generic [ref=f2e105]: 购物
+          - listitem [ref=f2e106]:
+            - button "更多过滤条件" [ref=f2e107] [cursor=pointer]:
+              - generic "更多过滤条件" [ref=f2e108]:
+                - generic [ref=f2e109]:
+                  - generic [ref=f2e110]: 更多
+                  - img [ref=f2e112]
+        - button "工具" [ref=f2e115] [cursor=pointer]:
+          - generic [ref=f2e117]:
+            - generic [ref=f2e118]: 工具
+            - img [ref=f2e120]
+    - heading "搜索结果" [level=1] [ref=f2e122]
+    - generic [ref=f2e127]:
+      - generic [ref=f2e146]:
+        - generic [ref=f2e148]:
+          - generic [ref=f2e150]:
+            - generic [ref=f2e151]:
+              - img [ref=f2e152]
+              - heading "AI 概览" [level=2] [ref=f2e154]
+            - button "关于这条结果的详细信息" [ref=f2e158]:
+              - img [ref=f2e160]
+          - generic [ref=f2e184]:
+            - generic [ref=f2e185]:
+              - text: In AI news from August 20, 2024,
+              - mark [ref=f2e186]: the tech industry focused heavily on regulatory frameworks, enterprise AI adoption, and the global economic impact of generative AI
+              - text: . Major discussions centered around the newly enacted EU AI Act and corporate efforts to manage growing AI operational costs.
+              - generic [ref=f2e188]:
+                - link "The Economist（+2 个）- 查看相关链接" [ref=f2e189] [cursor=pointer]:
+                  - /url: https://www.economist.com/schools-brief/2024/08/20/ai-needs-regulation-but-what-kind-and-how-much
+                - button "The Economist（+2 个）- 查看相关链接" [disabled] [ref=f2e190]:
+                  - generic [ref=f2e192]:
+                    - generic [ref=f2e193]: The Economist
+                    - generic [ref=f2e194]: "+2"
+                  - img [ref=f2e197]
+            - heading "Key Developments" [level=3] [ref=f2e199]
+            - list [ref=f2e201]:
+              - listitem [ref=f2e202]:
+                - generic [ref=f2e203]:
+                  - strong [ref=f2e204]: "AI Regulation Takes Shape:"
+                  - text: Global policymakers continued to wrestle with balancing AI innovation and safety. The European Union’s landmark AI Act—which categorized AI by risk level and banned real-time facial recognition in public spaces—was a primary subject of debate on how to set global digital standards.
+                - generic [ref=f2e206]:
+                  - link "The Economist（+1 个）- 查看相关链接" [ref=f2e207] [cursor=pointer]:
+                    - /url: https://www.economist.com/schools-brief/2024/08/20/ai-needs-regulation-but-what-kind-and-how-much
+                  - button "The Economist（+1 个）- 查看相关链接" [disabled] [ref=f2e208]:
+                    - generic [ref=f2e210]:
+                      - generic [ref=f2e211]: The Economist
+                      - generic [ref=f2e212]: "+1"
+                    - img [ref=f2e215]
+              - listitem [ref=f2e217]:
+                - generic [ref=f2e218]:
+                  - strong [ref=f2e219]: "Enterprise Token Spends:"
+                  - text: Major companies pivoted to focusing on managing corporate AI token usage. As AI agents became more widely deployed, businesses began adopting cloud-era techniques to monitor and control soaring operational costs.
+                - generic [ref=f2e221]:
+                  - link "WSJ - 查看相关链接" [ref=f2e222] [cursor=pointer]:
+                    - /url: https://www.wsj.com/tech/ai
+                  - button "WSJ - 查看相关链接" [disabled] [ref=f2e223]:
+                    - generic [ref=f2e226]: WSJ
+                    - img [ref=f2e229]
+              - listitem [ref=f2e231]:
+                - generic [ref=f2e232]:
+                  - strong [ref=f2e233]: "Journalism Futures & Information Ecosystems:"
+                  - text: The rapid adoption of Large Language Models (LLMs) prompted the release of initial reports on how AI is poised to bring lasting structural changes to the media landscape and civic information.
+                - generic [ref=f2e235]:
+                  - link "Open Society Foundations - 查看相关链接" [ref=f2e236] [cursor=pointer]:
+                    - /url: https://www.opensocietyfoundations.org/publications/ai-in-journalism-futures-2024
+                  - button "Open Society Foundations - 查看相关链接" [disabled] [ref=f2e237]:
+                    - generic [ref=f2e240]: Open Society Foundations
+                    - img [ref=f2e243]
+              - listitem [ref=f2e245]:
+                - generic [ref=f2e246]:
+                  - strong [ref=f2e247]: "Economic & Workforce Impacts:"
+                  - text: Research emphasized the differing roles "disruptive" versus "consolidating" AI innovations have on labor markets. Organizations continued to invest heavily, with global corporate investment in AI growing significantly as adoption reached new heights across diverse business functions.
+                - generic [ref=f2e249]:
+                  - link "Linux Foundation（+1 个）- 查看相关链接" [ref=f2e250] [cursor=pointer]:
+                    - /url: https://www.linuxfoundation.org/hubfs/Research%20Reports/lfr_meta_osai_canada_020926.pdf?hsLang=en
+                  - button "Linux Foundation（+1 个）- 查看相关链接" [disabled] [ref=f2e251]:
+                    - generic [ref=f2e253]:
+                      - generic [ref=f2e254]: Linux Foundation
+                      - generic [ref=f2e255]: "+1"
+                    - img [ref=f2e258]
+        - button "显示更多 AI 概览" [ref=f2e272]:
+          - generic [ref=f2e274] [cursor=pointer]:
+            - generic [ref=f2e275]: 展开
+            - img [ref=f2e277]
+      - main [ref=f2e280]:
+        - generic [ref=f2e284]:
+          - generic [ref=f2e288]:
+            - generic [ref=f2e290]:
+              - heading "视频" [level=2] [ref=f2e291]
+              - button "关于这条结果的详细信息" [ref=f2e292] [cursor=pointer]:
+                - img [ref=f2e295]
+            - generic [ref=f2e298]:
+              - generic [ref=f2e304]:
+                - generic [ref=f2e305]:
+                  - link "AI News for 2024-08-20 YouTube Matt Williams 2024年8月21日" [ref=f2e307] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=SnKt_KnJwvo
+                    - heading "AI News for 2024-08-20 YouTube Matt Williams 2024年8月21日" [level=3] [ref=f2e308]:
+                      - generic [ref=f2e311]: AI News for 2024-08-20
+                      - generic [ref=f2e313]:
+                        - generic [ref=f2e314]:
+                          - text: YouTube
+                          - generic [ref=f2e315]: · Matt Williams
+                        - generic [ref=f2e316]: 2024年8月21日
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - text: YouTube
+                            - generic: · Matt Williams
+                      - button "关于这条结果的详细信息" [ref=f2e317] [cursor=pointer]:
+                        - img [ref=f2e320]
+                - button "AI News for 2024-08-20，由Matt Williams上传到YouTube上. 在 Google 上播放. 36:24" [ref=f2e322] [cursor=pointer]:
+                  - generic [ref=f2e323]:
+                    - img [ref=f2e326]
+                    - generic [ref=f2e329]:
+                      - generic [ref=f2e330]: 36:24
+                      - img [ref=f2e333]
+              - generic [ref=f2e341]:
+                - generic [ref=f2e342]:
+                  - link "[FULL] AI HEADLINE NEWS 16:00 (2024-08-20) YouTube Arirang News 2024年8月20日" [ref=f2e344] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=9lOGnCxV__U
+                    - heading "[FULL] AI HEADLINE NEWS 16:00 (2024-08-20) YouTube Arirang News 2024年8月20日" [level=3] [ref=f2e345]:
+                      - generic [ref=f2e348]: "[FULL] AI HEADLINE NEWS 16:00 (2024-08-20)"
+                      - generic [ref=f2e350]:
+                        - generic [ref=f2e351]:
+                          - text: YouTube
+                          - generic [ref=f2e352]: · Arirang News
+                        - generic [ref=f2e353]: 2024年8月20日
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - text: YouTube
+                            - generic: · Arirang News
+                      - button "关于这条结果的详细信息" [ref=f2e354] [cursor=pointer]:
+                        - img [ref=f2e357]
+                - button "[FULL] AI HEADLINE NEWS 16:00 (2024-08-20)，由Arirang News上传到YouTube上. 在 Google 上播放. 4:24" [ref=f2e359] [cursor=pointer]:
+                  - generic [ref=f2e360]:
+                    - img [ref=f2e366]
+                    - generic [ref=f2e369]:
+                      - generic [ref=f2e370]: 4:24
+                      - img [ref=f2e373]
+              - generic [ref=f2e381]:
+                - generic [ref=f2e382]:
+                  - link "[FULL] AI HEADLINE NEWS 22:00 (2024-08-20) YouTube Arirang News 2024年8月20日" [ref=f2e384] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=EMfbREjO1Ao
+                    - heading "[FULL] AI HEADLINE NEWS 22:00 (2024-08-20) YouTube Arirang News 2024年8月20日" [level=3] [ref=f2e385]:
+                      - generic [ref=f2e388]: "[FULL] AI HEADLINE NEWS 22:00 (2024-08-20)"
+                      - generic [ref=f2e390]:
+                        - generic [ref=f2e391]:
+                          - text: YouTube
+                          - generic [ref=f2e392]: · Arirang News
+                        - generic [ref=f2e393]: 2024年8月20日
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - text: YouTube
+                            - generic: · Arirang News
+                      - button "关于这条结果的详细信息" [ref=f2e394] [cursor=pointer]:
+                        - img [ref=f2e397]
+                - button "[FULL] AI HEADLINE NEWS 22:00 (2024-08-20)，由Arirang News上传到YouTube上. 在 Google 上播放. 4:08" [ref=f2e399] [cursor=pointer]:
+                  - generic [ref=f2e400]:
+                    - img [ref=f2e406]
+                    - generic [ref=f2e409]:
+                      - generic [ref=f2e410]: 4:08
+                      - img [ref=f2e413]
+            - link "查看所有视频" [ref=f2e417] [cursor=pointer]:
+              - /url: /search?sca_esv=47fdd52eba661d26&udm=7&q=today+AI+news+2024-08-20&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8ccDKAJ6BAgaEAQ
+              - separator [ref=f2e418]
+              - generic [ref=f2e419]:
+                - generic [ref=f2e420]: 查看全部
+                - img [ref=f2e422]
+          - generic [ref=f2e426]:
+            - heading "Web results" [level=2] [ref=f2e427]
+            - generic [ref=f2e428]:
+              - generic [ref=f2e431]:
+                - link "AI News and Commentary - Tuesday, August 20, 2024 Sutor Group Intelligence and Advisory https://sutorgroupintelligenceandadvisory.com › ..." [ref=f2e433] [cursor=pointer]:
+                  - /url: https://sutorgroupintelligenceandadvisory.com/2024/08/20/notable-and-interesting-recent-ai-news-articles-and-papers-for-tuesday-august-20-2024/
+                  - heading "AI News and Commentary - Tuesday, August 20, 2024" [level=3] [ref=f2e434]
+                  - generic [ref=f2e440]:
+                    - generic [ref=f2e442]: Sutor Group Intelligence and Advisory
+                    - generic [ref=f2e444]: https://sutorgroupintelligenceandadvisory.com › ...
+                - generic [ref=f2e445]:
+                  - generic [ref=f2e446]: ·
+                  - link "翻译此页" [ref=f2e447] [cursor=pointer]:
+                    - /url: https://translate.google.com/translate?u=https://sutorgroupintelligenceandadvisory.com/2024/08/20/notable-and-interesting-recent-ai-news-articles-and-papers-for-tuesday-august-20-2024/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+                - button "关于这条结果的详细信息" [ref=f2e450] [cursor=pointer]:
+                  - img [ref=f2e453]
+              - generic [ref=f2e456]:
+                - generic [ref=f2e457]: 2024年8月20日 —
+                - generic [ref=f2e458]:
+                  - text: (Sunday, August 18, 2024) “Entrepreneurs say use of
+                  - emphasis [ref=f2e459]: artificial intelligence
+                  - text: for a variety of tasks is accelerating the path to hiring and, ...
+          - generic [ref=f2e464]:
+            - heading "相关问题" [level=2] [ref=f2e466]
+            - generic [ref=f2e467]:
+              - button "What is the top AI news today?" [ref=f2e473] [cursor=pointer]:
+                - generic [ref=f2e475]: What is the top AI news today?
+                - img [ref=f2e478]
+              - button "What is the latest AI breakthrough in 2024?" [ref=f2e487] [cursor=pointer]:
+                - generic [ref=f2e489]: What is the latest AI breakthrough in 2024?
+                - img [ref=f2e492]
+              - button "What happened with AI in 2024?" [ref=f2e501] [cursor=pointer]:
+                - generic [ref=f2e503]: What happened with AI in 2024?
+                - img [ref=f2e506]
+              - button "What special day is today in AI?" [ref=f2e515] [cursor=pointer]:
+                - generic [ref=f2e517]: What special day is today in AI?
+                - img [ref=f2e520]
+          - generic [ref=f2e525]:
+            - heading "Web results" [level=2] [ref=f2e526]
+            - generic [ref=f2e527]:
+              - generic [ref=f2e530]:
+                - 'link "Context: Current AI trends and uncertainties Centre for Future Generations https://cfg.eu › context" [ref=f2e532] [cursor=pointer]':
+                  - /url: https://cfg.eu/context/
+                  - 'heading "Context: Current AI trends and uncertainties" [level=3] [ref=f2e533]'
+                  - generic [ref=f2e539]:
+                    - generic [ref=f2e541]: Centre for Future Generations
+                    - generic [ref=f2e543]: https://cfg.eu › context
+                - generic [ref=f2e544]:
+                  - generic [ref=f2e545]: ·
+                  - link "翻译此页" [ref=f2e546] [cursor=pointer]:
+                    - /url: https://translate.google.com/translate?u=https://cfg.eu/context/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+                - button "关于这条结果的详细信息" [ref=f2e549] [cursor=pointer]:
+                  - img [ref=f2e552]
+              - generic [ref=f2e556]:
+                - text: General-purpose
+                - emphasis [ref=f2e557]: AI
+                - text: systems now enable manipulation at scale, producing synthetic text, audio, and video that are difficult to distinguish from authentic content ...
+          - generic [ref=f2e561]:
+            - generic [ref=f2e564]:
+              - 'link "AI Pulse: Top AI Trends from 2024 - A Look Back www.trendmicro.com https://www.trendmicro.com › research › top..." [ref=f2e566] [cursor=pointer]':
+                - /url: https://www.trendmicro.com/en/research/25/a/top-ai-trends-from-2024-review.html
+                - 'heading "AI Pulse: Top AI Trends from 2024 - A Look Back" [level=3] [ref=f2e567]'
+                - generic [ref=f2e573]:
+                  - generic [ref=f2e575]: www.trendmicro.com
+                  - generic [ref=f2e577]: https://www.trendmicro.com › research › top...
+              - generic [ref=f2e578]:
+                - generic [ref=f2e579]: ·
+                - link "翻译此页" [ref=f2e580] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://www.trendmicro.com/en/research/25/a/top-ai-trends-from-2024-review.html&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=f2e583] [cursor=pointer]:
+                - img [ref=f2e586]
+            - generic [ref=f2e589]:
+              - generic [ref=f2e590]: 2025年1月3日 —
+              - generic [ref=f2e591]:
+                - emphasis [ref=f2e592]: AI Comes Into Its Own
+                - text: . 2024 may go down as the year AI stopped being a technological novelty and became—more consequentially—a Fact of Life.
+          - generic [ref=f2e596]:
+            - generic [ref=f2e599]:
+              - link "Global AI Weekly Global AI Community https://globalai.community › weekly" [ref=f2e601] [cursor=pointer]:
+                - /url: https://globalai.community/weekly/
+                - heading "Global AI Weekly" [level=3] [ref=f2e602]
+                - generic [ref=f2e608]:
+                  - generic [ref=f2e610]: Global AI Community
+                  - generic [ref=f2e612]: https://globalai.community › weekly
+              - generic [ref=f2e613]:
+                - generic [ref=f2e614]: ·
+                - link "翻译此页" [ref=f2e615] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://globalai.community/weekly/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=f2e618] [cursor=pointer]:
+                - img [ref=f2e621]
+            - generic [ref=f2e625]:
+              - emphasis [ref=f2e626]: Global AI Weekly
+              - text: is a weekly curated publication full of interesting, relevant links to AI news ... Tuesday, August 20, 2024. Global AI Weekly - Issue 65
+          - generic [ref=f2e630]:
+            - generic [ref=f2e633]:
+              - 'link "News in Technology: August 2024 LinkedIn · New Era Technology 40+ 个回应 · 1年前" [ref=f2e635] [cursor=pointer]':
+                - /url: https://www.linkedin.com/pulse/news-technology-august-2024-new-era-technology-us-3wjyc
+                - 'heading "News in Technology: August 2024" [level=3] [ref=f2e636]'
+                - generic [ref=f2e642]:
+                  - generic [ref=f2e644]: LinkedIn · New Era Technology
+                  - generic [ref=f2e646]: 40+ 个回应 · 1年前
+              - button "关于这条结果的详细信息" [ref=f2e649] [cursor=pointer]:
+                - img [ref=f2e652]
+            - generic [ref=f2e656]:
+              - emphasis [ref=f2e657]: AI in SAP-Leading the New Age Digital Transformation
+              - text: . In today's fast-paced market dynamics, staying competitive requires constant innovation ...
+          - generic [ref=f2e661]:
+            - generic [ref=f2e664]:
+              - 'link "Talk on \"EU AI Act: EN on AI risk management\" by Dr. Renaud ... nii.ac.jp https://www.nii.ac.jp › event" [ref=f2e666] [cursor=pointer]':
+                - /url: https://www.nii.ac.jp/en/event/2024/1209-2.html
+                - 'heading "Talk on \"EU AI Act: EN on AI risk management\" by Dr. Renaud ..." [level=3] [ref=f2e667]'
+                - generic [ref=f2e673]:
+                  - generic [ref=f2e675]: nii.ac.jp
+                  - generic [ref=f2e677]: https://www.nii.ac.jp › event
+              - generic [ref=f2e678]:
+                - generic [ref=f2e679]: ·
+                - link "翻译此页" [ref=f2e680] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://www.nii.ac.jp/en/event/2024/1209-2.html&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=f2e683] [cursor=pointer]:
+                - img [ref=f2e686]
+            - generic [ref=f2e689]:
+              - generic [ref=f2e690]: 2024年12月9日 —
+              - generic [ref=f2e691]:
+                - text: This talk will explore the concept of risk in
+                - emphasis [ref=f2e692]: AI
+                - text: systems and delve into key elements of the European Norm addressing
+                - emphasis [ref=f2e693]: AI
+                - text: risk management as aligned with the EU ...
+          - generic [ref=f2e697]:
+            - generic [ref=f2e700]:
+              - 'link "Generative AI: What have we got to win? - Source Asia Microsoft Source https://news.microsoft.com › Home › View All" [ref=f2e702] [cursor=pointer]':
+                - /url: https://news.microsoft.com/source/asia/2024/08/20/generative-ai-what-have-we-got-to-win/
+                - 'heading "Generative AI: What have we got to win? - Source Asia" [level=3] [ref=f2e703]'
+                - generic [ref=f2e709]:
+                  - generic [ref=f2e711]: Microsoft Source
+                  - generic [ref=f2e713]: https://news.microsoft.com › Home › View All
+              - generic [ref=f2e714]:
+                - generic [ref=f2e715]: ·
+                - link "翻译此页" [ref=f2e716] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://news.microsoft.com/source/asia/2024/08/20/generative-ai-what-have-we-got-to-win/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=f2e719] [cursor=pointer]:
+                - img [ref=f2e722]
+            - generic [ref=f2e725]:
+              - generic [ref=f2e726]: 2024年8月20日 —
+              - generic [ref=f2e727]:
+                - text: If we get our approach to regulation and skilling right, and build the right trust in
+                - emphasis [ref=f2e728]: AI
+                - text: to boost adoption, here's what else we stand to gain.
+          - generic [ref=f2e732]:
+            - generic [ref=f2e735]:
+              - link "AI in Journalism Futures 2024 Open Society Foundations https://www.opensocietyfoundations.org › ..." [ref=f2e737] [cursor=pointer]:
+                - /url: https://www.opensocietyfoundations.org/publications/ai-in-journalism-futures-2024
+                - heading "AI in Journalism Futures 2024" [level=3] [ref=f2e738]
+                - generic [ref=f2e744]:
+                  - generic [ref=f2e746]: Open Society Foundations
+                  - generic [ref=f2e748]: https://www.opensocietyfoundations.org › ...
+              - generic [ref=f2e749]:
+                - generic [ref=f2e750]: ·
+                - link "翻译此页" [ref=f2e751] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://www.opensocietyfoundations.org/publications/ai-in-journalism-futures-2024&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=f2e754] [cursor=pointer]:
+                - img [ref=f2e757]
+            - generic [ref=f2e761]:
+              - text: The
+              - emphasis [ref=f2e762]: AI
+              - text: in Journalism Futures (AIJF) project is one of the first significant attempts to understand how
+              - emphasis [ref=f2e763]: AI
+              - text: might fundamentally reshape our information ecosystem ...
+        - generic [ref=f2e765]:
+          - generic [ref=f2e770]:
+            - heading "用户还搜索了" [level=2] [ref=f2e772]
+            - generic [ref=f2e774]:
+              - link "AI possible futures" [ref=f2e779] [cursor=pointer]:
+                - /url: /search?sca_esv=47fdd52eba661d26&q=AI+possible+futures&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ1QJ6BAgvEAE
+                - generic [ref=f2e780]:
+                  - generic [ref=f2e785]: AI possible futures
+                  - img [ref=f2e789]
+              - link "AI in the future" [ref=f2e795] [cursor=pointer]:
+                - /url: /search?sca_esv=47fdd52eba661d26&q=AI+in+the+future&sa=X&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ1QJ6BAgwEAE
+                - generic [ref=f2e796]:
+                  - generic [ref=f2e801]: AI in the future
+                  - img [ref=f2e805]
+          - navigation [ref=f2e807]:
+            - heading "网页导航" [level=1] [ref=f2e808]
+            - text: "1"
+            - link "Page 2" [ref=f2e811] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=10&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAE
+              - text: "2"
+            - link "Page 3" [ref=f2e813] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=20&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAG
+              - text: "3"
+            - link "Page 4" [ref=f2e815] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=30&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAI
+              - text: "4"
+            - link "Page 5" [ref=f2e817] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=40&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAK
+              - text: "5"
+            - link "Page 6" [ref=f2e819] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=50&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAM
+              - text: "6"
+            - link "Page 7" [ref=f2e821] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=60&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAO
+              - text: "7"
+            - link "Page 8" [ref=f2e823] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=70&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAQ
+              - text: "8"
+            - link "Page 9" [ref=f2e825] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=80&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAS
+              - text: "9"
+            - link "Page 10" [ref=f2e827] [cursor=pointer]:
+              - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=90&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8tMDegQILRAU
+              - text: "10"
+            - heading "下一页" [level=2] [ref=f2e829]:
+              - link "下一页" [ref=f2e830] [cursor=pointer]:
+                - /url: /search?q=today+AI+news+2024-08-20&sca_esv=47fdd52eba661d26&ei=KvRFas2HBdOhur8Pu-iu4QI&start=10&sa=N&sstk=AU9db-ADpH0EgwSZqi77cv4eTdhTGPZCrrhQ60F3s5fUCryXFt8veQ_J13bdxnvMcorR695-qwJ0YkV3IJtxLMcqvOczK1d3yusg4Q&ved=2ahUKEwjNxJzHnrOVAxXTkO4BHTu0KywQ8NMDegQILRAW
+                - generic [ref=f2e832]: 下一页
+        - navigation
+    - contentinfo [ref=f2e833]:
+      - heading "页脚链接" [level=1] [ref=f2e834]
+      - generic [ref=f2e838]:
+        - generic [ref=f2e840]:
+          - text: 日本
+          - generic [ref=f2e842]:
+            - button "东京都 - 是根据您的 IP 地址推断出来的" [ref=f2e844] [cursor=pointer]:
+              - generic [ref=f2e845]: 东京都
+              - generic [ref=f2e847]:
+                - text: "-"
+                - generic [ref=f2e848]: 是根据您的 IP 地址推断出来的
+            - text: "-"
+            - button "更新位置信息" [ref=f2e850] [cursor=pointer]: 更新位置信息
+        - generic [ref=f2e853]:
+          - link "帮助" [ref=f2e854] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=zh-CN&fg=1
+          - link "发送反馈" [ref=f2e855] [cursor=pointer]:
+            - /url: "#"
+          - link "隐私权" [ref=f2e856] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=zh-CN&fg=1
+          - link "条款" [ref=f2e857] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=zh-CN&fg=1

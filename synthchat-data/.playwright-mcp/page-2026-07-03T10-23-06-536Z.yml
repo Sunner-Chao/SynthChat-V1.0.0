@@ -1,0 +1,139 @@
+- generic [ref=f1e3]:
+  - generic:
+    - generic [ref=f1e6]:
+      - link "新闻" [ref=f1e7] [cursor=pointer]:
+        - /url: http://news.baidu.com
+      - link "hao123" [ref=f1e8] [cursor=pointer]:
+        - /url: https://www.hao123.com?src=from_pc
+      - link "地图" [ref=f1e9] [cursor=pointer]:
+        - /url: http://map.baidu.com
+      - link "贴吧" [ref=f1e10] [cursor=pointer]:
+        - /url: http://tieba.baidu.com/
+      - link "视频" [ref=f1e11] [cursor=pointer]:
+        - /url: https://haokan.baidu.com/?sfrom=baidu-top
+      - link "图片" [ref=f1e12] [cursor=pointer]:
+        - /url: http://image.baidu.com/
+      - link "网盘" [ref=f1e13] [cursor=pointer]:
+        - /url: https://pan.baidu.com?from=1026962h
+      - link "文库" [ref=f1e14] [cursor=pointer]:
+        - /url: https://wenku.baidu.com/?fr=bdpcindex
+      - link "文心" [ref=f1e15] [cursor=pointer]:
+        - /url: https://chat.baidu.com/search?isShowHello=1&pd=csaitab&setype=csaitab&extParamsJson=%7B%22enter_type%22%3A%22home_tab%22%7D
+      - link "搭子DuMate" [ref=f1e16] [cursor=pointer]:
+        - /url: https://dumate.cn?track=bdsy
+      - link "更多" [ref=f1e18] [cursor=pointer]:
+        - /url: http://www.baidu.com/more/
+    - generic [ref=f1e19]:
+      - generic [ref=f1e20] [cursor=pointer]: 设置
+      - link "登录" [ref=f1e21] [cursor=pointer]:
+        - /url: https://passport.baidu.com/v2/?login&tpl=mn&u=http%3A%2F%2Fwww.baidu.com%2F&sms=5
+  - generic [ref=f1e24]:
+    - generic [ref=f1e25]:
+      - img [ref=f1e26]
+      - generic:
+        - link "点击一下，了解更多":
+          - /url: //www.baidu.com/s?wd=%E7%99%BE%E5%BA%A6%E7%83%AD%E6%90%9C&sa=ire_dl_gh_logo_texing&rsv_dl=igh_logo_pcs
+    - generic [ref=f1e31]:
+      - generic [ref=f1e34]:
+        - textbox "高考志愿填报之兴趣与热门" [active] [ref=f1e36]
+        - generic [ref=f1e38]:
+          - generic [ref=f1e39]:
+            - img [ref=f1e47] [cursor=pointer]
+            - generic [ref=f1e50]:
+              - img [ref=f1e54] [cursor=pointer]
+              - img [ref=f1e59] [cursor=pointer]
+          - button "百度一下" [ref=f1e63] [cursor=pointer]
+      - link "复杂问题就找文心助手，深入思考回答更优 " [ref=f1e67] [cursor=pointer]:
+        - /url: https://chat.baidu.com/search?extParams=%7B%22enter_type%22%3A%22home_operate%22%7D&isShowHello=1
+        - img [ref=f1e68]
+        - generic [ref=f1e69]:
+          - generic [ref=f1e70]: 复杂问题就找文心助手，深入思考回答更优
+          - generic [ref=f1e71]: 
+    - generic [ref=f1e72]:
+      - generic [ref=f1e73]:
+        - link "百度热搜":
+          - /url: https://top.baidu.com/board?platform=pc&sa=pcindex_entry
+          - generic "百度热搜" [ref=f1e74] [cursor=pointer]: 
+        - generic [ref=f1e75] [cursor=pointer]:
+          - generic [ref=f1e76]: 
+          - text: 换一换
+      - list:
+        - listitem [ref=f1e77]:
+          - link " 致敬！以“七一”之名" [ref=f1e78] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E8%87%B4%E6%95%AC%EF%BC%81%E4%BB%A5%E2%80%9C%E4%B8%83%E4%B8%80%E2%80%9D%E4%B9%8B%E5%90%8D&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e79]: 
+            - text: 致敬！以“七一”之名
+        - listitem [ref=f1e81]:
+          - link "5 中国造的“老头乐”在美国杀疯了" [ref=f1e82] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E4%B8%AD%E5%9B%BD%E9%80%A0%E7%9A%84%E2%80%9C%E8%80%81%E5%A4%B4%E4%B9%90%E2%80%9D%E5%9C%A8%E7%BE%8E%E5%9B%BD%E6%9D%80%E7%96%AF%E4%BA%86&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e83]: "5"
+            - text: 中国造的“老头乐”在美国杀疯了
+          - generic [ref=f1e84]: 热
+        - listitem [ref=f1e85]:
+          - link "1 中央军委举行晋升上将军衔仪式" [ref=f1e86] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E4%B8%AD%E5%A4%AE%E5%86%9B%E5%A7%94%E4%B8%BE%E8%A1%8C%E6%99%8B%E5%8D%87%E4%B8%8A%E5%B0%86%E5%86%9B%E8%A1%94%E4%BB%AA%E5%BC%8F&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e87]: "1"
+            - text: 中央军委举行晋升上将军衔仪式
+          - generic [ref=f1e88]: 新
+        - listitem [ref=f1e89]:
+          - link "6 海军上校方明执行任务时牺牲" [ref=f1e90] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E6%B5%B7%E5%86%9B%E4%B8%8A%E6%A0%A1%E6%96%B9%E6%98%8E%E6%89%A7%E8%A1%8C%E4%BB%BB%E5%8A%A1%E6%97%B6%E7%89%BA%E7%89%B2&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e91]: "6"
+            - text: 海军上校方明执行任务时牺牲
+        - listitem [ref=f1e93]:
+          - link "2 教育部：坚决杜绝用手机布置作业" [ref=f1e94] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E6%95%99%E8%82%B2%E9%83%A8%EF%BC%9A%E5%9D%9A%E5%86%B3%E6%9D%9C%E7%BB%9D%E7%94%A8%E6%89%8B%E6%9C%BA%E5%B8%83%E7%BD%AE%E4%BD%9C%E4%B8%9A&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e95]: "2"
+            - text: 教育部：坚决杜绝用手机布置作业
+          - generic [ref=f1e96]: 新
+        - listitem [ref=f1e97]:
+          - link "7 伊朗革命卫队总司令现身" [ref=f1e98] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E4%BC%8A%E6%9C%97%E9%9D%A9%E5%91%BD%E5%8D%AB%E9%98%9F%E6%80%BB%E5%8F%B8%E4%BB%A4%E7%8E%B0%E8%BA%AB&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e99]: "7"
+            - text: 伊朗革命卫队总司令现身
+          - generic [ref=f1e100]: 热
+        - listitem [ref=f1e101]:
+          - link "3 前5月中国农机出口超336亿元" [ref=f1e102] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E5%89%8D5%E6%9C%88%E4%B8%AD%E5%9B%BD%E5%86%9C%E6%9C%BA%E5%87%BA%E5%8F%A3%E8%B6%85336%E4%BA%BF%E5%85%83&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e103]: "3"
+            - text: 前5月中国农机出口超336亿元
+        - listitem [ref=f1e105]:
+          - link "8 男子山里死守3.5小时静等菌子长大" [ref=f1e106] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E7%94%B7%E5%AD%90%E5%B1%B1%E9%87%8C%E6%AD%BB%E5%AE%883.5%E5%B0%8F%E6%97%B6%E9%9D%99%E7%AD%89%E8%8F%8C%E5%AD%90%E9%95%BF%E5%A4%A7&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e107]: "8"
+            - text: 男子山里死守3.5小时静等菌子长大
+        - listitem [ref=f1e109]:
+          - link "4 未来5年普通高中扩招" [ref=f1e110] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E6%9C%AA%E6%9D%A55%E5%B9%B4%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%89%A9%E6%8B%9B&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e111]: "4"
+            - text: 未来5年普通高中扩招
+          - generic [ref=f1e112]: 新
+        - listitem [ref=f1e113]:
+          - link "9 LV老花被指模仿中国唐代宝相花" [ref=f1e114] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=LV%E8%80%81%E8%8A%B1%E8%A2%AB%E6%8C%87%E6%A8%A1%E4%BB%BF%E4%B8%AD%E5%9B%BD%E5%94%90%E4%BB%A3%E5%AE%9D%E7%9B%B8%E8%8A%B1&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f1e115]: "9"
+            - text: LV老花被指模仿中国唐代宝相花
+  - generic [ref=f1e118]:
+    - paragraph [ref=f1e119]:
+      - link "关于百度" [ref=f1e120] [cursor=pointer]:
+        - /url: //home.baidu.com
+    - paragraph [ref=f1e121]:
+      - link "About Baidu" [ref=f1e122] [cursor=pointer]:
+        - /url: http://ir.baidu.com
+    - paragraph [ref=f1e123]:
+      - link "使用百度前必读" [ref=f1e124] [cursor=pointer]:
+        - /url: //www.baidu.com/duty
+    - paragraph [ref=f1e125]:
+      - link "帮助中心" [ref=f1e126] [cursor=pointer]:
+        - /url: https://help.baidu.com/question?prod_id=1
+    - paragraph [ref=f1e127]:
+      - link "企业推广" [ref=f1e128] [cursor=pointer]:
+        - /url: https://e.baidu.com/?refer=1271
+    - paragraph [ref=f1e129]:
+      - link "京公网安备11000002000001号" [ref=f1e130] [cursor=pointer]:
+        - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11000002000001
+    - paragraph [ref=f1e131]:
+      - link "京ICP证030173号" [ref=f1e132] [cursor=pointer]:
+        - /url: https://beian.miit.gov.cn
+    - generic [ref=f1e133]: 
+    - generic [ref=f1e134]: 

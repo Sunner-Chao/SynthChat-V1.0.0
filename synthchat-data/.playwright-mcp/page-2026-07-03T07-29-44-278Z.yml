@@ -1,0 +1,678 @@
+- generic [active] [ref=e1]:
+  - link "欢迎进入 腾讯网,盲人用户使用操作智能引导，请按快捷键Ctrl+Alt+R；阅读详细操作说明请按快捷键Ctrl+Alt+问号键。":
+    - /url: javascript:void(0)
+    - img [ref=e2] [cursor=pointer]
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - link [ref=e6] [cursor=pointer]:
+        - /url: https://www.qq.com
+      - list [ref=e8]:
+        - listitem [ref=e9]:
+          - link "首页" [ref=e10] [cursor=pointer]:
+            - /url: https://www.qq.com
+            - img [ref=e11]
+            - text: 首页
+        - listitem [ref=e14]:
+          - link "要闻" [ref=e15] [cursor=pointer]:
+            - /url: https://news.qq.com
+        - listitem [ref=e16]:
+          - link "嘉兴" [ref=e17] [cursor=pointer]:
+            - /url: https://news.qq.com/d/zjjx
+          - img [ref=e18] [cursor=pointer]
+        - listitem [ref=e21]:
+          - link "AI" [ref=e22] [cursor=pointer]:
+            - /url: https://news.qq.com/ch/fx
+        - listitem [ref=e23]:
+          - generic [ref=e24] [cursor=pointer]: 更多
+          - img [ref=e25] [cursor=pointer]
+      - generic [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e33]: 游戏
+      - generic [ref=e34] [cursor=pointer]:
+        - img "应用" [ref=e35]
+        - generic [ref=e36]: 应用
+      - generic [ref=e37] [cursor=pointer]: 网页设置
+      - generic [ref=e41] [cursor=pointer]: 登录
+      - generic [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e49]:
+          - generic [ref=e50]: 安装电脑版
+          - generic [ref=e51]: 内容更精彩
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - link "庆祝中国共产党成立105周年大会侧记" [ref=e58] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A02E0E00
+              - generic [ref=e59]:
+                - link "壹视界" [ref=e60] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260702A02KLP00
+                - text: "|"
+                - link "这位县委书记，总书记为何心中常念" [ref=e61] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260701A08CUJ00
+                - text: "|"
+                - link "一纸菜单见规矩" [ref=e62] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/LNK2026070224875700
+            - generic [ref=e63]:
+              - generic [ref=e64]:
+                - link "105载，一条精神的长河" [ref=e66] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260702A0317B00
+                - link "天路通高原 巨变二十年丨真相" [ref=e68] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260701A07G0W00
+                - link "在读懂“为什么能”中续写新的荣光" [ref=e70] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A021Y600
+              - generic [ref=e71]:
+                - link "暑运高峰多种出行方案可选择" [ref=e73] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260701A0B4JQ00
+                - link "每2小时转化一项高价值专利！这就是大湾区节奏→" [ref=e75] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/LNK2026070211225400
+                - link "视频丨热浪席卷欧洲 中国空调电扇成热销抢手货" [ref=e77] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260702A06KXX00
+          - generic [ref=e78]:
+            - generic [ref=e79]:
+              - generic [ref=e81]:
+                - link "热点精选 “美军不得不迅速叫停行动” 红星新闻 2小时前" [ref=e82] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06IV700?adChannelId=news
+                  - generic [ref=e83]: 热点精选
+                  - generic [ref=e84]: “美军不得不迅速叫停行动”
+                  - generic [ref=e85]:
+                    - link "红星新闻" [ref=e86]:
+                      - /url: https://news.qq.com/omn/author/8QMW235U5YQeuzo%3D
+                      - generic [ref=e87]: 红星新闻
+                    - generic [ref=e88]: 2小时前
+                - link [ref=e90] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06IV700?adChannelId=news
+              - generic [ref=e92]:
+                - link "热点精选 打虎！张灼华被查 政事儿 1小时前" [ref=e93] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A072DW00?adChannelId=news
+                  - generic [ref=e94]: 热点精选
+                  - generic [ref=e95]: 打虎！张灼华被查
+                  - generic [ref=e96]:
+                    - link "政事儿" [ref=e97]:
+                      - /url: https://news.qq.com/omn/author/8QMc3nhf64YVuTjZ
+                      - generic [ref=e98]: 政事儿
+                    - generic [ref=e99]: 1小时前
+                - link [ref=e101] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A072DW00?adChannelId=news
+              - generic [ref=e103]:
+                - link "热点精选 实时播报 伊外交部：百余国派代表出席哈梅内伊遗体告别仪式 央视新闻 2小时前" [ref=e104] [cursor=pointer]:
+                  - /url: https://view.inews.qq.com/tag/Zkerx7tegWc=
+                  - generic [ref=e105]: 热点精选
+                  - generic [ref=e106]:
+                    - generic [ref=e108]: 实时播报
+                    - text: 伊外交部：百余国派代表出席哈梅内伊遗体告别仪式
+                  - generic [ref=e113]:
+                    - link "央视新闻" [ref=e114]:
+                      - /url: https://news.qq.com/omn/author/8QMc3H5f7o0Uuj%2FZ
+                      - generic [ref=e115]: 央视新闻
+                    - generic [ref=e116]: 2小时前
+                - link [ref=e118] [cursor=pointer]:
+                  - /url: https://view.inews.qq.com/tag/Zkerx7tegWc=
+              - generic [ref=e120]:
+                - link "热点精选 成品油价迎年内最大跌幅，加满一箱油少花37.5元 界面新闻 25分钟前" [ref=e121] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A07MXP00?adChannelId=news
+                  - generic [ref=e122]: 热点精选
+                  - generic [ref=e123]: 成品油价迎年内最大跌幅，加满一箱油少花37.5元
+                  - generic [ref=e124]:
+                    - link "界面新闻" [ref=e125]:
+                      - /url: https://news.qq.com/omn/author/8QMc3HhU640dvD%2Fd
+                      - generic [ref=e126]: 界面新闻
+                    - generic [ref=e127]: 25分钟前
+                - link [ref=e129] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A07MXP00?adChannelId=news
+              - generic [ref=e131]:
+                - link "热点精选 消息称阿里全面禁用Claude，禁令于7月10日正式生效 智东西 1小时前" [ref=e132] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06XTB00?adChannelId=news
+                  - generic [ref=e133]: 热点精选
+                  - generic [ref=e134]: 消息称阿里全面禁用Claude，禁令于7月10日正式生效
+                  - generic [ref=e135]:
+                    - link "智东西" [ref=e136]:
+                      - /url: https://news.qq.com/omn/author/8QMc2XZf7IAfsD3Z
+                      - generic [ref=e137]: 智东西
+                    - generic [ref=e138]: 1小时前
+                - link [ref=e140] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06XTB00?adChannelId=news
+            - img [ref=e147] [cursor=pointer]
+            - img [ref=e150] [cursor=pointer]
+          - generic [ref=e153]:
+            - generic [ref=e154]:
+              - link [ref=e156] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06X2I00?adChannelId=news
+              - link "“被盗佛像疑现身北京观复博物馆”，海口文物部门独家回应" [ref=e157] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06X2I00?adChannelId=news
+              - generic [ref=e158]:
+                - generic [ref=e159]:
+                  - link "中国新闻周刊" [ref=e160] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMa335Y7IQYsDw%3D
+                    - generic [ref=e161]: 中国新闻周刊
+                  - generic [ref=e162]: 1小时前
+                - link "43" [ref=e163] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06X2I00?adChannelId=news?#to-comment
+                  - img [ref=e164]
+                  - generic [ref=e167]: "43"
+                - generic [ref=e168] [cursor=pointer]:
+                  - img [ref=e169]
+                  - generic [ref=e172]: "22"
+                - generic [ref=e174] [cursor=pointer]:
+                  - img [ref=e175]
+                  - generic [ref=e178]: "22"
+            - generic [ref=e179]:
+              - link [ref=e181] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06XVW00?adChannelId=news
+              - link "当水资源成为武器：印巴“河战”一触即发" [ref=e182] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06XVW00?adChannelId=news
+              - generic [ref=e183]:
+                - generic [ref=e184]:
+                  - link "南方周末" [ref=e185] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMY3X9U64UevzY%3D
+                    - generic [ref=e186]: 南方周末
+                  - generic [ref=e187]: 1小时前
+                - link "7" [ref=e188] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06XVW00?adChannelId=news?#to-comment
+                  - img [ref=e189]
+                  - generic [ref=e192]: "7"
+                - generic [ref=e193] [cursor=pointer]:
+                  - img [ref=e194]
+                  - generic [ref=e197]: "6"
+                - generic [ref=e199] [cursor=pointer]:
+                  - img [ref=e200]
+                  - generic [ref=e203]: "5"
+            - generic [ref=e204]:
+              - link [ref=e206] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06W7100?adChannelId=news
+              - link "曾有100名副会长，“中字头”协会会长任上被查" [ref=e207] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06W7100?adChannelId=news
+              - generic [ref=e208]:
+                - generic [ref=e209]:
+                  - link "中国新闻周刊" [ref=e210] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMa335Y7IQYsDw%3D
+                    - generic [ref=e211]: 中国新闻周刊
+                  - generic [ref=e212]: 1小时前
+                - link "20" [ref=e213] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06W7100?adChannelId=news?#to-comment
+                  - img [ref=e214]
+                  - generic [ref=e217]: "20"
+                - generic [ref=e218] [cursor=pointer]:
+                  - img [ref=e219]
+                  - generic [ref=e222]: "15"
+                - generic [ref=e224] [cursor=pointer]:
+                  - img [ref=e225]
+                  - generic [ref=e228]: "69"
+            - generic [ref=e229]:
+              - link [ref=e231] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/UTR2026010821309600?adChannelId=news
+              - link "专题 “美国曾警告伊朗：小心以色列密谋暗杀”" [ref=e232] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/UTR2026010821309600?adChannelId=news
+                - generic [ref=e234]: 专题
+                - text: “美国曾警告伊朗：小心以色列密谋暗杀”
+              - generic [ref=e235]:
+                - generic [ref=e237]: 1小时前
+                - generic [ref=e239] [cursor=pointer]:
+                  - img [ref=e240]
+                  - generic [ref=e243]: 2.8万
+            - generic [ref=e244]:
+              - link [ref=e246] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A048X100?adChannelId=news
+              - link "重庆一矫正机构被指非法拘禁、体罚学员？学员称深夜被强行从家带到这里，官方回应：无办学许可" [ref=e247] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A048X100?adChannelId=news
+              - generic [ref=e248]:
+                - generic [ref=e249]:
+                  - link "封面新闻" [ref=e250] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMd1nxd5IMauTs%3D
+                    - generic [ref=e251]: 封面新闻
+                  - generic [ref=e252]: 1小时前
+                - link "22" [ref=e253] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A048X100?adChannelId=news?#to-comment
+                  - img [ref=e254]
+                  - generic [ref=e257]: "22"
+                - generic [ref=e258] [cursor=pointer]:
+                  - img [ref=e259]
+                  - generic [ref=e262]: "9"
+                - generic [ref=e264] [cursor=pointer]:
+                  - img [ref=e265]
+                  - generic [ref=e268]: "18"
+            - generic [ref=e269]:
+              - link [ref=e271] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06MAK00?adChannelId=news
+              - link "“美国飞行员在印尼遭枪杀”" [ref=e272] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06MAK00?adChannelId=news
+              - generic [ref=e273]:
+                - generic [ref=e274]:
+                  - link "环球时报新媒体" [ref=e275] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMc2Hpb6Y0avzje
+                    - generic [ref=e276]: 环球时报新媒体
+                  - generic [ref=e277]: 2小时前
+                - link "5" [ref=e278] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06MAK00?adChannelId=news?#to-comment
+                  - img [ref=e279]
+                  - generic [ref=e282]: "5"
+                - generic [ref=e283] [cursor=pointer]:
+                  - img [ref=e284]
+                  - generic [ref=e287]: "7"
+                - generic [ref=e289] [cursor=pointer]:
+                  - img [ref=e290]
+                  - generic [ref=e293]: "3"
+            - generic [ref=e294]:
+              - link [ref=e296] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06VU900?adChannelId=news
+              - link "14亿！顺风车第一股，被卖了" [ref=e297] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06VU900?adChannelId=news
+              - generic [ref=e298]:
+                - generic [ref=e299]:
+                  - link "中国新闻周刊" [ref=e300] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMa335Y7IQYsDw%3D
+                    - generic [ref=e301]: 中国新闻周刊
+                  - generic [ref=e302]: 1小时前
+                - link "8" [ref=e303] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06VU900?adChannelId=news?#to-comment
+                  - img [ref=e304]
+                  - generic [ref=e307]: "8"
+                - generic [ref=e308] [cursor=pointer]:
+                  - img [ref=e309]
+                  - generic [ref=e312]: "10"
+                - generic [ref=e314] [cursor=pointer]:
+                  - img [ref=e315]
+                  - generic [ref=e318]: "5"
+            - generic [ref=e319]:
+              - link [ref=e321] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A04ZQA00?adChannelId=news
+              - link "石家庄中考出分当晚，为何多所高中校门口家长连夜排队？教育局：不清楚此事，会去了解" [ref=e322] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A04ZQA00?adChannelId=news
+              - generic [ref=e323]:
+                - generic [ref=e324]:
+                  - link "大风新闻" [ref=e325] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMc33he7oYUvzzZ
+                    - generic [ref=e326]: 大风新闻
+                  - generic [ref=e327]: 4小时前
+                - link "241" [ref=e328] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A04ZQA00?adChannelId=news?#to-comment
+                  - img [ref=e329]
+                  - generic [ref=e332]: "241"
+                - generic [ref=e333] [cursor=pointer]:
+                  - img [ref=e334]
+                  - generic [ref=e337]: "96"
+                - generic [ref=e339] [cursor=pointer]:
+                  - img [ref=e340]
+                  - generic [ref=e343]: "579"
+            - generic [ref=e344]:
+              - link [ref=e346] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06V3600?adChannelId=news
+              - link "花100多万，赌一个香港本科" [ref=e347] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A06V3600?adChannelId=news
+              - generic [ref=e348]:
+                - generic [ref=e349]:
+                  - link "中国新闻周刊" [ref=e350] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMa335Y7IQYsDw%3D
+                    - generic [ref=e351]: 中国新闻周刊
+                  - generic [ref=e352]: 1小时前
+                - link "14" [ref=e353] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A06V3600?adChannelId=news?#to-comment
+                  - img [ref=e354]
+                  - generic [ref=e357]: "14"
+                - generic [ref=e358] [cursor=pointer]:
+                  - img [ref=e359]
+                  - generic [ref=e362]: "121"
+                - generic [ref=e364] [cursor=pointer]:
+                  - img [ref=e365]
+                  - generic [ref=e368]: "256"
+            - generic [ref=e369]:
+              - link [ref=e371] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A05DDH00?adChannelId=news
+              - link "四年巨亏132亿元，老股东套现离场，这家央企新势力把华为抱得更紧" [ref=e372] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A05DDH00?adChannelId=news
+              - generic [ref=e373]:
+                - generic [ref=e374]:
+                  - link "远光灯" [ref=e375] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMc13pa6IcbsTjb
+                    - generic [ref=e376]: 远光灯
+                  - generic [ref=e377]: 3小时前
+                - link "243" [ref=e378] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A05DDH00?adChannelId=news?#to-comment
+                  - img [ref=e379]
+                  - generic [ref=e382]: "243"
+                - generic [ref=e383] [cursor=pointer]:
+                  - img [ref=e384]
+                  - generic [ref=e387]: "354"
+                - generic [ref=e389] [cursor=pointer]:
+                  - img [ref=e390]
+                  - generic [ref=e393]: "316"
+            - generic [ref=e394]:
+              - link [ref=e396] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260702A0AH0P00?adChannelId=news
+              - link "莫迪和高市早苗“认兄妹”，日本网民嘲讽" [ref=e397] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260702A0AH0P00?adChannelId=news
+              - generic [ref=e398]:
+                - generic [ref=e399]:
+                  - link "环球时报新媒体" [ref=e400] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMc2Hpb6Y0avzje
+                    - generic [ref=e401]: 环球时报新媒体
+                  - generic [ref=e402]: 3小时前
+                - link "674" [ref=e403] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260702A0AH0P00?adChannelId=news?#to-comment
+                  - img [ref=e404]
+                  - generic [ref=e407]: "674"
+                - generic [ref=e408] [cursor=pointer]:
+                  - img [ref=e409]
+                  - generic [ref=e412]: "146"
+                - generic [ref=e414] [cursor=pointer]:
+                  - img [ref=e415]
+                  - generic [ref=e418]: "317"
+            - generic [ref=e419]:
+              - link [ref=e421] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A05YL600?adChannelId=news
+              - link "半年换了近20个高层，酒旅行业变天了" [ref=e422] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A05YL600?adChannelId=news
+              - generic [ref=e423]:
+                - generic [ref=e424]:
+                  - link "钛媒体APP" [ref=e425] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMf33lc7YIVsT3a
+                    - generic [ref=e426]: 钛媒体APP
+                  - generic [ref=e427]: 2小时前
+                - link "6" [ref=e428] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A05YL600?adChannelId=news?#to-comment
+                  - img [ref=e429]
+                  - generic [ref=e432]: "6"
+                - generic [ref=e433] [cursor=pointer]:
+                  - img [ref=e434]
+                  - generic [ref=e437]: "23"
+                - generic [ref=e439] [cursor=pointer]:
+                  - img [ref=e440]
+                  - generic [ref=e443]: "25"
+            - generic [ref=e444]:
+              - link [ref=e446] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/UTR2026062304801600?adChannelId=news
+              - link "专题 王楚钦林诗栋“双保险”同天出局，国乒男单全军覆没折射技术危机" [ref=e447] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/UTR2026062304801600?adChannelId=news
+                - generic [ref=e449]: 专题
+                - text: 王楚钦林诗栋“双保险”同天出局，国乒男单全军覆没折射技术危机
+              - generic [ref=e450]:
+                - generic [ref=e452]: 34分钟前
+                - generic [ref=e454] [cursor=pointer]:
+                  - img [ref=e455]
+                  - generic [ref=e458]: "121"
+            - generic [ref=e459]:
+              - link [ref=e461] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A02KN400?adChannelId=news
+              - link "中方代表点名美国" [ref=e462] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A02KN400?adChannelId=news
+              - generic [ref=e463]:
+                - generic [ref=e464]:
+                  - link "红星新闻" [ref=e465] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QMW235U5YQeuzo%3D
+                    - generic [ref=e466]: 红星新闻
+                  - generic [ref=e467]: 6小时前
+                - link "27" [ref=e468] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A02KN400?adChannelId=news?#to-comment
+                  - img [ref=e469]
+                  - generic [ref=e472]: "27"
+                - generic [ref=e473] [cursor=pointer]:
+                  - img [ref=e474]
+                  - generic [ref=e477]: "33"
+                - generic [ref=e479] [cursor=pointer]:
+                  - img [ref=e480]
+                  - generic [ref=e483]: "26"
+            - generic [ref=e484]:
+              - link [ref=e486] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A066FQ00?adChannelId=news
+              - link "不能喝印度的水！高市访印，飞机上装满了矿泉水" [ref=e487] [cursor=pointer]:
+                - /url: https://news.qq.com/rain/a/20260703A066FQ00?adChannelId=news
+              - generic [ref=e488]:
+                - generic [ref=e489]:
+                  - link "凤凰网" [ref=e490] [cursor=pointer]:
+                    - /url: https://news.qq.com/omn/author/8QIf3nxe6oQYvzzZ4Qs%3D
+                    - generic [ref=e491]: 凤凰网
+                  - generic [ref=e492]: 2小时前
+                - link "198" [ref=e493] [cursor=pointer]:
+                  - /url: https://news.qq.com/rain/a/20260703A066FQ00?adChannelId=news?#to-comment
+                  - img [ref=e494]
+                  - generic [ref=e497]: "198"
+                - generic [ref=e498] [cursor=pointer]:
+                  - img [ref=e499]
+                  - generic [ref=e502]: "72"
+                - generic [ref=e504] [cursor=pointer]:
+                  - img [ref=e505]
+                  - generic [ref=e508]: "107"
+          - generic [ref=e510] [cursor=pointer]: 加载更多
+          - contentinfo "腾讯网版权底部" [ref=e511]:
+            - generic [ref=e512]:
+              - link "关于腾讯" [ref=e513] [cursor=pointer]:
+                - /url: https://www.tencent.com/zh-cn/
+              - text: "|"
+              - link "About Tencent" [ref=e514] [cursor=pointer]:
+                - /url: https://www.tencent.com/en-us/index.html
+              - text: "|"
+              - link "服务协议" [ref=e515] [cursor=pointer]:
+                - /url: https://h5.news.qq.com/static/contract.shtml
+              - text: "|"
+              - link "隐私政策" [ref=e516] [cursor=pointer]:
+                - /url: https://privacy.qq.com/mb/policy/tencent-privacypolicy
+              - text: "|"
+              - link "开放平台" [ref=e517] [cursor=pointer]:
+                - /url: https://open.tencent.com/
+              - text: "|"
+              - link "广告服务" [ref=e518] [cursor=pointer]:
+                - /url: https://e.qq.com/ads/
+              - text: "|"
+              - link "腾讯招聘" [ref=e519] [cursor=pointer]:
+                - /url: https://hr.tencent.com/
+              - text: "|"
+              - link "腾讯公益" [ref=e520] [cursor=pointer]:
+                - /url: https://gongyi.qq.com/
+              - text: "|"
+              - link "QQ浏览器" [ref=e521] [cursor=pointer]:
+                - /url: https://browser.qq.com/?from=qqnews
+              - text: "|"
+              - link "腾讯频道" [ref=e522] [cursor=pointer]:
+                - /url: https://pd.qq.com/?from=qqnews
+              - text: "|"
+              - link "客服中心" [ref=e523] [cursor=pointer]:
+                - /url: https://service.qq.com/
+            - generic [ref=e524]: Copyright © 1998 - 2026 Tencent. All Rights Reserved
+            - generic [ref=e525]:
+              - link "腾讯公司" [ref=e526] [cursor=pointer]:
+                - /url: https://www.tencent.com/
+              - link "版权所有" [ref=e527] [cursor=pointer]:
+                - /url: https://www.tencent.com/zh-cn/le/copyrightstatement.shtml
+        - generic [ref=e528]:
+          - generic [ref=e529]:
+            - heading "热门应用推荐" [level=1] [ref=e530]
+            - generic [ref=e531]:
+              - generic [ref=e533]:
+                - img "腾讯新闻·追热点" [ref=e535]
+                - generic [ref=e536]:
+                  - generic [ref=e537]: 腾讯新闻·追热点
+                  - generic [ref=e538]: 大家都在用的AI新闻助手
+                - button "下载试用 NEW" [ref=e539] [cursor=pointer]:
+                  - text: 下载试用
+                  - generic [ref=e540]: NEW
+              - generic [ref=e542]:
+                - img "腾讯视频" [ref=e544]
+                - generic [ref=e545]:
+                  - generic [ref=e546]: 腾讯视频
+                  - generic [ref=e547]: 海量高清视频独家观看
+                - button "点击下载" [ref=e548] [cursor=pointer]
+              - generic [ref=e550]:
+                - img "腾讯桌面整理" [ref=e552]
+                - generic [ref=e553]:
+                  - generic [ref=e554]: 腾讯桌面整理
+                  - generic [ref=e555]: 一款智能分类桌面软件
+                - button "点击下载" [ref=e556] [cursor=pointer]
+              - generic [ref=e558]:
+                - img "QQ浏览器" [ref=e560]
+                - generic [ref=e561]:
+                  - generic [ref=e562]: QQ浏览器
+                  - generic [ref=e563]: 4亿人的AI浏览神器
+                - button "点击下载" [ref=e564] [cursor=pointer]
+          - generic [ref=e565]:
+            - generic [ref=e566]: 精选视频
+            - generic [ref=e567]:
+              - generic [ref=e569]:
+                - img "Thumbplayer Poster Plugin Image" [ref=e570]
+                - generic [ref=e574]:
+                  - generic [ref=e575]:
+                    - generic "暂停/播放" [ref=e576] [cursor=pointer]:
+                      - img [ref=e577]
+                    - generic [ref=e579]:
+                      - generic [ref=e580]: 00:00
+                      - generic [ref=e581]: /
+                      - generic [ref=e582]: 00:00
+                  - generic "音量" [ref=e588] [cursor=pointer]:
+                    - img [ref=e589]
+                - text: ": : : : : : : : : : : : : : : : :"
+              - generic "哈梅内伊遗体告别仪式举行" [ref=e598]
+              - generic "视频丨美伊在安理会围绕霍尔木兹海峡等问题激烈交锋" [ref=e601]
+              - generic "中国气象局：预计7月我国将迎4轮高温天气过程" [ref=e604]
+              - generic "委内瑞拉超市和自助商店协会表示 委内瑞拉生活物资供应基本正常" [ref=e607]
+              - generic "台风“美莎克”靠近 琼粤交通出行受影响" [ref=e610]
+          - generic [ref=e615] [cursor=pointer]:
+            - generic [ref=e618]:
+              - generic [ref=e620]:
+                - img "Thumbplayer Poster Plugin Image" [ref=e621]
+                - text: ": : : : : : : : : : : : : : : : :"
+              - generic [ref=e627]: 00:30
+              - img [ref=e629]
+              - img [ref=e633]
+            - paragraph [ref=e638]: 徕芬高速吹风机Mini，便携小巧，柔顺速干
+          - generic [ref=e640] [cursor=pointer]:
+            - generic [ref=e641]:
+              - generic [ref=e642]: 07/03
+              - img "早报" [ref=e643]
+            - generic [ref=e644]:
+              - generic [ref=e647]: 乌称基辅遭袭已致20人死亡
+              - generic [ref=e650]: 中国公民因涉嫌违反稀土出口管理规定被采取措施？外交部回应
+              - generic [ref=e653]: 中央巡查组：南宁邕江水上休闲运动无序发展，影响人身安全、通航安全
+          - generic [ref=e656]:
+            - generic [ref=e657]:
+              - generic [ref=e658]: 推荐作者
+              - generic [ref=e659] [cursor=pointer]:
+                - img [ref=e660]
+                - generic [ref=e664]: 换一换
+            - generic [ref=e665]:
+              - generic [ref=e666]:
+                - link "何润锋" [ref=e667] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMd2ntV6oAZuDrZ
+                  - img [ref=e668]
+                  - generic "何润锋" [ref=e669]
+                - generic [ref=e670] [cursor=pointer]:
+                  - img [ref=e671]
+                  - generic [ref=e674]: 关注
+              - generic [ref=e675]:
+                - link "万里国境" [ref=e676] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMd3ndb7oEauznd
+                  - img [ref=e677]
+                  - generic "万里国境" [ref=e678]
+                - generic [ref=e679] [cursor=pointer]:
+                  - img [ref=e680]
+                  - generic [ref=e683]: 关注
+              - generic [ref=e684]:
+                - link "新闻哥" [ref=e685] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMW3HxU5Icdvz0%3D
+                  - img [ref=e686]
+                  - generic "新闻哥" [ref=e687]
+                - generic [ref=e688] [cursor=pointer]:
+                  - img [ref=e689]
+                  - generic [ref=e692]: 关注
+              - generic [ref=e693]:
+                - link "谷雨实验室" [ref=e694] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMd3Hta64Advz3Z
+                  - img [ref=e695]
+                  - generic "谷雨实验室" [ref=e696]
+                - generic [ref=e697] [cursor=pointer]:
+                  - img [ref=e698]
+                  - generic [ref=e701]: 关注
+              - generic [ref=e702]:
+                - link "深网" [ref=e703] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMX33xf5YUevTY%3D
+                  - img [ref=e704]
+                  - generic "深网" [ref=e705]
+                - generic [ref=e706] [cursor=pointer]:
+                  - img [ref=e707]
+                  - generic [ref=e710]: 关注
+              - generic [ref=e711]:
+                - link "棱镜" [ref=e712] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMd2n1V5YAbvzzf
+                  - img [ref=e713]
+                  - generic "棱镜" [ref=e714]
+                - generic [ref=e715] [cursor=pointer]:
+                  - img [ref=e716]
+                  - generic [ref=e719]: 关注
+              - generic [ref=e720]:
+                - link "解法Solution" [ref=e721] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMd33de6oYevDs%3D
+                  - img [ref=e722]
+                  - generic "解法Solution" [ref=e723]
+                - generic [ref=e724] [cursor=pointer]:
+                  - img [ref=e725]
+                  - generic [ref=e728]: 关注
+              - generic [ref=e729]:
+                - link "大国之树" [ref=e730] [cursor=pointer]:
+                  - /url: https://news.qq.com/omn/author/8QMc339d5I0buzre5gZx
+                  - img [ref=e731]
+                  - generic "大国之树" [ref=e732]
+                - generic [ref=e733] [cursor=pointer]:
+                  - img [ref=e734]
+                  - generic [ref=e737]: 关注
+          - generic [ref=e739]:
+            - generic [ref=e744]:
+              - img "腾讯新闻·电脑版" [ref=e746]
+              - generic [ref=e747]:
+                - generic [ref=e748]: 腾讯新闻·电脑版
+                - generic [ref=e749]: 24小时陪你追热点
+              - button "点击下载" [ref=e750] [cursor=pointer]
+            - generic [ref=e752]:
+              - list [ref=e753]:
+                - listitem [ref=e754]:
+                  - link "合资新能源的春天来了 | 棱镜" [ref=e755] [cursor=pointer]:
+                    - /url: https://mp.weixin.qq.com/s/rf2tXS0UDHGOdyAwNy5DWQ
+                    - img "合资新能源的春天来了 | 棱镜" [ref=e756]
+                - listitem [ref=e757]:
+                  - link "贵州茅台荣获“2025年度最具社会责任酒类上市公司”奖 品牌价值连续七年蝉联行业榜首" [ref=e758] [cursor=pointer]:
+                    - /url: https://www.moutaichina.com/mtgf/index/index.html
+                    - img "贵州茅台荣获“2025年度最具社会责任酒类上市公司”奖 品牌价值连续七年蝉联行业榜首" [ref=e759]
+                - listitem [ref=e760]:
+                  - link "新红旗HQ9" [ref=e761] [cursor=pointer]:
+                    - /url: https://hongqi.faw.cn/model/HQ9
+                    - img "新红旗HQ9" [ref=e762]
+                - listitem [ref=e763]:
+                  - link "建设银行信用卡" [ref=e764] [cursor=pointer]:
+                    - /url: https://view.inews.qq.com/a/20260428A06VE800?no-redirect=1
+                    - img "建设银行信用卡" [ref=e765]
+              - list [ref=e771]:
+                - listitem [ref=e772]:
+                  - link "合资新能源的春天来了 | 棱镜" [ref=e773] [cursor=pointer]:
+                    - /url: https://view.inews.qq.com/a/20251205A030V800
+                - listitem [ref=e774]:
+                  - link "走向不惑的招商银行" [ref=e775] [cursor=pointer]:
+                    - /url: https://view.inews.qq.com/a/20260401A02TK200?no-redirect=1
+                - listitem [ref=e776]:
+                  - link "关于优化贵州茅台酒线下门店营业时间及i茅台APP开售时间的提示" [ref=e777] [cursor=pointer]:
+                    - /url: https://mp.weixin.qq.com/s/T1q2sJsF9HJlY5w7mCHB9g
+                - listitem [ref=e778]:
+                  - link "别划走！今天的养生局，够潮才敢晒！" [ref=e779] [cursor=pointer]:
+                    - /url: https://mp.weixin.qq.com/s/zWID7UY4lGEbkqeai2QWTw
+                - listitem [ref=e780]:
+                  - link "春节营销的温情变奏，一汽-大众如何围绕在途重构品牌场景力" [ref=e781] [cursor=pointer]:
+                    - /url: https://view.inews.qq.com/a/20260213A05IQF00
+      - generic [ref=e783]:
+        - link "返回首页" [ref=e784] [cursor=pointer]:
+          - /url: https://www.qq.com
+          - img [ref=e785]
+          - generic [ref=e788]: 首页
+        - generic "页面刷新" [ref=e789] [cursor=pointer]:
+          - img [ref=e790]
+          - generic [ref=e794]: 刷新
+        - generic "意见反馈" [ref=e795] [cursor=pointer]:
+          - img [ref=e796]
+          - generic [ref=e802]: 反馈
+        - generic "无障碍" [ref=e803] [cursor=pointer]:
+          - img [ref=e804]
+          - generic [ref=e807]: 无障碍
+        - generic "更多设置" [ref=e808] [cursor=pointer]:
+          - img [ref=e809]
+          - generic [ref=e813]: 更多
+        - generic "返回页面顶部":
+          - img
+          - generic: 顶部
+  - iframe [ref=e814]:
+    

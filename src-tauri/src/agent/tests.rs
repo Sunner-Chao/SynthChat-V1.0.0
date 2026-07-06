@@ -5742,6 +5742,21 @@ fn planner_decision_normalizes_openai_function_tool_call_array() {
 }
 
 #[test]
+fn planner_decision_normalizes_leaked_single_function_call_before_tool_calls() {
+    let decision = parse_agent_decision(
+        r#"{"name":"image_generate","arguments":{"prompt":"湖边风景","size":"1024x1024"}}
+{"tool_calls":[{"type":"function","id":"image_generate:0","function":{"name":"image_generate","arguments":{"n":1,"prompt":"湖边风景","size":"1024x1024"}}}]}"#,
+    );
+
+    assert_eq!(decision["action"], "tool");
+    let requests = planned_tool_requests_from_decision(&decision);
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].0, "image_generate");
+    assert_eq!(requests[0].1["prompt"], "湖边风景");
+    assert_eq!(requests[0].1["size"], "1024x1024");
+}
+
+#[test]
 fn tool_started_event_has_frontend_tool_transition_fields() {
     let event = tool_started_event(
         "run-test",
@@ -32398,6 +32413,16 @@ fn clarify_tool_result_pauses_agent_run_for_user_response() {
     assert_eq!(checkpoint["detail"]["mode"], "chat_turn");
     assert_eq!(checkpoint["detail"]["kind"], "clarify_pause");
     assert_eq!(checkpoint["detail"]["checkpointScope"], "user_input");
+    assert_eq!(checkpoint["detail"]["humanGate"]["kind"], "clarification");
+    assert_eq!(checkpoint["detail"]["humanGate"]["status"], "waiting");
+    assert_eq!(
+        checkpoint["detail"]["humanGate"]["runId"].as_str(),
+        Some(saved.run_id.as_str())
+    );
+    assert_eq!(
+        checkpoint["detail"]["humanGate"]["checkpointId"].as_str(),
+        Some(saved.checkpoints[0].checkpoint_id.as_str())
+    );
     let transition = graph["transitions"]
         .as_array()
         .unwrap()
@@ -32410,6 +32435,7 @@ fn clarify_tool_result_pauses_agent_run_for_user_response() {
         transition["detail"]["checkpointId"].as_str(),
         Some(saved.checkpoints[0].checkpoint_id.as_str())
     );
+    assert_eq!(transition["detail"]["humanGate"]["kind"], "clarification");
     let _ = fs::remove_dir_all(dir);
 }
 
@@ -32459,6 +32485,8 @@ fn clarify_tool_pause_records_approval_continuation_workflow_mode() {
         .unwrap();
     assert_eq!(checkpoint["status"], "waiting");
     assert_eq!(checkpoint["detail"]["mode"], "approval_continuation");
+    assert_eq!(checkpoint["detail"]["humanGate"]["kind"], "clarification");
+    assert_eq!(checkpoint["detail"]["humanGate"]["status"], "waiting");
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -32510,6 +32538,8 @@ fn clarification_response_context_completes_pending_clarification_run() {
     assert_eq!(checkpoint["status"], "completed");
     assert_eq!(checkpoint["detail"]["mode"], "chat_turn");
     assert_eq!(checkpoint["detail"]["kind"], "clarification_response");
+    assert_eq!(checkpoint["detail"]["humanGate"]["kind"], "clarification");
+    assert_eq!(checkpoint["detail"]["humanGate"]["status"], "completed");
     let _ = fs::remove_dir_all(dir);
 }
 
@@ -59125,6 +59155,8 @@ fn edge_text_to_speech_uses_edge_style_command_and_saves_audio() {
 
     assert_eq!(edge_tts_rate_from_speed("1.25").unwrap(), "+25%");
     let command = default_edge_tts_command(
+        &store,
+        &json!({}),
         &dir.join("input.txt"),
         &dir.join("output.mp3"),
         "en-US-AriaNeural",
@@ -63090,6 +63122,10 @@ fn workflow_executor_approval_route_updates_graph_snapshot() {
     assert_eq!(approval["detail"]["server_id"], "mcp.files");
     assert_eq!(approval["detail"]["toolName"], "write_file");
     assert_eq!(approval["detail"]["tool_name"], "write_file");
+    assert_eq!(approval["detail"]["humanGate"]["kind"], "tool_approval");
+    assert_eq!(approval["detail"]["humanGate"]["status"], "waiting");
+    assert_eq!(approval["detail"]["humanGate"]["serverId"], "mcp.files");
+    assert_eq!(approval["detail"]["humanGate"]["toolName"], "write_file");
     assert_eq!(graph["transitions"][0]["from"], "executor");
     assert_eq!(graph["transitions"][0]["to"], "approval");
     assert_eq!(
@@ -63152,6 +63188,13 @@ fn workflow_executor_node_records_typed_approval_wait_detail() {
     assert_eq!(approval["detail"]["tool_kind"], "mcp");
     assert_eq!(approval["detail"]["sourceLabel"], "mcp.files:write_file");
     assert_eq!(approval["detail"]["source_label"], "mcp.files:write_file");
+    assert_eq!(approval["detail"]["humanGate"]["kind"], "tool_approval");
+    assert_eq!(approval["detail"]["humanGate"]["status"], "waiting");
+    assert_eq!(approval["detail"]["humanGate"]["approvalId"], "approval-123");
+    assert_eq!(
+        approval["detail"]["humanGate"]["reason"],
+        "工具调用会写入文件"
+    );
 
     let _ = fs::remove_dir_all(dir);
 }

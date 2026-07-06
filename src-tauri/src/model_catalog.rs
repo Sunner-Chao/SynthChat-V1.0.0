@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::{
     error::{AppError, AppResult},
-    models::LlmProvider,
+    models::{ImageProvider, LlmProvider},
 };
 
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
@@ -366,23 +366,46 @@ fn find_model_entry<'a>(
 }
 
 fn string_vec(value: Option<&Value>) -> Vec<String> {
-    value
-        .and_then(Value::as_array)
-        .map(|items| {
+    match value {
+        Some(Value::Array(items)) => {
             items
                 .iter()
                 .filter_map(Value::as_str)
                 .map(str::to_string)
                 .collect()
-        })
-        .unwrap_or_default()
+        }
+        Some(Value::String(text)) => text
+            .split(|ch| matches!(ch, ',' | '/' | '|' | ';'))
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn normalize_modality(value: &str) -> Option<String> {
+    let normalized = value
+        .trim()
+        .to_ascii_lowercase()
+        .replace('-', "_")
+        .replace(' ', "_");
+    let modality = match normalized.as_str() {
+        "image" | "images" | "vision" | "visual" | "picture" | "pictures" => "image",
+        "text" | "texts" | "language" => "text",
+        "pdf" | "document" | "documents" => "pdf",
+        "audio" | "audio_input" | "speech" | "voice" => "audio",
+        "video" | "videos" => "video",
+        "" => return None,
+        other => other,
+    };
+    Some(modality.to_string())
 }
 
 fn lower_string_vec(value: Option<&Value>) -> Vec<String> {
     string_vec(value)
         .into_iter()
-        .map(|item| item.trim().to_ascii_lowercase())
-        .filter(|item| !item.is_empty())
+        .filter_map(|item| normalize_modality(&item))
         .collect()
 }
 
@@ -432,8 +455,22 @@ fn object_string_vec(
 }
 
 fn object_modalities(object: &serde_json::Map<String, Value>) -> (Option<Vec<String>>, Option<Vec<String>>) {
-    let direct_input = object_string_vec(object, &["inputModalities", "input_modalities"]);
-    let direct_output = object_string_vec(object, &["outputModalities", "output_modalities"]);
+    let direct_input = object_string_vec(object, &[
+        "input",
+        "inputs",
+        "inputModalities",
+        "input_modalities",
+        "supportedInputModalities",
+        "supported_input_modalities",
+    ]);
+    let direct_output = object_string_vec(object, &[
+        "output",
+        "outputs",
+        "outputModalities",
+        "output_modalities",
+        "supportedOutputModalities",
+        "supported_output_modalities",
+    ]);
     let nested = object.get("modalities").and_then(Value::as_object);
     let nested_input = nested
         .and_then(|value| {
@@ -453,7 +490,12 @@ fn object_modalities(object: &serde_json::Map<String, Value>) -> (Option<Vec<Str
                 Some(modalities)
             }
         });
-    (direct_input.or(nested_input), direct_output.or(nested_output))
+    let flat_modalities = if nested.is_none() {
+        object_string_vec(object, &["modalities"])
+    } else {
+        None
+    };
+    (direct_input.or(nested_input).or(flat_modalities), direct_output.or(nested_output))
 }
 
 fn partial_capabilities_from_object(
@@ -462,7 +504,15 @@ fn partial_capabilities_from_object(
     let (input_modalities, output_modalities) = object_modalities(object);
     let partial = PartialModelCapabilities {
         supports_tools: object_bool(object, &["supportsTools", "supports_tools", "tool_call"]),
-        supports_vision: object_bool(object, &["supportsVision", "supports_vision", "attachment"]),
+        supports_vision: object_bool(object, &[
+            "supportsVision",
+            "supports_vision",
+            "vision",
+            "imageInput",
+            "image_input",
+            "multimodal",
+            "attachment",
+        ]),
         supports_reasoning: object_bool(object, &["supportsReasoning", "supports_reasoning", "reasoning"]),
         supports_pdf: object_bool(object, &["supportsPdf", "supports_pdf"]),
         supports_audio_input: object_bool(object, &["supportsAudioInput", "supports_audio_input"]),
@@ -589,11 +639,11 @@ fn provider_model_config<'a>(
     if model_id.is_empty() {
         return None;
     }
-    provider
-        .models
-        .as_object()
-        .and_then(|models| models.get(model_id))
+    let models = provider.models.as_object()?;
+    models
+        .get(model_id)
         .and_then(Value::as_object)
+        .or_else(|| models.get("__provider").and_then(Value::as_object))
 }
 
 fn provider_model_override(
@@ -612,6 +662,37 @@ fn provider_model_override(
         partial,
         "configured",
     ))
+}
+
+fn curated_vision_capabilities(
+    provider: &LlmProvider,
+    model_id: &str,
+    model_family: &str,
+) -> ModelCapabilities {
+    ModelCapabilities {
+        provider_id: if provider.id.trim().is_empty() {
+            provider.provider_type.clone()
+        } else {
+            provider.id.clone()
+        },
+        model_id: model_id.to_string(),
+        models_dev_provider_id: models_dev_provider_id(model_family),
+        supports_tools: true,
+        supports_vision: true,
+        supports_reasoning: false,
+        supports_pdf: false,
+        supports_audio_input: false,
+        supports_structured_output: true,
+        open_weights: false,
+        input_modalities: vec!["text".into(), "image".into()],
+        output_modalities: vec!["text".into()],
+        context_window: None,
+        max_output_tokens: None,
+        model_family: model_family.into(),
+        status: String::new(),
+        knowledge_cutoff: String::new(),
+        source: "curated".into(),
+    }
 }
 
 fn curated_gateway_capabilities(provider: &LlmProvider, model_id: &str) -> Option<ModelCapabilities> {
@@ -642,6 +723,13 @@ fn curated_gateway_capabilities(provider: &LlmProvider, model_id: &str) -> Optio
             knowledge_cutoff: String::new(),
             source: "curated".into(),
         });
+    }
+    if host.contains("synthapi.asia") && model_id_looks_vision_capable(&model) {
+        return Some(curated_vision_capabilities(
+            provider,
+            model_id,
+            inferred_model_family(&model),
+        ));
     }
     None
 }
@@ -728,6 +816,230 @@ pub fn lookup_model_capabilities(provider_id: &str, model_id: &str) -> Option<Mo
     ))
 }
 
+fn model_id_is_non_chat_generation_or_embedding(model: &str) -> bool {
+    [
+        "embedding",
+        "embed",
+        "rerank",
+        "moderation",
+        "whisper",
+        "tts",
+        "speech",
+        "stable-diffusion",
+        "sdxl",
+        "flux",
+        "midjourney",
+        "dall-e",
+        "dalle",
+        "gpt-image",
+        "grok-imagine",
+        "imagen",
+        "qwen-image",
+        "wan",
+        "cogview",
+        "sora",
+        "veo",
+        "text-to-image",
+        "image-generation",
+    ]
+    .iter()
+    .any(|marker| model.contains(marker))
+}
+
+fn contains_any(model: &str, markers: &[&str]) -> bool {
+    markers.iter().any(|marker| model.contains(marker))
+}
+
+fn starts_with_any(model: &str, prefixes: &[&str]) -> bool {
+    prefixes.iter().any(|prefix| model.starts_with(prefix))
+}
+
+fn model_id_looks_current_frontier_vision_capable(model: &str) -> bool {
+    starts_with_any(
+        model,
+        &[
+            "gpt-5",
+            "gpt-4.1",
+            "gpt-4o",
+            "chatgpt-4o",
+            "o3",
+            "o4",
+            "gemini-3",
+            "gemini-3.1",
+            "gemini-3.5",
+            "gemini-2.5",
+            "claude-fable-5",
+            "claude-mythos-5",
+            "claude-sonnet-5",
+            "claude-opus-4-8",
+            "claude-haiku-4-5",
+            "qwen3.7-plus",
+            "qwen3.7-vl",
+            "qwen3.6-plus",
+            "qwen3.6-flash",
+            "qwen3.6-vl",
+            "qwen3.5-plus",
+            "qwen3.5-flash",
+            "qwen3.5-omni",
+            "qwen3-omni",
+            "qwen3-vl",
+            "minimax-m3",
+            "mimo-v2.5",
+            "mimo-v2-5",
+            "mimo-v2-omni",
+            "kimi-k2.5",
+            "kimi-k2.6",
+            "kimi-k2.7",
+            "kimi-k2.7-code",
+            "grok-4.3",
+            "grok-4-3",
+            "grok-4.20",
+            "grok-4-20",
+            "glm-5v",
+            "glm-4.6v",
+            "glm-4.5v",
+            "mistral-medium-3.5",
+            "mistral-medium-3-5",
+            "mistral-medium-2604",
+            "mistral-small-4",
+            "mistral-small-2603",
+            "mistral-large-3",
+            "ministral-3",
+            "gemma-3",
+            "llama-4",
+        ],
+    ) || contains_any(
+        model,
+        &[
+            "gemini-omni",
+            "qwen3.5-omni-plus",
+            "qwen3.5-omni-flash",
+            "qwen3-vl-plus",
+            "qwen3-vl-flash",
+            "qwen3-vl-235b",
+            "/minimax-m3",
+            "minimax-m3-preview",
+            "/mimo-v2.5",
+            "/mimo-v2-5",
+            "mimo-v2.5-omni",
+            "mimo-v2-5-omni",
+            "moonshot-v1-8k-vision-preview",
+            "moonshot-v1-32k-vision-preview",
+            "moonshot-v1-128k-vision-preview",
+            "kimi-k2.7-code-highspeed",
+            "glm-5v-turbo",
+            "glm-4.6v-flashx",
+            "auto-glm-phone-multilingual",
+            "autoglm-phone-multilingual",
+            "mistral-large-2512",
+            "mistral-small-3.2",
+            "mistral-small-3.1",
+            "ministral-3-14b",
+            "ministral-3-8b",
+            "ministral-3-3b",
+        ],
+    )
+}
+
+fn model_id_has_explicit_multimodal_name(model: &str) -> bool {
+    contains_any(
+        model,
+        &[
+            "vision",
+            "gpt-4v",
+            "gpt-4-vision",
+            "-vl",
+            "vl-",
+            ".vl",
+            "vl.",
+            "_vl",
+            "multimodal",
+            "omni",
+            "qvq",
+            "minimax-vl",
+            "minimax-vision",
+            "mimo-vision",
+            "mimo-omni",
+            "glm-v",
+            "cogvlm",
+            "deepseek-vl",
+            "janus",
+            "internvl",
+            "llava",
+            "pixtral",
+            "molmo",
+            "minicpm-v",
+            "minicpm-o",
+            "yi-vl",
+            "yi-vision",
+            "step-1v",
+            "step1v",
+            "phi-3-vision",
+            "phi-4-multimodal",
+            "llama-3.2-vision",
+            "ernie-vl",
+            "reka",
+        ],
+    )
+}
+
+fn model_id_looks_vision_capable(model: &str) -> bool {
+    let model = model.trim().to_ascii_lowercase().replace('_', "-");
+    if model.is_empty() || model_id_is_non_chat_generation_or_embedding(&model) {
+        return false;
+    }
+    if model_id_looks_current_frontier_vision_capable(&model)
+        || model_id_has_explicit_multimodal_name(&model)
+        || (model.contains("gemini") && !model.contains("embedding"))
+    {
+        return true;
+    }
+    (model.contains("doubao") || model.contains("hunyuan") || model.contains("baichuan"))
+        && (model.contains("vision")
+            || model.contains("-vl")
+            || model.contains("vl-")
+            || model.contains("omni")
+            || model.contains("seed-1.6")
+            || model.contains("seed-1-6"))
+}
+
+fn inferred_model_family(model: &str) -> &'static str {
+    let model = model.trim().to_ascii_lowercase().replace('_', "-");
+    if model.starts_with("gpt-") || model.starts_with("o3") || model.starts_with("o4") {
+        "openai"
+    } else if model.contains("gemini") {
+        "google"
+    } else if model.contains("claude") {
+        "anthropic"
+    } else if model.contains("qwen") || model.contains("qvq") {
+        "qwen"
+    } else if model.contains("minimax") {
+        "minimax"
+    } else if model.contains("mimo") || model.contains("xiaomi") {
+        "mimo"
+    } else if model.contains("kimi") || model.contains("moonshot") {
+        "kimi"
+    } else if model.contains("glm") || model.contains("cogvlm") {
+        "zai"
+    } else if model.contains("deepseek") || model.contains("janus") {
+        "deepseek"
+    } else if model.contains("pixtral") || model.contains("mistral") {
+        "mistral"
+    } else if model.contains("doubao") {
+        "doubao"
+    } else if model.contains("hunyuan") {
+        "hunyuan"
+    } else if model.contains("ernie") {
+        "baidu"
+    } else if model.contains("step") {
+        "stepfun"
+    } else if model.contains("reka") {
+        "reka"
+    } else {
+        ""
+    }
+}
+
 pub fn infer_model_capabilities(provider: &LlmProvider) -> ModelCapabilities {
     let provider_type = provider.provider_type.trim().to_ascii_lowercase();
     let provider_id = if provider.id.trim().is_empty() {
@@ -736,15 +1048,7 @@ pub fn infer_model_capabilities(provider: &LlmProvider) -> ModelCapabilities {
         provider.id.trim()
     };
     let model = provider.model.trim().to_ascii_lowercase();
-    let supports_vision = model.contains("vision")
-        || model.contains("gpt-4o")
-        || model.contains("gpt-4.1")
-        || model.contains("gemini")
-        || model.contains("claude-3")
-        || model.contains("claude-4")
-        || model.contains("qwen-vl")
-        || model.contains("vl-")
-        || model.contains("omni");
+    let supports_vision = model_id_looks_vision_capable(&model);
     let supports_reasoning = model.contains("reason")
         || model.contains("thinking")
         || model.contains("o1")
@@ -774,7 +1078,7 @@ pub fn infer_model_capabilities(provider: &LlmProvider) -> ModelCapabilities {
         output_modalities: vec!["text".into()],
         context_window: None,
         max_output_tokens: None,
-        model_family: String::new(),
+        model_family: inferred_model_family(&model).into(),
         status: String::new(),
         knowledge_cutoff: String::new(),
         source: "heuristic".into(),
@@ -985,6 +1289,122 @@ pub async fn detect_provider_models(provider: LlmProvider) -> AppResult<Detected
     }
 }
 
+pub async fn detect_image_provider_models(provider: ImageProvider) -> AppResult<DetectedModelList> {
+    let provider_id = provider.id.trim().to_string();
+    let provider_type = provider.provider_type.trim().to_ascii_lowercase();
+    let base_url = image_model_base_url(&provider);
+    let api_key = image_model_api_key(&provider);
+    let fallback = list_image_models(&provider_type);
+    if base_url.trim().is_empty() {
+        return Ok(DetectedModelList {
+            ok: !fallback.is_empty(),
+            source: "catalog".into(),
+            provider_id,
+            provider_type,
+            base_url,
+            models: fallback,
+            error: Some("baseUrl is empty; using built-in image model catalog".into()),
+        });
+    }
+
+    let live = match provider_type.as_str() {
+        "gemini" | "gemini_image" | "google_gemini" => {
+            if image_base_url_looks_openai_compatible(&base_url) {
+                fetch_openai_compatible_image_models(&provider, &base_url, api_key.as_deref()).await
+            } else {
+                fetch_gemini_image_models(&provider, &base_url, api_key.as_deref()).await
+            }
+        }
+        "novelai" | "novel_ai" => Ok(Vec::new()),
+        _ => fetch_openai_compatible_image_models(&provider, &base_url, api_key.as_deref()).await,
+    };
+
+    match live {
+        Ok(models) if !models.is_empty() => Ok(DetectedModelList {
+            ok: true,
+            source: "live".into(),
+            provider_id,
+            provider_type,
+            base_url,
+            models,
+            error: None,
+        }),
+        Ok(_) => Ok(DetectedModelList {
+            ok: !fallback.is_empty(),
+            source: "catalog".into(),
+            provider_id,
+            provider_type,
+            base_url,
+            models: fallback,
+            error: Some("live image model endpoint returned no image models; using built-in catalog".into()),
+        }),
+        Err(error) => Ok(DetectedModelList {
+            ok: !fallback.is_empty(),
+            source: "catalog".into(),
+            provider_id,
+            provider_type,
+            base_url,
+            models: fallback,
+            error: Some(error),
+        }),
+    }
+}
+
+fn image_model_base_url(provider: &ImageProvider) -> String {
+    let configured = provider.base_url.trim().trim_end_matches('/');
+    if configured.is_empty() {
+        return match provider.provider_type.trim().to_ascii_lowercase().as_str() {
+            "gemini" | "gemini_image" | "google_gemini" => {
+                "https://generativelanguage.googleapis.com/v1beta".into()
+            }
+            "openai" | "openai_image" | "openai_compatible" | "custom" => {
+                "https://api.openai.com/v1".into()
+            }
+            _ => String::new(),
+        };
+    }
+    for suffix in [
+        "/images/generations",
+        "/images/edits",
+        "/image/generations",
+        "/image-generation",
+    ] {
+        if let Some(base) = configured.strip_suffix(suffix) {
+            return base.to_string();
+        }
+    }
+    configured.to_string()
+}
+
+fn image_base_url_looks_openai_compatible(base_url: &str) -> bool {
+    let lower = base_url.to_ascii_lowercase();
+    lower.contains("synthapi.asia")
+        || lower.ends_with("/v1")
+        || lower.contains("openai")
+        || lower.contains("images/generations")
+}
+
+fn image_model_api_key(provider: &ImageProvider) -> Option<String> {
+    provider
+        .api_key
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| usable_live_secret(value))
+        .or_else(|| {
+            let env_name = provider.api_key_env.trim();
+            if env_name.is_empty() {
+                None
+            } else if usable_live_secret(env_name) && looks_like_inline_live_key(env_name) {
+                Some(env_name.to_string())
+            } else {
+                std::env::var(env_name)
+                    .ok()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| usable_live_secret(value))
+            }
+        })
+}
+
 fn live_model_base_url(provider: &LlmProvider) -> String {
     if uses_deepseek_model_endpoint(provider) {
         return DEEPSEEK_MODEL_LIST_BASE_URL.into();
@@ -1119,7 +1539,14 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
     let (input_modalities, output_modalities) = object_modalities(object);
     let mut partial = PartialModelCapabilities {
         supports_tools: object_bool(object, &["supportsTools", "supports_tools", "tool_call"]),
-        supports_vision: object_bool(object, &["supportsVision", "supports_vision"]),
+        supports_vision: object_bool(object, &[
+            "supportsVision",
+            "supports_vision",
+            "vision",
+            "imageInput",
+            "image_input",
+            "multimodal",
+        ]),
         supports_reasoning: object_bool(object, &["supportsReasoning", "supports_reasoning", "reasoning"]),
         supports_pdf: object_bool(object, &["supportsPdf", "supports_pdf"]),
         supports_audio_input: object_bool(object, &["supportsAudioInput", "supports_audio_input"]),
@@ -1136,6 +1563,13 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
         status: object_string(object, &["status"]),
         knowledge_cutoff: object_string(object, &["knowledgeCutoff", "knowledge_cutoff", "knowledge"]),
     };
+    if let Some(nested) = object
+        .get("capabilities")
+        .and_then(Value::as_object)
+        .and_then(partial_capabilities_from_object)
+    {
+        merge_partial_capabilities(&mut partial, nested);
+    }
     if partial.input_modalities.is_none() {
         let methods = lower_string_vec(object.get("supportedGenerationMethods"));
         if !methods.is_empty() {
@@ -1176,6 +1610,25 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
         || partial.status.is_some()
         || partial.knowledge_cutoff.is_some();
     has_any.then_some(partial)
+}
+
+fn merge_partial_capabilities(base: &mut PartialModelCapabilities, incoming: PartialModelCapabilities) {
+    base.supports_tools = base.supports_tools.or(incoming.supports_tools);
+    base.supports_vision = base.supports_vision.or(incoming.supports_vision);
+    base.supports_reasoning = base.supports_reasoning.or(incoming.supports_reasoning);
+    base.supports_pdf = base.supports_pdf.or(incoming.supports_pdf);
+    base.supports_audio_input = base.supports_audio_input.or(incoming.supports_audio_input);
+    base.supports_structured_output = base
+        .supports_structured_output
+        .or(incoming.supports_structured_output);
+    base.open_weights = base.open_weights.or(incoming.open_weights);
+    base.input_modalities = base.input_modalities.take().or(incoming.input_modalities);
+    base.output_modalities = base.output_modalities.take().or(incoming.output_modalities);
+    base.context_window = base.context_window.or(incoming.context_window);
+    base.max_output_tokens = base.max_output_tokens.or(incoming.max_output_tokens);
+    base.model_family = base.model_family.take().or(incoming.model_family);
+    base.status = base.status.take().or(incoming.status);
+    base.knowledge_cutoff = base.knowledge_cutoff.take().or(incoming.knowledge_cutoff);
 }
 
 async fn fetch_openai_compatible_models(
@@ -1264,6 +1717,63 @@ async fn fetch_gemini_models(
     Ok(models_from_live_items(provider, items))
 }
 
+async fn fetch_openai_compatible_image_models(
+    provider: &ImageProvider,
+    base_url: &str,
+    api_key: Option<&str>,
+) -> Result<Vec<ModelCatalogEntry>, String> {
+    let url = if base_url.ends_with("/models") {
+        base_url.to_string()
+    } else if base_url.ends_with("/v1") {
+        format!("{base_url}/models")
+    } else {
+        format!("{base_url}/v1/models")
+    };
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+    if let Some(key) = api_key {
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {key}"))
+                .map_err(|error| format!("invalid Authorization header: {error}"))?,
+        );
+    }
+    let body = fetch_model_json(&url, headers).await?;
+    let items = body
+        .get("data")
+        .or_else(|| body.get("models"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    Ok(image_models_from_live_items(provider, items))
+}
+
+async fn fetch_gemini_image_models(
+    provider: &ImageProvider,
+    base_url: &str,
+    api_key: Option<&str>,
+) -> Result<Vec<ModelCatalogEntry>, String> {
+    let mut url = if base_url.ends_with("/models") {
+        base_url.to_string()
+    } else {
+        format!("{base_url}/models")
+    };
+    if let Some(key) = api_key {
+        let separator = if url.contains('?') { '&' } else { '?' };
+        url = format!("{url}{separator}key={key}");
+    }
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+    let body = fetch_model_json(&url, headers).await?;
+    let items = body
+        .get("models")
+        .or_else(|| body.get("data"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    Ok(image_models_from_live_items(provider, items))
+}
+
 async fn fetch_model_json(url: &str, headers: HeaderMap) -> Result<Value, String> {
     let response = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
@@ -1331,6 +1841,124 @@ fn live_item_model_id(item: &Value) -> Option<&str> {
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+}
+
+fn image_models_from_live_items(
+    provider: &ImageProvider,
+    items: Vec<Value>,
+) -> Vec<ModelCatalogEntry> {
+    let provider_key = provider.provider_type.trim();
+    let mut entries = Vec::new();
+    for item in items {
+        let Some(raw_id) = live_item_model_id(&item).map(str::to_string) else {
+            continue;
+        };
+        let model_id = raw_id.trim_start_matches("models/");
+        if !looks_like_image_model(model_id, &item) {
+            continue;
+        }
+        let name = item
+            .get("displayName")
+            .or_else(|| item.get("display_name"))
+            .or_else(|| item.get("name"))
+            .and_then(Value::as_str)
+            .map(|value| value.trim_start_matches("models/"));
+        entries.push(image_model_entry(provider_key, model_id, name));
+    }
+    entries.sort_by(|left, right| left.id.cmp(&right.id));
+    entries.dedup_by(|left, right| left.id == right.id);
+    entries
+}
+
+fn looks_like_image_model(model_id: &str, item: &Value) -> bool {
+    let model = model_id.to_ascii_lowercase();
+    let raw = item.to_string().to_ascii_lowercase();
+    [
+        "gpt-image",
+        "dall-e",
+        "dalle",
+        "imagen",
+        "nano-banana",
+        "banana",
+        "image",
+        "img",
+        "flux",
+        "stable-diffusion",
+        "sdxl",
+        "midjourney",
+    ]
+    .iter()
+    .any(|marker| model.contains(marker) || raw.contains(marker))
+        && !model.contains("embedding")
+        && !model.contains("tts")
+        && !model.contains("whisper")
+}
+
+fn image_model_entry(provider_id: &str, model_id: &str, name: Option<&str>) -> ModelCatalogEntry {
+    let provider_id = if provider_id.trim().is_empty() {
+        "image"
+    } else {
+        provider_id.trim()
+    };
+    ModelCatalogEntry {
+        id: model_id.to_string(),
+        name: name.unwrap_or(model_id).to_string(),
+        family: "image".into(),
+        capabilities: ModelCapabilities {
+            provider_id: provider_id.to_string(),
+            model_id: model_id.to_string(),
+            models_dev_provider_id: provider_id.to_string(),
+            supports_tools: false,
+            supports_vision: true,
+            supports_reasoning: false,
+            supports_pdf: false,
+            supports_audio_input: false,
+            supports_structured_output: false,
+            open_weights: false,
+            input_modalities: vec!["text".into(), "image".into()],
+            output_modalities: vec!["image".into()],
+            context_window: None,
+            max_output_tokens: None,
+            model_family: "image".into(),
+            status: String::new(),
+            knowledge_cutoff: String::new(),
+            source: "live".into(),
+        },
+    }
+}
+
+pub fn list_image_models(provider_type: &str) -> Vec<ModelCatalogEntry> {
+    let normalized = provider_type.trim().to_ascii_lowercase();
+    let ids = if matches!(normalized.as_str(), "gemini" | "gemini_image" | "google_gemini") {
+        vec![
+            (
+                "gemini-2.5-flash-image-preview",
+                "Gemini 2.5 Flash Image (Nano Banana)",
+            ),
+            ("gemini-2.5-flash-image", "Gemini 2.5 Flash Image"),
+            ("imagen-4.0-generate-001", "Imagen 4"),
+            ("imagen-4.0-ultra-generate-001", "Imagen 4 Ultra"),
+        ]
+    } else if matches!(normalized.as_str(), "novelai" | "novel_ai") {
+        vec![
+            ("nai-diffusion-4-full", "NAI Diffusion 4 Full"),
+            ("nai-diffusion-3", "NAI Diffusion 3"),
+        ]
+    } else {
+        vec![
+            ("gpt-image-2", "gpt-image-2"),
+            ("gpt-image2", "gpt-image2"),
+            ("gpt-image-1", "gpt-image-1"),
+            ("dall-e-3", "dall-e-3"),
+        ]
+    };
+    ids.into_iter()
+        .map(|(id, name)| {
+            let mut entry = image_model_entry(&normalized, id, Some(name));
+            entry.capabilities.source = "catalog".into();
+            entry
+        })
+        .collect()
 }
 
 pub fn list_agentic_models(provider_id: &str) -> Vec<ModelCatalogEntry> {
@@ -1468,6 +2096,27 @@ mod tests {
     }
 
     #[test]
+    fn provider_model_capabilities_honors_provider_level_overrides() {
+        let mut provider = LlmProvider::default();
+        provider.id = "provider-test".into();
+        provider.provider_type = "anthropic".into();
+        provider.model = "relay-model".into();
+        provider.models = json!({
+            "__provider": {
+                "capabilities": {
+                    "supportsVision": true,
+                    "inputModalities": ["text", "image"]
+                }
+            }
+        });
+
+        let caps = provider_model_capabilities(&provider);
+        assert!(caps.supports_vision);
+        assert_eq!(caps.input_modalities, vec!["image", "text"]);
+        assert_eq!(caps.source, "configured");
+    }
+
+    #[test]
     fn provider_model_capabilities_uses_curated_gateway_hint() {
         let mut provider = LlmProvider::default();
         provider.id = "provider-mimo".into();
@@ -1480,6 +2129,75 @@ mod tests {
         assert!(caps.supports_tools);
         assert_eq!(caps.source, "curated");
         assert!(caps.input_modalities.iter().any(|item| item == "image"));
+    }
+
+    #[test]
+    fn provider_model_capabilities_uses_synthapi_kimi_vision_hint() {
+        let mut provider = LlmProvider::default();
+        provider.id = "provider-kimi".into();
+        provider.provider_type = "anthropic".into();
+        provider.base_url = "https://synthapi.asia".into();
+        provider.model = "kimi-k2.6".into();
+
+        let caps = provider_model_capabilities(&provider);
+        assert!(caps.supports_vision);
+        assert_eq!(caps.model_family, "kimi");
+        assert_eq!(caps.source, "curated");
+        assert!(caps.input_modalities.iter().any(|item| item == "image"));
+    }
+
+    #[test]
+    fn heuristic_detects_current_frontier_multimodal_chat_models() {
+        for model in [
+            "gpt-5.5-chat-latest",
+            "gpt-5.2-codex",
+            "gemini-3-pro-preview",
+            "gemini-3.5-flash",
+            "claude-fable-5",
+            "claude-sonnet-5",
+            "claude-opus-4-8",
+            "claude-haiku-4-5",
+            "qwen3.7-plus",
+            "qwen3.5-omni-plus",
+            "qwen3-vl-235b-a22b-thinking",
+            "MiniMax-M3",
+            "minimax/minimax-m3",
+            "mimo-v2.5",
+            "xiaomi/mimo-v2.5",
+            "kimi-k2.6",
+            "kimi-k2.7-code-highspeed",
+            "grok-4.3",
+            "grok-4-20-fast",
+            "glm-5v-turbo",
+            "glm-4.6v-flashx",
+            "mistral-medium-3.5",
+            "mistral-small-4",
+            "mistral-large-3",
+            "ministral-3-8b",
+            "llama-4-maverick",
+            "gemma-3-27b-it",
+            "pixtral-large",
+            "doubao-seed-1.6",
+        ] {
+            assert!(model_id_looks_vision_capable(model), "{model}");
+        }
+    }
+
+    #[test]
+    fn heuristic_does_not_treat_generation_only_image_models_as_chat_vision() {
+        for model in [
+            "gpt-image-2",
+            "dall-e-3",
+            "imagen-4.0-generate-001",
+            "flux-pro",
+            "qwen-image-plus",
+            "grok-imagine",
+            "claude-3-5-sonnet",
+            "text-embedding-3-large",
+            "whisper-large-v3",
+        ] {
+            assert!(!model_id_looks_vision_capable(model), "{model}");
+        }
     }
 
     #[test]
@@ -1508,5 +2226,33 @@ mod tests {
         assert_eq!(caps.context_window, Some(1_048_576));
         assert_eq!(caps.max_output_tokens, Some(65_536));
         assert_eq!(caps.source, "live");
+    }
+
+    #[test]
+    fn live_items_parse_flat_and_nested_multimodal_metadata() {
+        let mut provider = LlmProvider::default();
+        provider.id = "relay".into();
+        provider.provider_type = "openai_compatible".into();
+        let items = vec![
+            json!({
+                "id": "relay-vision-a",
+                "modalities": ["text", "vision"],
+                "capabilities": {"supportsTools": true}
+            }),
+            json!({
+                "id": "relay-vision-b",
+                "capabilities": {
+                    "inputModalities": "text,image",
+                    "supportsStructuredOutput": true
+                }
+            }),
+        ];
+
+        let entries = models_from_live_items(&provider, items);
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].capabilities.supports_vision);
+        assert!(entries[0].capabilities.supports_tools);
+        assert!(entries[1].capabilities.supports_vision);
+        assert!(entries[1].capabilities.supports_structured_output);
     }
 }

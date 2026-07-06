@@ -1393,10 +1393,14 @@ export function PetWindow() {
       if (
         context?.conversationId
         && context.conversationId === payload.conversationId
-        && (payload.state === "failed" || payload.state === "aborted")
+        && (payload.state === "completed" || payload.state === "failed" || payload.state === "aborted")
       ) {
-        showCloud("任务没有完成。", "error", 3200);
-        playPetBehavior("error");
+        desktopUiThinkingRef.current.set(payload.conversationId, false);
+        clearThinkingCloud(payload.conversationId);
+        if (payload.state === "failed" || payload.state === "aborted") {
+          showCloud("任务没有完成。", "error", 3200);
+          playPetBehavior("error");
+        }
       }
     }).then((handler) => {
       unlisten = handler;

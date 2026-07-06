@@ -331,6 +331,7 @@ export type WorkflowNodeName =
   | "executor"
   | "approval"
   | "checkpoint"
+  | "completion_gate"
   | "reviewer"
   | (string & {});
 
@@ -357,6 +358,7 @@ export const WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT = "future_checkpoint_wait" a
 export const WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED = "resume_checkpoint_requested" as const;
 export const WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED = "resume_checkpoint_continued" as const;
 export const WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE = "final_answer_candidate" as const;
+export const WORKFLOW_REASON_COMPLETION_GATE_PASSED = "completion_gate_passed" as const;
 export const WORKFLOW_REASON_DELEGATE_TASK_STARTED = "delegate_task_started" as const;
 export const WORKFLOW_REASON_DELEGATE_TASK_COMPLETED = "delegate_task_completed" as const;
 export const WORKFLOW_REASON_DELEGATE_TASK_FAILED = "delegate_task_failed" as const;
@@ -375,6 +377,7 @@ export type WorkflowTransitionReason =
   | typeof WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED
   | typeof WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED
   | typeof WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+  | typeof WORKFLOW_REASON_COMPLETION_GATE_PASSED
   | typeof WORKFLOW_REASON_DELEGATE_TASK_STARTED
   | typeof WORKFLOW_REASON_DELEGATE_TASK_COMPLETED
   | typeof WORKFLOW_REASON_DELEGATE_TASK_FAILED
@@ -394,12 +397,14 @@ export const WORKFLOW_TRANSITION_REASON_ORDER: readonly WorkflowTransitionReason
   WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED,
   WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED,
   WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+  WORKFLOW_REASON_COMPLETION_GATE_PASSED,
   WORKFLOW_REASON_DELEGATE_TASK_STARTED,
   WORKFLOW_REASON_DELEGATE_TASK_COMPLETED,
   WORKFLOW_REASON_DELEGATE_TASK_FAILED
 ];
 
 export const WORKFLOW_GRAPH_SCHEMA = "synthgraph_workflow_v1" as const;
+export const SYNTHCHAT_HUMAN_GATE_SCHEMA = "synthchat_human_gate_v1" as const;
 export const WORKFLOW_RUNTIME_EVENTS_SCHEMA = "synthgraph_workflow_runtime_events_v1" as const;
 export const TOOL_CALL_PROTOCOL_SCHEMA = "synthgraph_tool_call_protocol_v1" as const;
 export const WORKFLOW_RUNTIME_SOURCE = "agent_run.workflow_graph" as const;
@@ -410,7 +415,7 @@ export const WORKFLOW_RUNTIME_KIND_PREFIX = "workflow_" as const;
 export const WORKFLOW_RUNTIME_KIND_SNAPSHOT = "workflow_snapshot" as const;
 export const WORKFLOW_RUNTIME_KIND_TRANSITION = WORKFLOW_PHASE_TRANSITION;
 export const WORKFLOW_RUNTIME_NODE_KIND_PREFIX = "workflow_node_" as const;
-export const WORKFLOW_NODE_ORDER: readonly string[] = ["queue", "group_room", "planner", "executor", "approval", "checkpoint", "reviewer"];
+export const WORKFLOW_NODE_ORDER: readonly string[] = ["queue", "group_room", "planner", "executor", "approval", "checkpoint", "completion_gate", "reviewer"];
 export const WORKFLOW_STATUS_ORDER: readonly string[] = ["failed", "canceled", "waiting", "running", "pending", "completed", "skipped"];
 export const WORKFLOW_STATUS_LABELS: Record<string, string> = {
   pending: "pending",
@@ -426,8 +431,9 @@ export const WORKFLOW_NODE_ROLE_LABELS: Record<string, string> = {
   group_room: "group context",
   planner: "decision planning",
   executor: "tool execution",
-  approval: "human approval gate",
+  approval: "human gate",
   checkpoint: "state checkpoint",
+  completion_gate: "completion gate",
   reviewer: "final review"
 };
 
@@ -459,6 +465,7 @@ export const WORKFLOW_TRANSITION_REASON_LABELS: Record<string, string> = {
   resume_checkpoint_requested: "resume checkpoint requested",
   resume_checkpoint_continued: "resume checkpoint continued",
   final_answer_candidate: "final answer candidate",
+  completion_gate_passed: "completion gate passed",
   delegate_task_started: "delegate task started",
   delegate_task_completed: "delegate task completed",
   delegate_task_failed: "delegate task failed"
@@ -467,6 +474,48 @@ export const WORKFLOW_TRANSITION_REASON_LABELS: Record<string, string> = {
 export function workflowTransitionReasonLabel(reason?: string | null): string {
   if (!reason) return "transition";
   return WORKFLOW_TRANSITION_REASON_LABELS[reason] ?? reason.replace(/_/g, " ");
+}
+
+export type WorkflowHumanGateKind =
+  | "clarification"
+  | "tool_approval"
+  | "credential_required"
+  | "blocker"
+  | (string & {});
+
+export interface WorkflowHumanGate {
+  schema?: typeof SYNTHCHAT_HUMAN_GATE_SCHEMA | (string & {});
+  kind?: WorkflowHumanGateKind | null;
+  status?: string | null;
+  runId?: string | null;
+  run_id?: string | null;
+  approvalId?: string | null;
+  approval_id?: string | null;
+  checkpointId?: string | null;
+  checkpoint_id?: string | null;
+  callId?: string | null;
+  call_id?: string | null;
+  serverId?: string | null;
+  server_id?: string | null;
+  toolName?: string | null;
+  tool_name?: string | null;
+  question?: string | null;
+  reason?: string | null;
+  requiresUserInput?: boolean | null;
+  requires_user_input?: boolean | null;
+  [key: string]: unknown;
+}
+
+function workflowRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+export function workflowHumanGateValue(detail: unknown): WorkflowHumanGate | null {
+  const record = workflowRecord(detail);
+  const gate = workflowRecord(record?.humanGate) ?? workflowRecord(record?.human_gate);
+  return gate ? gate as WorkflowHumanGate : null;
 }
 
 export interface WorkflowGraphNode {
@@ -895,6 +944,8 @@ export interface WorkflowRuntimeSummary {
   transition_count?: number;
   statusCounts?: Record<string, number>;
   status_counts?: Record<string, number>;
+  humanGate?: WorkflowHumanGate | null;
+  human_gate?: WorkflowHumanGate | null;
   toolOrigins?: string[];
   tool_origins?: string[];
 }
@@ -1441,22 +1492,38 @@ export interface LlmProvider {
 
 export interface ModelCapabilities {
   provider_id?: string;
+  providerId?: string;
   model_id?: string;
+  modelId?: string;
   models_dev_provider_id?: string;
+  modelsDevProviderId?: string;
   supports_tools?: boolean;
+  supportsTools?: boolean;
   supports_vision?: boolean;
+  supportsVision?: boolean;
   supports_reasoning?: boolean;
+  supportsReasoning?: boolean;
   supports_pdf?: boolean;
+  supportsPdf?: boolean;
   supports_audio_input?: boolean;
+  supportsAudioInput?: boolean;
   supports_structured_output?: boolean;
+  supportsStructuredOutput?: boolean;
   open_weights?: boolean;
+  openWeights?: boolean;
   input_modalities?: string[];
+  inputModalities?: string[];
   output_modalities?: string[];
+  outputModalities?: string[];
   context_window?: number | null;
+  contextWindow?: number | null;
   max_output_tokens?: number | null;
+  maxOutputTokens?: number | null;
   model_family?: string;
+  modelFamily?: string;
   status?: string;
   knowledge_cutoff?: string;
+  knowledgeCutoff?: string;
   source?: string;
 }
 
@@ -2153,6 +2220,18 @@ export interface DetectedModelList {
   error?: string | null;
 }
 
+export interface ModelCapabilityProbeResult {
+  ok: boolean;
+  capability: string;
+  providerId: string;
+  modelId: string;
+  supported: boolean;
+  source: string;
+  capabilities: ModelCapabilities;
+  responsePreview?: string | null;
+  error?: string | null;
+}
+
 // ── Environment Check Types ──
 
 export interface CheckItem {
@@ -2173,11 +2252,17 @@ export interface ActionResult {
   success: boolean;
   message: string;
   detail?: string | null;
+  inProgress?: boolean;
+  jobId?: string | null;
 }
 
 export interface InstallProgressEvent {
   id: string;
+  action?: string | null;
+  jobId?: string | null;
   stage: string;
   message: string;
   percent?: number;
+  success?: boolean | null;
+  detail?: string | null;
 }

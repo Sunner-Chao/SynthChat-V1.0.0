@@ -16,10 +16,13 @@ import {
   AlertTriangle,
   Zap,
 } from "lucide-react";
-import { api } from "../lib/api";
+import { listen as tauriListen } from "@tauri-apps/api/event";
+import { api, isTauri } from "../lib/api";
 
-// Mock listen function for standalone frontend
 function listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
+  if (isTauri()) {
+    return tauriListen<T>(event, (tauriEvent) => handler({ payload: tauriEvent.payload }));
+  }
   console.log(`[Mock Event] Registered listener for: ${event}`);
   return Promise.resolve(() => {
     console.log(`[Mock Event] Unregistered listener for: ${event}`);
@@ -178,20 +181,56 @@ export function EnvironmentCheck({ onComplete }: EnvironmentCheckProps) {
 
     let unlisten: (() => void) | null = null;
     listen<InstallProgressEvent>("install-progress", (event) => {
-      const { id, stage, message, percent } = event.payload;
+      const { id, stage, message, percent, success, detail, action } = event.payload;
+      const isTerminal = ["completed", "failed", "error", "canceled", "cancelled"].includes(stage);
       setInstallLogs((prev) => [
         ...prev.slice(-199),
         { time: new Date().toLocaleTimeString(), id, stage, message },
       ]);
 
       // If this item was just refreshed by runCheck, ignore stale progress events
-      if (completedRef.current.has(id)) return;
+      if (!isTerminal && completedRef.current.has(id)) return;
 
       setProgressMap((prev) => ({ ...prev, [id]: message }));
       setProgressPercentMap((prev) => {
         if (typeof percent !== "number" || !Number.isFinite(percent)) return prev;
         return { ...prev, [id]: percent };
       });
+      if (isTerminal) {
+        completedRef.current.add(id);
+        const actionKey = action || (id === "chattts" ? "install_chattts_deps" : id);
+        setActionResults((prev) => ({
+          ...prev,
+          [actionKey]: {
+            success: success ?? (stage === "completed"),
+            message,
+            detail: detail ?? null
+          }
+        }));
+        setResult((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: prev.items.map((item) =>
+              item.id === id ? { ...item, status: (success ?? stage === "completed") ? "ok" : "error" } : item
+            ),
+          };
+        });
+        window.setTimeout(() => {
+          setProgressMap((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+          setProgressPercentMap((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+          void runCheck(true);
+        }, 900);
+        return;
+      }
       const isStarting = stage === "starting" || stage === "deploying";
       const newStatus: CheckItem["status"] = isStarting ? "starting" : "installing";
       setResult((prev) => {
@@ -233,13 +272,28 @@ export function EnvironmentCheck({ onComplete }: EnvironmentCheckProps) {
       completedRef.current.delete(item.id);
     }
 
+    let backgroundAction = false;
     try {
       const res = await fn(installDir);
+      backgroundAction = res.inProgress === true;
       setActionResults((prev) => ({ ...prev, [action]: res }));
+      if (backgroundAction && item) {
+        setProgressMap((prev) => ({ ...prev, [item.id]: res.message }));
+        setProgressPercentMap((prev) => ({ ...prev, [item.id]: 1 }));
+        setResult((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: prev.items.map((current) =>
+              current.id === item.id ? { ...current, status: "installing" } : current
+            ),
+          };
+        });
+      }
     } catch (e) {
       console.error(`Action ${action} failed:`, e);
     } finally {
-      if (item) {
+      if (item && !backgroundAction) {
         setProgressMap((prev) => {
           const next = { ...prev };
           delete next[item.id];
@@ -253,7 +307,9 @@ export function EnvironmentCheck({ onComplete }: EnvironmentCheckProps) {
       }
     }
 
-    setTimeout(() => runCheck(true), 500);
+    if (!backgroundAction) {
+      setTimeout(() => runCheck(true), 500);
+    }
   };
 
   // Handle fix — open native folder picker for install actions, execute directly for others

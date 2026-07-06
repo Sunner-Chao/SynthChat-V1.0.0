@@ -31,6 +31,7 @@ import type {
   ConversationDeleteMemorySettlingResult,
   MemoryEntry,
   MemoryStatus,
+  ModelCapabilityProbeResult,
   ModelCatalogEntry,
   ModelCapabilities,
   Persona,
@@ -412,6 +413,10 @@ export async function restoreWorkspaceSnapshot(snapshotId: string, deleteNewFile
   }));
 }
 
+export async function getStorageLayout(): Promise<Record<string, unknown>> {
+  return call("get_storage_layout", {}, () => ({}));
+}
+
 export async function getProfile(): Promise<ProfileConfig> {
   return call("get_profile", {}, () => fallbackProfile);
 }
@@ -530,6 +535,43 @@ export async function detectProviderModels(provider: LlmProvider): Promise<Detec
   }));
 }
 
+export async function probeProviderVisionCapability(provider: LlmProvider): Promise<ModelCapabilityProbeResult> {
+  return call("probe_provider_vision_capability", { provider }, () => ({
+    ok: false,
+    capability: "vision",
+    providerId: provider.id,
+    modelId: provider.model,
+    supported: false,
+    source: "probe",
+    capabilities: {
+      provider_id: provider.id,
+      model_id: provider.model,
+      supports_tools: provider.providerType !== "echo",
+      supports_vision: false,
+      supports_reasoning: false,
+      supports_pdf: false,
+      supports_audio_input: false,
+      supports_structured_output: provider.providerType !== "echo",
+      input_modalities: ["text"],
+      output_modalities: ["text"],
+      source: "probe"
+    },
+    error: "vision capability probe unavailable"
+  }));
+}
+
+export async function detectImageProviderModels(provider: ImageProvider): Promise<DetectedModelList> {
+  return call("detect_image_provider_models", { provider }, () => ({
+    ok: false,
+    source: "catalog",
+    providerId: provider.id,
+    providerType: provider.providerType || "",
+    baseUrl: provider.baseUrl || "",
+    models: [],
+    error: "image model detection unavailable"
+  }));
+}
+
 export async function inferProviderModelCapabilities(provider: LlmProvider): Promise<ModelCapabilities> {
   return call("infer_provider_model_capabilities", { provider }, () => ({
     provider_id: provider.id,
@@ -559,6 +601,10 @@ export async function installEdgeTts(): Promise<ActionResult> {
 
 export async function installMissingEnvironmentDeps(): Promise<ActionResult> {
   return call("install_missing_environment_deps", {}, () => ok("Standalone mock mode: dependency install skipped."));
+}
+
+export async function installChatttsDeps(modelDir?: string): Promise<ActionResult> {
+  return call("install_chattts_deps", { modelDir: modelDir || null }, () => ok("Standalone mock mode: ChatTTS dependency install skipped."));
 }
 
 const empty = async <T,>(): Promise<T[]> => [];
@@ -815,6 +861,9 @@ export const api: Record<string, any> = {
   resetTokenUsage: () => ok("已重置"),
   listAgenticModels,
   detectProviderModels,
+  probeProviderVisionCapability,
+  detectImageProviderModels,
+  getStorageLayout,
   inferProviderModelCapabilities,
   environmentCheck,
   checkEnvironment: environmentCheck,
@@ -1091,7 +1140,7 @@ export const api: Record<string, any> = {
   setupSearxng: async () => ok(),
   startOllamaService: async () => ok(),
   pullVisionModel: async () => ok(),
-  installChatttsDeps: async () => ok(),
+  installChatttsDeps,
   installEdgeTts,
   installAllMissing: installMissingEnvironmentDeps,
   cancelEnvironmentAction: async () => ok(),

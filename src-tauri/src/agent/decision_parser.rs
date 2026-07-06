@@ -154,6 +154,9 @@ pub(super) fn parse_agent_decision(raw: &str) -> Value {
     if let Some(value) = parse_hermes_tool_markup(trimmed) {
         return normalize_agent_decision(value);
     }
+    if let Some(value) = first_tool_decision_from_json_objects(trimmed) {
+        return value;
+    }
     if let Some(json_text) = first_json_object(trimmed) {
         if let Ok(value) = serde_json::from_str::<Value>(&json_text) {
             return normalize_agent_decision(value);
@@ -370,6 +373,7 @@ fn normalize_agent_decision(value: Value) -> Value {
             .and_then(Value::as_str)
             .map(str::trim)
             .is_some_and(|name| !name.is_empty());
+    let has_provider_style_tool_name = provider_style_tool_call_object(object);
     let has_tool_array = object.get("toolCalls").and_then(Value::as_array).is_some()
         || object.get("tool_calls").and_then(Value::as_array).is_some()
         || object.get("tools").and_then(Value::as_array).is_some()
@@ -384,7 +388,12 @@ fn normalize_agent_decision(value: Value) -> Value {
             | "function_calls"
     );
 
-    if action_requests_tool || use_tool || has_explicit_tool_key || has_tool_array {
+    if action_requests_tool
+        || use_tool
+        || has_explicit_tool_key
+        || has_provider_style_tool_name
+        || has_tool_array
+    {
         let requests = planned_tool_requests(&value);
         if let Some((tool, payload)) = requests.first() {
             let tool_requests = requests
@@ -417,6 +426,26 @@ fn normalize_agent_decision(value: Value) -> Value {
     }
 
     value
+}
+
+fn provider_style_tool_call_object(object: &serde_json::Map<String, Value>) -> bool {
+    let has_name = object
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|name| !name.is_empty());
+    if !has_name {
+        return false;
+    }
+    let has_arguments = ["arguments", "args", "payload", "input", "parameters"]
+        .iter()
+        .any(|key| object.get(*key).is_some());
+    let type_declares_tool = object
+        .get("type")
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_ascii_lowercase())
+        .is_some_and(|value| matches!(value.as_str(), "function" | "tool" | "tool_call"));
+    has_arguments || type_declares_tool
 }
 
 fn first_planned_tool_request(value: &Value) -> Option<(String, Value)> {
@@ -1199,12 +1228,43 @@ fn decode_basic_xml_entities(value: &str) -> String {
         .replace("&amp;", "&")
 }
 
+fn first_tool_decision_from_json_objects(text: &str) -> Option<Value> {
+    let mut cursor = 0usize;
+    while let Some((json_text, end)) = next_json_object(text, cursor) {
+        let parsed = serde_json::from_str::<Value>(&json_text).or_else(|_| {
+            let repaired = repair_tool_arguments_json(&json_text);
+            serde_json::from_str::<Value>(&repaired)
+        });
+        if let Ok(value) = parsed {
+            let decision = normalize_agent_decision(value);
+            if decision.get("action").and_then(Value::as_str) == Some("tool") {
+                return Some(decision);
+            }
+        }
+        cursor = end;
+    }
+    None
+}
+
 fn first_json_object(text: &str) -> Option<String> {
+    next_json_object(text, 0).map(|(json, _)| json)
+}
+
+fn next_json_object(text: &str, start_at: usize) -> Option<(String, usize)> {
     let mut start = None;
     let mut depth = 0usize;
     let mut in_string = false;
     let mut escaped = false;
-    for (index, ch) in text.char_indices() {
+    let safe_start = if start_at <= text.len() && text.is_char_boundary(start_at) {
+        start_at
+    } else {
+        text.char_indices()
+            .map(|(index, _)| index)
+            .find(|index| *index > start_at)
+            .unwrap_or(text.len())
+    };
+    for (offset, ch) in text[safe_start..].char_indices() {
+        let index = safe_start + offset;
         if start.is_none() {
             if ch == '{' {
                 start = Some(index);
@@ -1233,7 +1293,7 @@ fn first_json_object(text: &str) -> Option<String> {
                 depth = depth.saturating_sub(1);
                 if depth == 0 {
                     let begin = start?;
-                    return Some(text[begin..=index].to_string());
+                    return Some((text[begin..=index].to_string(), index + ch.len_utf8()));
                 }
             }
             _ => {}

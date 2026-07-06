@@ -1,0 +1,211 @@
+- generic [active] [ref=f5e1]:
+  - generic:
+    - generic:
+      - link "跳到主要内容" [ref=f5e2] [cursor=pointer]
+      - link "无障碍功能帮助" [ref=f5e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=zh-CN
+  - generic [ref=f5e6]:
+    - search [ref=f5e7]:
+      - generic [ref=f5e10]:
+        - link "前往 Google 首页" [ref=f5e11] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=zh-CN&ictx=0&sa=X&ved=0ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQpYkNCAk
+          - img "前往 Google 首页" [ref=f5e12]
+        - generic [ref=f5e17]:
+          - combobox "搜索" [ref=f5e20]: AI artificial intelligence news today 2025 AI artificial intelligence news today 2025
+          - generic [ref=f5e21]:
+            - button "清除" [ref=f5e23] [cursor=pointer]:
+              - img [ref=f5e25]
+            - button "按语音搜索" [ref=f5e29] [cursor=pointer]:
+              - img [ref=f5e30]
+        - button "Google 搜索" [ref=f5e32] [cursor=pointer]:
+          - img [ref=f5e35]
+    - generic [ref=f5e37]:
+      - button "设置" [ref=f5e39] [cursor=pointer]:
+        - img [ref=f5e42]
+      - generic [ref=f5e45]:
+        - button "Google 应用" [ref=f5e47] [cursor=pointer]:
+          - img [ref=f5e48]
+        - link "登录" [ref=f5e52] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=zh-CN&passive=true&continue=https://www.google.com/search%3Fsca_esv%3Df4dcb92bb10f5d9d%26q%3DAI%2Bartificial%2Bintelligence%2Bnews%2Btoday%2B2025%26tbm%3Dnws%26source%3Dlnms%26fbs%3DABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg%26sa%3DX%26ved%3D2ahUKEwitz4WLhbaVAxUMPDQIHWveFY8Q0pQJegQIFxAB%26biw%3D929%26bih%3D805%26dpr%3D1&ec=futura_srp_og_si_72236_p
+  - generic [ref=f5e54]:
+    - navigation [ref=f5e60]:
+      - generic [ref=f5e66]:
+        - list [ref=f5e67]:
+          - listitem [ref=f5e68]:
+            - link "AI 模式" [ref=f5e71] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sa=X&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&udm=50&source=lnms&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&aep=1&ntc=1&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ2J8OegQIAxAD
+              - generic [ref=f5e74]: AI 模式
+          - listitem [ref=f5e75]:
+            - link "全部" [ref=f5e76] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&source=lnms&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&sa=X&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ0pQJegQIAxAF
+              - generic [ref=f5e78]: 全部
+          - listitem [ref=f5e79]:
+            - link "新闻" [disabled] [ref=f5e80]:
+              - generic [ref=f5e82]: 新闻
+          - listitem [ref=f5e83]:
+            - link "视频" [ref=f5e84] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sa=X&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&udm=7&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQtKgLegQIAxAJ
+              - generic [ref=f5e86]: 视频
+          - listitem [ref=f5e87]:
+            - link "图片" [ref=f5e88] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sa=X&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&udm=2&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQtKgLegQIAxAL
+              - generic [ref=f5e90]: 图片
+          - listitem [ref=f5e91]:
+            - link "短视频" [ref=f5e92] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sa=X&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&udm=39&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQs6gLegQIAxAN
+              - generic [ref=f5e94]: 短视频
+          - listitem [ref=f5e95]:
+            - link "购物" [ref=f5e96] [cursor=pointer]:
+              - /url: /search?q=AI+artificial+intelligence+news+today+2025&sa=X&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&udm=28&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgOnG-3hjYihu-dLk_AAEWMp2jJW2IGeYc1a2c81EFEM5zhwAPkCApVt_3IWqzf8FuoEC3YtATZCg84HpFWIXxSiaAQBVJyGetneIQWNsBDMZggPP0rywDIVkmgfRqckHVpIbdgWuigIUTEo4NvJ04nC8I6W9K6S0NerlmvPh3lGo44BVw27S2d5K3sY-ypwO9s0wY-Qg&ved=1t:220175&ictx=111
+              - generic [ref=f5e98]: 购物
+          - listitem [ref=f5e99]:
+            - button "更多过滤条件" [ref=f5e100] [cursor=pointer]:
+              - generic "更多过滤条件" [ref=f5e101]:
+                - generic [ref=f5e102]:
+                  - generic [ref=f5e103]: 更多
+                  - img [ref=f5e105]
+        - button "工具" [ref=f5e108] [cursor=pointer]:
+          - generic [ref=f5e110]:
+            - generic [ref=f5e111]: 工具
+            - img [ref=f5e113]
+    - heading "搜索结果" [level=1] [ref=f5e115]
+    - navigation
+    - main [ref=f5e121]:
+      - generic [ref=f5e127]:
+        - link "政府広報オンライン [POLICY RELATED NEWS] Act on Promotion of Research and Development, and Utilization of Artificial Intelligence-related Technology Now in Full Effect | NOVEMBER 2025 | HIGHLIGHTING Japan Japanese legislation called the Act on Promotion of Research and Development, and Utilization of Artificial Intelligence-related Technology (hereinafter... . 2025年10月29日" [ref=f5e131] [cursor=pointer]:
+          - /url: https://www.gov-online.go.jp/hlj/en/november_2025/november_2025-08.html
+          - generic [ref=f5e136]:
+            - generic [ref=f5e140]: 政府広報オンライン
+            - heading "[POLICY RELATED NEWS] Act on Promotion of Research and Development, and Utilization of Artificial Intelligence-related Technology Now in Full Effect | NOVEMBER 2025 | HIGHLIGHTING Japan" [level=3] [ref=f5e141]
+            - generic [ref=f5e142]: Japanese legislation called the Act on Promotion of Research and Development, and Utilization of Artificial Intelligence-related Technology (hereinafter...
+            - generic [ref=f5e143]: .
+            - generic [ref=f5e144]: 2025年10月29日
+        - link "European Commission 64% of 16-24-year-olds used AI in 2025 - News articles - Eurostat In 2025, 63.8% of young people aged 16-24 in the EU used generative artificial intelligence (AI) tools. This share is nearly twice as high... . 2026年2月10日" [ref=f5e148] [cursor=pointer]:
+          - /url: https://ec.europa.eu/eurostat/web/products-eurostat-news/w/edn-20260210-1
+          - generic [ref=f5e153]:
+            - generic [ref=f5e157]: European Commission
+            - heading "64% of 16-24-year-olds used AI in 2025 - News articles - Eurostat" [level=3] [ref=f5e158]
+            - generic [ref=f5e159]: In 2025, 63.8% of young people aged 16-24 in the EU used generative artificial intelligence (AI) tools. This share is nearly twice as high...
+            - generic [ref=f5e160]: .
+            - generic [ref=f5e161]: 2026年2月10日
+        - link "IEA – International Energy Agency Data centre electricity use surged in 2025, even with tightening bottlenecks driving a scramble for solutions New IEA report explores AI's growing energy footprint, options for meeting data centre power demand, and impacts on energy affordability,... . 2026年4月16日" [ref=f5e165] [cursor=pointer]:
+          - /url: https://www.iea.org/news/data-centre-electricity-use-surged-in-2025-even-with-tightening-bottlenecks-driving-a-scramble-for-solutions
+          - generic [ref=f5e170]:
+            - generic [ref=f5e174]: IEA – International Energy Agency
+            - heading "Data centre electricity use surged in 2025, even with tightening bottlenecks driving a scramble for solutions" [level=3] [ref=f5e175]
+            - generic [ref=f5e176]: New IEA report explores AI's growing energy footprint, options for meeting data centre power demand, and impacts on energy affordability,...
+            - generic [ref=f5e177]: .
+            - generic [ref=f5e178]: 2026年4月16日
+        - link "blog.google The latest AI news we announced in November Here are Google's latest AI updates from November 2025. . 2025年12月5日" [ref=f5e182] [cursor=pointer]:
+          - /url: https://blog.google/innovation-and-ai/products/google-ai-updates-november-2025/
+          - generic [ref=f5e187]:
+            - generic [ref=f5e191]: blog.google
+            - heading "The latest AI news we announced in November" [level=3] [ref=f5e192]
+            - generic [ref=f5e193]: Here are Google's latest AI updates from November 2025.
+            - generic [ref=f5e194]: .
+            - generic [ref=f5e195]: 2025年12月5日
+        - 'link "Vatican News Pope Leo on AI: new generations must be helped, not hindered Pope Leo XIV says that new generations must be helped and guided when it comes to their relationship with new technologies, and he calls for... . 2025年12月5日" [ref=f5e199] [cursor=pointer]':
+          - /url: https://www.vaticannews.va/en/pope/news/2025-12/pope-leo-xiv-artificial-intelligence-young-society-technology.html
+          - generic [ref=f5e204]:
+            - generic [ref=f5e208]: Vatican News
+            - 'heading "Pope Leo on AI: new generations must be helped, not hindered" [level=3] [ref=f5e209]'
+            - generic [ref=f5e210]: Pope Leo XIV says that new generations must be helped and guided when it comes to their relationship with new technologies, and he calls for...
+            - generic [ref=f5e211]: .
+            - generic [ref=f5e212]: 2025年12月5日
+        - link "Pew Research Center Key findings about how Americans view artificial intelligence Drawing on five years of Pew Research Center surveys, here are 13 findings about how Americans use and view AI, and where they see promise... . 2026年3月12日" [ref=f5e216] [cursor=pointer]:
+          - /url: https://www.pewresearch.org/short-reads/2026/03/12/key-findings-about-how-americans-view-artificial-intelligence/
+          - generic [ref=f5e221]:
+            - generic [ref=f5e225]: Pew Research Center
+            - heading "Key findings about how Americans view artificial intelligence" [level=3] [ref=f5e226]
+            - generic [ref=f5e227]: Drawing on five years of Pew Research Center surveys, here are 13 findings about how Americans use and view AI, and where they see promise...
+            - generic [ref=f5e228]: .
+            - generic [ref=f5e229]: 2026年3月12日
+        - link "National Institute of Standards and Technology (.gov) NIST Launches Centers for AI in Manufacturing and Critical Infrastructure NIST has expanded its collaboration with the nonprofit MITRE Corporation as part of its efforts to ensure U.S. leadership in artificial... . 2025年12月22日" [ref=f5e233] [cursor=pointer]:
+          - /url: https://www.nist.gov/news-events/news/2025/12/nist-launches-centers-ai-manufacturing-and-critical-infrastructure
+          - generic [ref=f5e238]:
+            - generic [ref=f5e242]: National Institute of Standards and Technology (.gov)
+            - heading "NIST Launches Centers for AI in Manufacturing and Critical Infrastructure" [level=3] [ref=f5e243]
+            - generic [ref=f5e244]: NIST has expanded its collaboration with the nonprofit MITRE Corporation as part of its efforts to ensure U.S. leadership in artificial...
+            - generic [ref=f5e245]: .
+            - generic [ref=f5e246]: 2025年12月22日
+        - link "Equinor Use of artificial intelligence saved Equinor USD 130 million in 2025 Artificial intelligence (AI) contributed to value creation and savings for Equinor and its partners amounting to USD 130 million in 2025. . 2026年1月7日" [ref=f5e250] [cursor=pointer]:
+          - /url: https://www.equinor.com/news/20260107-artificial-intelligence-saved-equinor-usd-130-million
+          - generic [ref=f5e255]:
+            - generic [ref=f5e259]: Equinor
+            - heading "Use of artificial intelligence saved Equinor USD 130 million in 2025" [level=3] [ref=f5e260]
+            - generic [ref=f5e261]: Artificial intelligence (AI) contributed to value creation and savings for Equinor and its partners amounting to USD 130 million in 2025.
+            - generic [ref=f5e262]: .
+            - generic [ref=f5e263]: 2026年1月7日
+        - 'link "UNESCO What you need to know about AI and the right to education During Digital Learning Week 2025, UNESCO released a new report “AI and education: protecting the rights of learners.” . 2025年9月25日" [ref=f5e267] [cursor=pointer]':
+          - /url: https://www.unesco.org/en/articles/what-you-need-know-about-ai-and-right-education
+          - generic [ref=f5e272]:
+            - generic [ref=f5e276]: UNESCO
+            - heading "What you need to know about AI and the right to education" [level=3] [ref=f5e277]
+            - generic [ref=f5e278]: "During Digital Learning Week 2025, UNESCO released a new report “AI and education: protecting the rights of learners.”"
+            - generic [ref=f5e279]: .
+            - generic [ref=f5e280]: 2025年9月25日
+        - link "UN News AI must not decide humanity’s fate, UN chief warns Security Council Artificial intelligence holds vast potential but poses grave risks if left unregulated, UN Secretary-General António Guterres told the... . 2025年9月24日" [ref=f5e284] [cursor=pointer]:
+          - /url: https://news.un.org/en/story/2025/09/1165942
+          - generic [ref=f5e289]:
+            - generic [ref=f5e293]: UN News
+            - heading "AI must not decide humanity’s fate, UN chief warns Security Council" [level=3] [ref=f5e294]
+            - generic [ref=f5e295]: Artificial intelligence holds vast potential but poses grave risks if left unregulated, UN Secretary-General António Guterres told the...
+            - generic [ref=f5e296]: .
+            - generic [ref=f5e297]: 2025年9月24日
+      - navigation [ref=f5e300]:
+        - heading "网页导航" [level=1] [ref=f5e301]
+        - text: "1"
+        - link "Page 2" [ref=f5e304] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=10&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAE
+          - text: "2"
+        - link "Page 3" [ref=f5e306] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=20&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAG
+          - text: "3"
+        - link "Page 4" [ref=f5e308] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=30&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAI
+          - text: "4"
+        - link "Page 5" [ref=f5e310] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=40&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAK
+          - text: "5"
+        - link "Page 6" [ref=f5e312] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=50&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAM
+          - text: "6"
+        - link "Page 7" [ref=f5e314] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=60&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAO
+          - text: "7"
+        - link "Page 8" [ref=f5e316] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=70&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAQ
+          - text: "8"
+        - link "Page 9" [ref=f5e318] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=80&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAS
+          - text: "9"
+        - link "Page 10" [ref=f5e320] [cursor=pointer]:
+          - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=90&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8tMDegQIHRAU
+          - text: "10"
+        - heading "下一页" [level=2] [ref=f5e322]:
+          - link "下一页" [ref=f5e323] [cursor=pointer]:
+            - /url: /search?q=AI+artificial+intelligence+news+today+2025&sca_esv=f4dcb92bb10f5d9d&biw=929&bih=805&tbm=nws&ei=MmxHauC_JtSO2roPprmekQs&start=10&sa=N&ved=2ahUKEwjgoN6VhbaVAxVUh1YBHaacJ7IQ8NMDegQIHRAW
+            - generic [ref=f5e325]: 下一页
+      - navigation
+    - contentinfo [ref=f5e326]:
+      - heading "页脚链接" [level=1] [ref=f5e327]
+      - generic [ref=f5e331]:
+        - generic [ref=f5e333]:
+          - text: 日本
+          - generic [ref=f5e335]:
+            - button "江东区 - 是根据您的 IP 地址推断出来的" [ref=f5e337] [cursor=pointer]:
+              - generic [ref=f5e338]: 江东区
+              - generic [ref=f5e340]:
+                - text: "-"
+                - generic [ref=f5e341]: 是根据您的 IP 地址推断出来的
+            - text: "-"
+            - button "更新位置信息" [ref=f5e343] [cursor=pointer]: 更新位置信息
+        - generic [ref=f5e346]:
+          - link "帮助" [ref=f5e347] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=zh-CN&fg=1
+          - link "发送反馈" [ref=f5e348] [cursor=pointer]:
+            - /url: "#"
+          - link "隐私权" [ref=f5e349] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=zh-CN&fg=1
+          - link "条款" [ref=f5e350] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=zh-CN&fg=1

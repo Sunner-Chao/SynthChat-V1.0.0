@@ -1,0 +1,147 @@
+{
+  "browserProviders": [
+    {
+      "apiKey": null,
+      "apiKeyEnv": "BROWSER_USE_API_KEY",
+      "baseUrl": "https://api.browser-use.com/api/v3",
+      "enabled": false,
+      "id": "browser-provider-743c93f7-5189-41dc-8adf-c5cbd5e8c845",
+      "name": "Browser Use",
+      "projectId": "",
+      "providerType": "browser-use",
+      "recordSessions": false,
+      "timeoutSeconds": 30
+    }
+  ],
+  "containsSecrets": true,
+  "imageProviders": [
+    {
+      "apiKey": "sk-lp90SOh7tVg2FkapC6LuN6sQMg687h724TryBuyFDHDBgoAi",
+      "apiKeyEnv": "SYNTHAPI_IMAGE_API_KEY",
+      "baseUrl": "https://synthapi.asia/v1/images/generations",
+      "enabled": true,
+      "id": "image-provider-0c5906a0-caa3-476f-9ba6-6d7b3b07b5c4",
+      "model": "gpt-image-2",
+      "name": "SynthAPI · 生图路线一",
+      "providerType": "openai_image",
+      "timeoutSeconds": 300,
+      "useSystemProxy": true
+    },
+    {
+      "apiKey": "sk-MNannDKgjjxtLXNtG8eHmwUcZUyeALIcT6pF3xnlexbApyN3",
+      "apiKeyEnv": "SYNTHAPI_IMAGE_API_KEY",
+      "baseUrl": "https://synthapi.asia/v1/images/generations",
+      "enabled": true,
+      "id": "image-provider-43091396-ea82-456a-b541-849bb0f7459d",
+      "model": "gpt-image-2",
+      "name": "SynthAPI · 生图路线二",
+      "providerType": "openai_image",
+      "timeoutSeconds": 300,
+      "useSystemProxy": true
+    }
+  ],
+  "llmCredentialCooldowns": {},
+  "llmCredentialRoundRobin": {},
+  "llmCredentialUsage": {},
+  "llmProviders": [
+    {
+      "apiKey": "sk-cp-Djx9zKNzYUz49z5q1PjWe-rKvdyTcDiWGg7NJif1p6HJgF_5qn5Mwr4ayOfR-42T4S1F8_BQ--IMb2Bz2hdTEwSPcYid14dxZmDQpe20PyQYCtRX_K22Rbo",
+      "apiKeyEnv": "",
+      "appendChatPath": true,
+      "baseUrl": "https://api.minimaxi.com/anthropic",
+      "enabled": true,
+      "id": "provider-e8617c9f-70ec-4014-b97e-13845029798e",
+      "model": "MiniMax-M2.7-highspeed",
+      "models": {
+        "__provider": {
+          "thinkingEnabled": true
+        }
+      },
+      "name": "MiniMax",
+      "preset": "anthropic",
+      "promptCacheLayout": "auto",
+      "promptCacheMode": "auto",
+      "promptCacheTtl": "5m",
+      "providerType": "anthropic",
+      "timeoutSeconds": 60
+    },
+    {
+      "apiKey": "sk-bfc62bbfa6a4420680885a810a9025c4",
+      "apiKeyEnv": "SYNTHCHAT_LLM_API_KEY",
+      "appendChatPath": true,
+      "baseUrl": "https://api.deepseek.com",
+      "enabled": true,
+      "id": "provider-92dfe0ff-2a3b-4da5-b65e-a2a1f5f39895",
+      "model": "deepseek-v4-flash",
+      "models": {
+        "__provider": {
+          "thinkingEnabled": true
+        }
+      },
+      "name": "DeepSeek",
+      "preset": "deepseek",
+      "promptCacheLayout": "auto",
+      "promptCacheMode": "auto",
+      "promptCacheTtl": "5m",
+      "providerType": "openai_compatible",
+      "timeoutSeconds": 60
+    },
+    {
+      "apiKey": "tp-s3slaoy4uzq3uug432rjz05j7v111rer71yiptdwwm8rnumb",
+      "apiKeyEnv": "SYNTHCHAT_LLM_API_KEY",
+      "appendChatPath": true,
+      "baseUrl": "https://token-plan-sgp.xiaomimimo.com/anthropic",
+      "enabled": true,
+      "id": "provider-1b0eccf8-610a-4e64-8363-9a3d156043d4",
+      "model": "mimo-v2.5",
+      "models": {
+        "__provider": {
+          "thinkingEnabled": true
+        }
+      },
+      "name": "Xiaomi MiMo",
+      "preset": "anthropic",
+      "promptCacheLayout": "auto",
+      "promptCacheMode": "auto",
+      "promptCacheTtl": "5m",
+      "providerType": "anthropic",
+      "timeoutSeconds": 60
+    },
+    {
+      "apiKey": "sk-eFMECI6aD4qQyxoGIaXcQlWqGCqajY0KvtBCUW93CPHgnPuF",
+      "apiKeyEnv": "SYNTHCHAT_LLM_API_KEY",
+      "appendChatPath": true,
+      "baseUrl": "https://synthapi.asia",
+      "enabled": true,
+      "id": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+      "model": "kimi-k2.6",
+      "models": {
+        "__provider": {
+          "thinkingEnabled": true
+        }
+      },
+      "name": "kimi",
+      "preset": "anthropic",
+      "promptCacheLayout": "auto",
+      "promptCacheMode": "auto",
+      "promptCacheTtl": "5m",
+      "providerType": "anthropic",
+      "timeoutSeconds": 60
+    }
+  ],
+  "schema": "synthchat_portable_projection_v1",
+  "searchProviders": [
+    {
+      "apiKey": null,
+      "apiKeyEnv": "",
+      "baseUrl": "http://127.0.0.1:8080",
+      "enabled": false,
+      "id": "search-provider-be3a3223-c4b5-4459-981c-6654fc00c4e5",
+      "name": "SearXNG 搜索",
+      "providerType": "searxng",
+      "timeoutSeconds": 10
+    }
+  ],
+  "videoProviders": [],
+  "visionProviders": []
+}

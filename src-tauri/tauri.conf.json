@@ -43,10 +43,9 @@
     "bundle":  {
                    "active":  true,
                    "resources":  {
-                                     "../skills":  "skills",
-                                     "../public/pet":  "public/pet",
-                                     "../data/tts":  "data/tts",
-                                     "../data/emoji":  "data/emoji"
+                                     "../skills":  "synthchat-data/skills",
+                                     "../public":  "synthchat-data/public",
+                                     "../data":  "synthchat-data/data"
                                  },
                    "targets":  "all",
                    "icon":  [

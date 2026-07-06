@@ -2035,10 +2035,23 @@ fn discover_skill_roots(store: &AppStore) -> Vec<SkillRoot> {
     }
     if let Ok(exe) = env::current_exe() {
         if let Some(parent) = exe.parent() {
+            roots.push(skill_root(parent.join("synthchat-data").join("skills"), "bundled"));
             roots.push(skill_root(parent.join("skills"), "bundled"));
+            roots.push(skill_root(
+                parent.join("resources").join("synthchat-data").join("skills"),
+                "bundled",
+            ));
             roots.push(skill_root(parent.join("resources").join("skills"), "bundled"));
             if let Some(grandparent) = parent.parent() {
+                roots.push(skill_root(
+                    grandparent.join("synthchat-data").join("skills"),
+                    "bundled",
+                ));
                 roots.push(skill_root(grandparent.join("skills"), "bundled"));
+                roots.push(skill_root(
+                    grandparent.join("resources").join("synthchat-data").join("skills"),
+                    "bundled",
+                ));
                 roots.push(skill_root(
                     grandparent.join("resources").join("skills"),
                     "bundled",

@@ -1,0 +1,185 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - group [ref=f2e4]
+    - group [ref=f2e6]:
+      - generic [ref=f2e7]:
+        - text: 使用此网站即表示你同意将 Cookie 用于分析、个性化内容和广告。
+        - link "了解有关第三方 Cookie 的详细信息" [ref=f2e8] [cursor=pointer]:
+          - /url: https://www.bing.com/ck/a?!&&p=02410263ad97a7eda3b96ca7d949bec20333bb98e9b036cb1208c6581eda4bf8JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9ha2EubXMvM3JkcGFydHljb29raWVz&ntb=1
+        - text: "|"
+        - link "Microsoft 隐私权政策" [ref=f2e9] [cursor=pointer]:
+          - /url: https://www.bing.com/ck/a?!&&p=b0486965383b24b248e9c8acef442d6f3ca9884f84370b175b26fd590972fc8aJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9nby5taWNyb3NvZnQuY29tL2Z3bGluay8_bGlua2lkPTUyMTgzOQ&ntb=1
+    - group:
+      - link "关闭" [ref=f2e10] [cursor=pointer]:
+        - /url: "javascript:"
+  - banner [ref=f2e11]:
+    - button "跳至内容" [ref=f2e12] [cursor=pointer]:
+      - generic [ref=f2e14]: 跳至内容
+    - button "辅助功能反馈" [ref=f2e15] [cursor=pointer]:
+      - generic [ref=f2e17]: 辅助功能反馈
+    - generic [ref=f2e18]:
+      - link "返回到必应搜索" [ref=f2e19] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "返回到必应搜索" [level=1] [ref=f2e20]
+      - search [ref=f2e21]:
+        - button "搜索" [ref=f2e24] [cursor=pointer]
+        - searchbox "在此处输入你的搜索 — 输入时会显示搜索建议" [ref=f2e25]: 百度文心一言 企业应用案例 制造业 金融 医疗
+        - button "使用图像搜索" [ref=f2e31] [cursor=pointer]
+    - complementary "帐户奖励和偏好设置" [ref=f2e33]:
+      - button "Microsoft Rewards" [ref=f2e34] [cursor=pointer]:
+        - generic [ref=f2e36]:
+          - generic [ref=f2e37]: Rewards
+          - img [ref=f2e39]
+      - link "登录" [ref=f2e51] [cursor=pointer]:
+        - /url: javascript:void(0)
+        - generic "登录" [ref=f2e52]
+    - navigation "主菜单" [ref=f2e53]:
+      - list [ref=f2e54]:
+        - listitem [ref=f2e55]:
+          - link "全部" [ref=f2e56] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=f2e57]:
+          - link "搜索" [ref=f2e58] [cursor=pointer]:
+            - /url: /copilotsearch?q=%e7%99%be%e5%ba%a6%e6%96%87%e5%bf%83%e4%b8%80%e8%a8%80+%e4%bc%81%e4%b8%9a%e5%ba%94%e7%94%a8%e6%a1%88%e4%be%8b+%e5%88%b6%e9%80%a0%e4%b8%9a+%e9%87%91%e8%9e%8d+%e5%8c%bb%e7%96%97&FORM=CSSCOP
+            - img [ref=f2e59]
+            - text: 搜索
+        - listitem [ref=f2e61]:
+          - link "图片" [ref=f2e62] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=30ebb8641cc5d7667212b8be1ee225c77ea25bfb3541a37c1cd01e21cb743194JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L2ltYWdlcy9zZWFyY2g_cT0lZTclOTklYmUlZTUlYmElYTYlZTYlOTYlODclZTUlYmYlODMlZTQlYjglODAlZTglYTglODArJWU0JWJjJTgxJWU0JWI4JTlhJWU1JWJhJTk0JWU3JTk0JWE4JWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3JkZPUk09SERSU0Mz&ntb=1
+        - listitem [ref=f2e63]:
+          - link "视频" [ref=f2e64] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=7b373f03043152c12157f489f25e0dd35b69e23294c9da550eecc4b2677bea38JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3ZpZGVvcy9zZWFyY2g_cT0lZTclOTklYmUlZTUlYmElYTYlZTYlOTYlODclZTUlYmYlODMlZTQlYjglODAlZTglYTglODArJWU0JWJjJTgxJWU0JWI4JTlhJWU1JWJhJTk0JWU3JTk0JWE4JWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3JkZPUk09SERSU0M0&ntb=1
+        - listitem [ref=f2e65]:
+          - link "地图" [ref=f2e66] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4d548f04092d661ab0af9af6782e0ffc35cbe464a55894dce8a5a62a7c945fedJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L21hcHM_cT0lZTclOTklYmUlZTUlYmElYTYlZTYlOTYlODclZTUlYmYlODMlZTQlYjglODAlZTglYTglODArJWU0JWJjJTgxJWU0JWI4JTlhJWU1JWJhJTk0JWU3JTk0JWE4JWU2JWExJTg4JWU0JWJlJThiKyVlNSU4OCViNiVlOSU4MCVhMCVlNCViOCU5YSslZTklODclOTElZTglOWUlOGQrJWU1JThjJWJiJWU3JTk2JTk3JkZPUk09SERSU0M2&ntb=1
+        - listitem [ref=f2e67]:
+          - link "资讯" [ref=f2e68] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=0b96a511e6663e25d573c3a9ee504e14cd1f1741e2a54bcc4b9c49ecf02a9775JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L25ld3Mvc2VhcmNoP3E9JWU3JTk5JWJlJWU1JWJhJWE2JWU2JTk2JTg3JWU1JWJmJTgzJWU0JWI4JTgwJWU4JWE4JTgwKyVlNCViYyU4MSVlNCViOCU5YSVlNSViYSU5NCVlNyU5NCVhOCVlNiVhMSU4OCVlNCViZSU4YislZTUlODglYjYlZTklODAlYTAlZTQlYjglOWErJWU5JTg3JTkxJWU4JTllJThkKyVlNSU4YyViYiVlNyU5NiU5NyZGT1JNPUhEUlNDNw&ntb=1
+        - listitem [ref=f2e69]:
+          - link "Copilot" [ref=f2e70] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=78730525e6b53f9783657637a6ab87fab043fa01e8078bb071bc4ca2e6b5747bJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L2NoYXQ_cHJvbXB0PSVlNyU5OSViZSVlNSViYSVhNiVlNiU5NiU4NyVlNSViZiU4MyVlNCViOCU4MCVlOCVhOCU4MCslZTQlYmMlODElZTQlYjglOWElZTUlYmElOTQlZTclOTQlYTglZTYlYTElODglZTQlYmUlOGIrJWU1JTg4JWI2JWU5JTgwJWEwJWU0JWI4JTlhKyVlOSU4NyU5MSVlOCU5ZSU4ZCslZTUlOGMlYmIlZTclOTYlOTcmc2VuZHF1ZXJ5PTEmRk9STT1TQ0NPRFg&ntb=1
+        - listitem [ref=f2e71]:
+          - button "更多" [ref=f2e72] [cursor=pointer]:
+            - img [ref=f2e74]
+            - text: 更多
+  - generic [ref=f2e76]:
+    - main "搜索结果" [ref=f2e77]:
+      - generic [ref=f2e79]: 约 5 个结果
+      - list [ref=f2e88]:
+        - listitem [ref=f2e89]:
+          - generic [ref=f2e90]:
+            - link "浏览此图像" [ref=f2e93] [cursor=pointer]:
+              - /url: /images/search?view=detailV2&ccid=soa3FTGU&id=AB0DB6F4B80C4BC0E63DDEB89A76C270402A4D2F&thid=OIP.soa3FTGUEYuD7dz7S1N2CwHaER&mediaurl=https://pic1.zhimg.com/v2-aa955d7b63c898cdc3d0cd2ae6cad202_r.jpg&q=%e7%99%be%e5%ba%a6%e6%96%87%e5%bf%83%e4%b8%80%e8%a8%80+%e4%bc%81%e4%b8%9a%e5%ba%94%e7%94%a8%e6%a1%88%e4%be%8b+%e5%88%b6%e9%80%a0%e4%b8%9a+%e9%87%91%e8%9e%8d+%e5%8c%bb%e7%96%97&ck=A47DD34D449A81C3046D71BF44E9F1F2&idpp=rc&expw=904&exph=522&form=rc2idp
+            - generic [ref=f2e95]:
+              - link "知乎专栏" [ref=f2e97] [cursor=pointer]:
+                - /url: https://www.bing.com/ck/a?!&&p=268758576102201617a998ed0c665b826aebf0468f94863fd41c4b66fe2b3b5bJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC82NDQ0MTY4MjY&ntb=1
+                - img "全球 Web 图标" [ref=f2e101]
+                - generic [ref=f2e102]:
+                  - generic [ref=f2e103]: 知乎专栏
+                  - generic [ref=f2e106]: https://zhuanlan.zhihu.com
+              - heading "百度文心大模型进工业：吃最多的苦，啃最硬的骨 - 知乎" [level=2] [ref=f2e107]:
+                - link "百度文心大模型进工业：吃最多的苦，啃最硬的骨 - 知乎" [ref=f2e108] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=268758576102201617a998ed0c665b826aebf0468f94863fd41c4b66fe2b3b5bJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC82NDQ0MTY4MjY&ntb=1
+              - paragraph [ref=f2e109]: 据百度智能云智能制造解决方案总经理吴学义介绍，目前百度智能云已与行业里的企业在矿山安全生产流程 …
+        - listitem [ref=f2e111]:
+          - link "百度智能云" [ref=f2e113] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=55d70a411c806979ff83d584cb4ae8502d224e05b0186e5e93c1ad65b44c2f1cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9jbG91ZC5iYWlkdS5jb20vYXJ0aWNsZS81NTQ4OTU4&ntb=1
+            - generic [ref=f2e118]:
+              - generic [ref=f2e119]: 百度智能云
+              - generic [ref=f2e122]: https://cloud.baidu.com › article
+          - heading "百度智能云全面开放文心一言：企业级AI服务的新范式" [level=2] [ref=f2e123]:
+            - link "百度智能云全面开放文心一言：企业级AI服务的新范式" [ref=f2e124] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=55d70a411c806979ff83d584cb4ae8502d224e05b0186e5e93c1ad65b44c2f1cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9jbG91ZC5iYWlkdS5jb20vYXJ0aWNsZS81NTQ4OTU4&ntb=1
+          - paragraph [ref=f2e126]: 2025年12月30日 · 百度智能云此次开放的文心一言服务，并非简单的API调用，而是构建了多层次、可定制的技术架构。 其核心包括 …
+        - listitem [ref=f2e127]:
+          - link "百度开发者中心" [ref=f2e129] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=2712bd8094ba7e7eb46607272463f726a8bd213cdba734f4528b51a255badbdfJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NDA4MTc5Nw&ntb=1
+            - img "全球 Web 图标" [ref=f2e133]
+            - generic [ref=f2e134]:
+              - generic [ref=f2e135]: 百度开发者中心
+              - generic [ref=f2e138]: https://developer.baidu.com › article › detail.html
+          - heading "文心一言赋能工业：AI驱动的智能自动化新范式-百度开发者中心" [level=2] [ref=f2e139]:
+            - link "文心一言赋能工业：AI驱动的智能自动化新范式-百度开发者中心" [ref=f2e140] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=2712bd8094ba7e7eb46607272463f726a8bd213cdba734f4528b51a255badbdfJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NDA4MTc5Nw&ntb=1
+          - paragraph [ref=f2e142]: 2025年10月13日 · 本文探讨文心一言在AI人工智能领域对工业自动化的赋能作用，解析其技术架构、应用场景及实践价值，为制造业 …
+        - listitem [ref=f2e143]:
+          - link "搜狐" [ref=f2e145] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=0c5a8a828fd29ce1d8c8cc822ee3e819d34ba6f95d202d19a2a4e9b321ec121dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc29odS5jb20vYS85MDQ0MDQwOThfNDY4NjYx&ntb=1
+            - generic [ref=f2e150]:
+              - generic [ref=f2e151]: 搜狐
+              - generic [ref=f2e154]: https://www.sohu.com
+          - heading "百度智能云：大模型实战手册——2025百度智能云精选案例集 ..." [level=2] [ref=f2e155]:
+            - link "百度智能云：大模型实战手册——2025百度智能云精选案例集 ..." [ref=f2e156] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=0c5a8a828fd29ce1d8c8cc822ee3e819d34ba6f95d202d19a2a4e9b321ec121dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc29odS5jb20vYS85MDQ0MDQwOThfNDY4NjYx&ntb=1
+          - paragraph [ref=f2e158]: 2025年6月14日 · 该手册聚焦百度智能云在多行业的大模型落地实践，通过技术赋能与场景创新，展现大模型驱动产业智能化转型的成 …
+        - listitem [ref=f2e159]:
+          - link "CSDN博客" [ref=f2e161] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=d5841ff535d624d2b0850b7f26fe06119370be7ea70afa3c66038b85abc83043JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9ibG9nLmNzZG4ubmV0LzI0MDVfODg2MzYzNTcvYXJ0aWNsZS9kZXRhaWxzLzE0ODM1NTU2MQ&ntb=1
+            - generic [ref=f2e166]:
+              - generic [ref=f2e167]: CSDN博客
+              - generic [ref=f2e170]: https://blog.csdn.net › article › details › ...
+          - heading "AI人工智能领域，文心一言的行业应用案例 - CSDN博客" [level=2] [ref=f2e171]:
+            - link "AI人工智能领域，文心一言的行业应用案例 - CSDN博客" [ref=f2e172] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=d5841ff535d624d2b0850b7f26fe06119370be7ea70afa3c66038b85abc83043JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9ibG9nLmNzZG4ubmV0LzI0MDVfODg2MzYzNTcvYXJ0aWNsZS9kZXRhaWxzLzE0ODM1NTU2MQ&ntb=1
+          - paragraph [ref=f2e174]: 2025年5月31日 · 范围涵盖金融、医疗、教育、媒体、政务、交通、工业制造、电商等多个重要行业，全面呈现文心一言在不同领域的 …
+        - listitem [ref=f2e175]:
+          - link "知乎" [ref=f2e177] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=a77390e1cb91bc54e014b7e8981b9d280b98700fe72f67f37c30d1bafb49762aJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuemhpaHUuY29tL3F1ZXN0aW9uLzU4NTk4OTI2Nw&ntb=1
+            - img "全球 Web 图标" [ref=f2e181]
+            - generic [ref=f2e182]:
+              - generic [ref=f2e183]: 知乎
+              - generic [ref=f2e186]: https://www.zhihu.com › question
+          - heading "百度「文心一言」已有 400 多家头部企业加入，透露了哪些 ..." [level=2] [ref=f2e187]:
+            - link "百度「文心一言」已有 400 多家头部企业加入，透露了哪些 ..." [ref=f2e188] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=a77390e1cb91bc54e014b7e8981b9d280b98700fe72f67f37c30d1bafb49762aJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuemhpaHUuY29tL3F1ZXN0aW9uLzU4NTk4OTI2Nw&ntb=1
+          - paragraph [ref=f2e190]: 2023年2月24日 · 3月16日消息，百度创始人、董事长兼首席执行官 李彦宏 出席及百度首席技术官 王海峰 出席，并展示了文心一言在 …
+        - listitem [ref=f2e191]:
+          - link "36氪" [ref=f2e193] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=c948c12aa91615abcfdb397f3113ddf29960b26af09dc5fd77ed6b42470a62caJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9tLjM2a3IuY29tL3AvMjQxODY0MjQxNTYyNTIyMA&ntb=1
+            - generic [ref=f2e198]:
+              - generic [ref=f2e199]: 36氪
+              - generic [ref=f2e202]: https://m.36kr.com
+          - heading "「文心一言」对外开放后：一句话让AI找到工作文件，数字人 ..." [level=2] [ref=f2e203]:
+            - link "「文心一言」对外开放后：一句话让AI找到工作文件，数字人 ..." [ref=f2e204] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=c948c12aa91615abcfdb397f3113ddf29960b26af09dc5fd77ed6b42470a62caJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9tLjM2a3IuY29tL3AvMjQxODY0MjQxNTYyNTIyMA&ntb=1
+          - paragraph [ref=f2e206]: 2026年5月24日 · 在8月2日举办的百度智能云千帆大模型平台升级媒体圆桌会上，百度智能云AI与大数据平台总经理忻舟曾对大模型最 …
+        - listitem [ref=f2e207]:
+          - link "InfoQ" [ref=f2e209] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=005a085f536a19dcf6f8f8af945d0f3e53ba9942407e3664d6c556c489a3d16cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuaW5mb3EuY24vYXJ0aWNsZS85Z3Zwa3dtM3J1ZG50NHBoc21ucA&ntb=1
+            - generic [ref=f2e214]:
+              - generic [ref=f2e215]: InfoQ
+              - generic [ref=f2e218]: https://www.infoq.cn › article
+          - heading "企业如何实际应用文心一言大模型？百度工程师首次现场演示 ..." [level=2] [ref=f2e219]:
+            - link "企业如何实际应用文心一言大模型？百度工程师首次现场演示 ..." [ref=f2e220] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=005a085f536a19dcf6f8f8af945d0f3e53ba9942407e3664d6c556c489a3d16cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuaW5mb3EuY24vYXJ0aWNsZS85Z3Zwa3dtM3J1ZG50NHBoc21ucA&ntb=1
+          - paragraph [ref=f2e222]: 2023年5月12日 · 我们期望和百度智能云一起，把微调、性能调优等工具简化，推动大模型应用。 北京宝兰德软件董事长易存道表示， …
+        - listitem [ref=f2e223]:
+          - link "搜狐" [ref=f2e225] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=7705fff04e2dd55ad9ca8bc20a8471a9f01326be9e979b64fa05f9530d3f81ddJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc29odS5jb20vYS82NTUwMzU2NzVfMjExNzYy&ntb=1
+            - generic [ref=f2e230]:
+              - generic [ref=f2e231]: 搜狐
+              - generic [ref=f2e234]: https://www.sohu.com
+          - heading "李彦宏：已有650家企业宣布接入文心一言生态_模型_能力_数据" [level=2] [ref=f2e235]:
+            - link "李彦宏：已有650家企业宣布接入文心一言生态_模型_能力_数据" [ref=f2e236] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=7705fff04e2dd55ad9ca8bc20a8471a9f01326be9e979b64fa05f9530d3f81ddJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuc29odS5jb20vYS82NTUwMzU2NzVfMjExNzYy&ntb=1
+          - paragraph [ref=f2e238]: 2023年3月16日 · 百度创始人、董事长兼首席执行官李彦宏现场展示了文心一言在文学创作、商业文案创作、数理推算、中文理解、多 …
+        - listitem [ref=f2e239]:
+          - link "网易" [ref=f2e241] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=8235d4a6372e34984c52c819ad800ac9aedc024829e9d48c92cfed06cd32c3d8JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuMTYzLmNvbS9keS9hcnRpY2xlL0hVOVZGM0lGMDUxMUQ2UkwuaHRtbA&ntb=1
+            - generic [ref=f2e246]:
+              - generic [ref=f2e247]: 网易
+              - generic [ref=f2e250]: https://www.163.com › dy › article
+          - heading "百度「文心一言」将在五大金融场景落地 - 网易" [level=2] [ref=f2e251]:
+            - link "百度「文心一言」将在五大金融场景落地 - 网易" [ref=f2e252] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=8235d4a6372e34984c52c819ad800ac9aedc024829e9d48c92cfed06cd32c3d8JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuMTYzLmNvbS9keS9hcnRpY2xlL0hVOVZGM0lGMDUxMUQ2UkwuaHRtbA&ntb=1
+          - paragraph [ref=f2e254]: 2023年2月23日 · 中小企业长期存在“信息孤岛”和“信用孤岛”难题，百度智能云推出产业金融解决方案，依托百度工业物联网等数字化 …
+    - complementary "更多结果"
+  - contentinfo [ref=f2e255]:
+    - generic [ref=f2e256]:
+      - list:
+        - listitem [ref=f2e257]:
+          - link "隐私" [ref=f2e258] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=65e14e0db5602b42b8b59d064bae6fce9d9d154de5d2bbf58bdd907124970569JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1
+        - listitem [ref=f2e259]:
+          - link "条款" [ref=f2e260] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=edfc33725ae51257e466be872ce418499c27c48c3d4f59ed981ef0ea7287e85cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1

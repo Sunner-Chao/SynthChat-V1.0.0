@@ -2472,6 +2472,8 @@ mod tests {
             data["openai"]["reasoning_details"][0]["type"],
             "reasoning.text"
         );
+        assert_eq!(data["thinkingCards"][0]["provider"], "openai");
+        assert_eq!(data["thinkingCards"][0]["summary"], "hidden chain\nsigned");
     }
 
     #[test]

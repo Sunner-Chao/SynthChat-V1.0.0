@@ -449,8 +449,8 @@ pub(super) fn workflow_graph_runtime_contract() -> Value {
         "clientMergeContract": workflow_client_merge_contract(),
         "client_merge_contract": workflow_client_merge_contract(),
         "nodePayload": {
-            "node": "queue|group_room|planner|executor|approval|checkpoint|reviewer|future_node",
-            "role": "queue admission|group context|decision planning|tool execution|human approval gate|state checkpoint|final review|custom workflow node",
+            "node": "queue|group_room|planner|executor|approval|checkpoint|completion_gate|reviewer|future_node",
+            "role": "queue admission|group context|decision planning|tool execution|human gate|state checkpoint|completion gate|final review|custom workflow node",
             "status": "pending|running|completed|waiting|failed|canceled|skipped|future_status",
             "detail": "object with runtime detail aliases normalized",
             "eventSequence": "number|null",

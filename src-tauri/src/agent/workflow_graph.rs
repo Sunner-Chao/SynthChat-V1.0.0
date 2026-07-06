@@ -17,6 +17,7 @@ use super::{
 };
 
 pub(super) const SYNTHGRAPH_WORKFLOW_SCHEMA: &str = "synthgraph_workflow_v1";
+pub(super) const SYNTHCHAT_HUMAN_GATE_SCHEMA: &str = "synthchat_human_gate_v1";
 pub(super) const WORKFLOW_RUNTIME_SOURCE: &str = "agent_run.workflow_graph";
 pub(super) const WORKFLOW_PHASE_INITIALIZED: &str = "workflow_graph_initialized";
 pub(super) const WORKFLOW_PHASE_NODE: &str = "workflow_node";
@@ -46,6 +47,7 @@ pub(super) const WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED: &str =
 pub(super) const WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED: &str =
     "resume_checkpoint_continued";
 pub(super) const WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE: &str = "final_answer_candidate";
+pub(super) const WORKFLOW_REASON_COMPLETION_GATE_PASSED: &str = "completion_gate_passed";
 pub(super) const WORKFLOW_REASON_DELEGATE_TASK_STARTED: &str = "delegate_task_started";
 pub(super) const WORKFLOW_REASON_DELEGATE_TASK_COMPLETED: &str = "delegate_task_completed";
 pub(super) const WORKFLOW_REASON_DELEGATE_TASK_FAILED: &str = "delegate_task_failed";
@@ -63,6 +65,7 @@ pub(super) const WORKFLOW_REASON_ORDER: &[&str] = &[
     WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED,
     WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED,
     WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+    WORKFLOW_REASON_COMPLETION_GATE_PASSED,
     WORKFLOW_REASON_DELEGATE_TASK_STARTED,
     WORKFLOW_REASON_DELEGATE_TASK_COMPLETED,
     WORKFLOW_REASON_DELEGATE_TASK_FAILED,
@@ -74,6 +77,7 @@ pub(super) const WORKFLOW_NODE_ORDER: &[&str] = &[
     "executor",
     "approval",
     "checkpoint",
+    "completion_gate",
     "reviewer",
 ];
 pub(super) const WORKFLOW_STATUS_ORDER: &[&str] =
@@ -91,6 +95,10 @@ pub(super) const WORKFLOW_DETAIL_ALIAS_PAIRS: &[(&str, &str)] = &[
     ("chatId", "chat_id"),
     ("threadId", "thread_id"),
     ("groupId", "group_id"),
+    ("humanGate", "human_gate"),
+    ("runId", "run_id"),
+    ("callId", "call_id"),
+    ("requiresUserInput", "requires_user_input"),
     ("approvalId", "approval_id"),
     ("checkpointId", "checkpoint_id"),
     ("checkpointScope", "checkpoint_scope"),
@@ -211,6 +219,7 @@ fn workflow_mode_from_current_node(graph: &Value) -> Option<WorkflowMode> {
 pub(super) enum WorkflowNodeName {
     Queue,
     Planner,
+    CompletionGate,
     Executor,
     Reviewer,
     Approval,
@@ -223,6 +232,7 @@ impl WorkflowNodeName {
         match self {
             Self::Queue => "queue",
             Self::Planner => "planner",
+            Self::CompletionGate => "completion_gate",
             Self::Executor => "executor",
             Self::Reviewer => "reviewer",
             Self::Approval => "approval",
@@ -236,8 +246,9 @@ impl WorkflowNodeName {
             Self::Queue => "queue admission",
             Self::GroupRoom => "group context",
             Self::Planner => "decision planning",
+            Self::CompletionGate => "completion gate",
             Self::Executor => "tool execution",
-            Self::Approval => "human approval gate",
+            Self::Approval => "human gate",
             Self::Checkpoint => "state checkpoint",
             Self::Reviewer => "final review",
         }
@@ -247,6 +258,7 @@ impl WorkflowNodeName {
         match value {
             "queue" => Some(Self::Queue),
             "planner" => Some(Self::Planner),
+            "completion_gate" => Some(Self::CompletionGate),
             "executor" => Some(Self::Executor),
             "reviewer" => Some(Self::Reviewer),
             "approval" => Some(Self::Approval),
@@ -299,6 +311,7 @@ pub(super) enum WorkflowPlannerRoute {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum WorkflowPlannerErrorKind {
+    CompletionGate,
     ContextCompression,
     IterationBudgetExhausted,
     LlmError,
@@ -314,6 +327,7 @@ pub(super) enum WorkflowPlannerErrorKind {
 impl WorkflowPlannerErrorKind {
     fn as_str(self) -> &'static str {
         match self {
+            Self::CompletionGate => "completion_gate",
             Self::ContextCompression => "context_compression",
             Self::IterationBudgetExhausted => "iteration_budget_exhausted",
             Self::LlmError => "llm_error",
@@ -329,6 +343,7 @@ impl WorkflowPlannerErrorKind {
 
     fn observation_label(self) -> &'static str {
         match self {
+            Self::CompletionGate => "completion gate",
             Self::ContextCompression => "context compression error",
             Self::IterationBudgetExhausted => "iteration budget exhausted",
             Self::LlmError => "LLM error",
@@ -1879,9 +1894,19 @@ fn workflow_transition_topology_source(
         ) => Some("resume management"),
         (
             WorkflowNodeName::Planner,
+            WorkflowNodeName::CompletionGate,
+            WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+        ) => Some("completion gate route"),
+        (
+            WorkflowNodeName::Planner,
             WorkflowNodeName::Reviewer,
             WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
         ) => Some("review route"),
+        (
+            WorkflowNodeName::CompletionGate,
+            WorkflowNodeName::Reviewer,
+            WORKFLOW_REASON_COMPLETION_GATE_PASSED,
+        ) => Some("completion gate"),
         (
             WorkflowNodeName::Executor,
             WorkflowNodeName::GroupRoom,
@@ -2149,6 +2174,11 @@ pub(super) fn record_workflow_pending_approval(
     detail.insert("iteration".into(), json!(iteration));
     insert_workflow_detail_alias_value(&mut detail, "serverId", "server_id", json!(server_id));
     insert_workflow_detail_alias_value(&mut detail, "toolName", "tool_name", json!(tool_name));
+    let mut gate = workflow_human_gate_detail("tool_approval", "waiting", run_id);
+    gate.insert("iteration".into(), json!(iteration));
+    insert_workflow_detail_alias_value(&mut gate, "serverId", "server_id", json!(server_id));
+    insert_workflow_detail_alias_value(&mut gate, "toolName", "tool_name", json!(tool_name));
+    insert_workflow_human_gate(&mut detail, gate);
     append_workflow_pending_approval_detail(store, run_id, Value::Object(detail))
 }
 
@@ -2189,6 +2219,22 @@ pub(super) fn record_workflow_pending_tool_approval(
     if let Some(reason) = wait.reason() {
         detail.insert("reason".into(), json!(reason));
     }
+    let mut gate = workflow_human_gate_detail("tool_approval", "waiting", run_id);
+    gate.insert("mode".into(), json!(mode.as_str()));
+    gate.insert("iteration".into(), json!(iteration));
+    append_workflow_tool_identity_detail(&mut gate, wait.identity());
+    if let Some(approval_id) = wait.approval_id() {
+        insert_workflow_detail_alias_value(
+            &mut gate,
+            "approvalId",
+            "approval_id",
+            json!(approval_id),
+        );
+    }
+    if let Some(reason) = wait.reason() {
+        gate.insert("reason".into(), json!(reason));
+    }
+    insert_workflow_human_gate(&mut detail, gate);
     append_workflow_pending_approval_detail(store, run_id, Value::Object(detail))
 }
 
@@ -2214,6 +2260,22 @@ pub(super) fn record_workflow_approval_resumed(
     if let Some(reason) = reason {
         detail.insert("reason".into(), json!(reason));
     }
+    let mut gate = workflow_human_gate_detail("tool_approval", status.unwrap_or("resumed"), run_id);
+    gate.insert("mode".into(), json!(mode.as_str()));
+    insert_workflow_detail_alias_value(&mut gate, "serverId", "server_id", json!(server_id));
+    insert_workflow_detail_alias_value(&mut gate, "toolName", "tool_name", json!(tool_name));
+    if let Some(approval_id) = approval_id {
+        insert_workflow_detail_alias_value(
+            &mut gate,
+            "approvalId",
+            "approval_id",
+            json!(approval_id),
+        );
+    }
+    if let Some(reason) = reason {
+        gate.insert("reason".into(), json!(reason));
+    }
+    insert_workflow_human_gate(&mut detail, gate);
     append_workflow_node_event(
         store,
         run_id,
@@ -2255,6 +2317,25 @@ pub(super) fn record_workflow_approval_resolved(
     if let Some(error) = error {
         detail.insert("error".into(), json!(error));
     }
+    let mut gate = workflow_human_gate_detail("tool_approval", status, run_id);
+    gate.insert("mode".into(), json!(mode.as_str()));
+    insert_workflow_detail_alias_value(&mut gate, "serverId", "server_id", json!(server_id));
+    insert_workflow_detail_alias_value(&mut gate, "toolName", "tool_name", json!(tool_name));
+    if let Some(approval_id) = approval_id {
+        insert_workflow_detail_alias_value(
+            &mut gate,
+            "approvalId",
+            "approval_id",
+            json!(approval_id),
+        );
+    }
+    if let Some(reason) = reason {
+        gate.insert("reason".into(), json!(reason));
+    }
+    if let Some(error) = error {
+        gate.insert("error".into(), json!(error));
+    }
+    insert_workflow_human_gate(&mut detail, gate);
     let node_status = match status {
         "failed" => WorkflowNodeStatus::Failed,
         "denied" | "canceled" | "cancelled" => WorkflowNodeStatus::Canceled,
@@ -2891,6 +2972,16 @@ pub(super) fn record_workflow_planner_to_reviewer(
     iteration: u32,
     mode: WorkflowMode,
 ) -> AppResult<()> {
+    record_workflow_planner_to_reviewer_with_completion_gate(store, run_id, iteration, mode, None)
+}
+
+fn record_workflow_planner_to_reviewer_with_completion_gate(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    completion_gate: Option<&CompletionGateAssessment>,
+) -> AppResult<()> {
     let mut planner_detail = workflow_turn_detail(mode, Some(iteration));
     planner_detail.insert("action".into(), json!("final"));
     append_workflow_node_event(
@@ -2904,8 +2995,36 @@ pub(super) fn record_workflow_planner_to_reviewer(
         store,
         run_id,
         WorkflowNodeName::Planner,
-        WorkflowNodeName::Reviewer,
+        WorkflowNodeName::CompletionGate,
         WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+        Value::Object(workflow_turn_detail(mode, Some(iteration))),
+    )?;
+    let mut gate_detail = workflow_turn_detail(mode, Some(iteration));
+    gate_detail.insert("decision".into(), json!("accepted"));
+    if let Some(assessment) = completion_gate {
+        gate_detail.insert("completionGate".into(), assessment.to_value());
+        gate_detail.insert("completion_gate".into(), assessment.to_value());
+    }
+    append_workflow_node_event(
+        store,
+        run_id,
+        WorkflowNodeName::CompletionGate,
+        WorkflowNodeStatus::Running,
+        Value::Object(gate_detail.clone()),
+    )?;
+    append_workflow_node_event(
+        store,
+        run_id,
+        WorkflowNodeName::CompletionGate,
+        WorkflowNodeStatus::Completed,
+        Value::Object(gate_detail),
+    )?;
+    append_workflow_transition_event(
+        store,
+        run_id,
+        WorkflowNodeName::CompletionGate,
+        WorkflowNodeName::Reviewer,
+        WORKFLOW_REASON_COMPLETION_GATE_PASSED,
         Value::Object(workflow_turn_detail(mode, Some(iteration))),
     )?;
     append_workflow_node_event(
@@ -2914,6 +3033,43 @@ pub(super) fn record_workflow_planner_to_reviewer(
         WorkflowNodeName::Reviewer,
         WorkflowNodeStatus::Running,
         Value::Object(workflow_turn_detail(mode, Some(iteration))),
+    )
+}
+
+fn record_workflow_completion_gate_rejected(
+    store: &AppStore,
+    run_id: &str,
+    iteration: u32,
+    mode: WorkflowMode,
+    assessment: &CompletionGateAssessment,
+    observation: &str,
+) -> AppResult<()> {
+    append_workflow_transition_event(
+        store,
+        run_id,
+        WorkflowNodeName::Planner,
+        WorkflowNodeName::CompletionGate,
+        WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+        Value::Object(workflow_turn_detail(mode, Some(iteration))),
+    )?;
+    let mut detail = workflow_turn_detail(mode, Some(iteration));
+    detail.insert("decision".into(), json!("rejected"));
+    detail.insert("reason".into(), json!(observation));
+    detail.insert("completionGate".into(), assessment.to_value());
+    detail.insert("completion_gate".into(), assessment.to_value());
+    append_workflow_node_event(
+        store,
+        run_id,
+        WorkflowNodeName::CompletionGate,
+        WorkflowNodeStatus::Running,
+        Value::Object(detail.clone()),
+    )?;
+    append_workflow_node_event(
+        store,
+        run_id,
+        WorkflowNodeName::CompletionGate,
+        WorkflowNodeStatus::Failed,
+        Value::Object(detail),
     )
 }
 
@@ -2992,6 +3148,685 @@ pub(super) fn record_workflow_timeout(
         WorkflowNodeStatus::Failed,
         Value::Object(detail),
     )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TaskRequirement {
+    WebResult,
+    ImageArtifact,
+    FileArtifact,
+    MessageDelivery,
+    WechatDelivery,
+}
+
+impl TaskRequirement {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::WebResult => "web_result",
+            Self::ImageArtifact => "image_artifact",
+            Self::FileArtifact => "file_artifact",
+            Self::MessageDelivery => "message_sent",
+            Self::WechatDelivery => "wechat_delivered",
+        }
+    }
+
+    fn description(self) -> &'static str {
+        match self {
+            Self::WebResult => "search or web evidence",
+            Self::ImageArtifact => "generated image artifact",
+            Self::FileArtifact => "created or modified file/artifact",
+            Self::MessageDelivery => "sent message evidence",
+            Self::WechatDelivery => "WeChat delivery evidence",
+        }
+    }
+
+    fn is_satisfied_by(self, evidence: &EvidenceRegistry) -> bool {
+        match self {
+            Self::WebResult => evidence.web_result,
+            Self::ImageArtifact => evidence.image_generated || evidence.artifact_ready,
+            Self::FileArtifact => evidence.file_created || evidence.artifact_ready,
+            Self::MessageDelivery => evidence.message_sent || evidence.wechat_delivered,
+            Self::WechatDelivery => evidence.wechat_delivered || evidence.message_sent,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct TaskContract {
+    requirements: Vec<TaskRequirement>,
+}
+
+impl TaskContract {
+    fn from_run(run: &AgentRunRecord) -> Self {
+        let mut contract = Self::default();
+        let request = run.user_request.as_str();
+        let normalized = request.to_ascii_lowercase();
+
+        if text_contains_any(
+            request,
+            &["搜索", "查询", "查找", "联网", "网上", "最新", "今天", "新闻", "价格"],
+        ) || ascii_contains_any(
+            &normalized,
+            &["search", "web", "look up", "latest", "today", "news", "price"],
+        ) {
+            contract.require(TaskRequirement::WebResult);
+        }
+
+        if text_contains_any(request, &["生图", "生成图片", "画一张", "绘制", "图片生成"])
+            || ascii_contains_any(&normalized, &["generate image", "draw an image", "image generation"])
+        {
+            contract.require(TaskRequirement::ImageArtifact);
+        }
+
+        let asks_for_file = text_contains_any(
+            request,
+            &["生成", "创建", "导出", "保存", "写入", "下载"],
+        ) && text_contains_any(
+            request,
+            &["文件", "文档", "桌面", "报告", "Word", "PDF", "Excel", "PPT", "docx", "xlsx", "pptx"],
+        );
+        if asks_for_file
+            || ascii_contains_any(
+                &normalized,
+                &[
+                    "create file",
+                    "save file",
+                    "export",
+                    "download",
+                    "generate word",
+                    "generate pdf",
+                    "save to desktop",
+                ],
+            )
+        {
+            contract.require(TaskRequirement::FileArtifact);
+        }
+
+        let asks_for_delivery = text_contains_any(
+            request,
+            &["发送", "发给", "通知", "转发", "推送"],
+        ) || ascii_contains_any(&normalized, &["send", "deliver", "notify", "message"]);
+        let mentions_wechat = text_contains_any(request, &["微信", "企微", "微信群"])
+            || ascii_contains_any(&normalized, &["wechat", "weixin", "wecom"]);
+        let mentions_messaging = mentions_wechat
+            || text_contains_any(
+                request,
+                &["邮箱", "邮件", "短信", "飞书", "钉钉", "群", "Teams"],
+            )
+            || ascii_contains_any(
+                &normalized,
+                &["email", "sms", "slack", "telegram", "discord", "teams"],
+            );
+        if asks_for_delivery && mentions_messaging {
+            contract.require(TaskRequirement::MessageDelivery);
+        }
+        if asks_for_delivery && mentions_wechat {
+            contract.require(TaskRequirement::WechatDelivery);
+        }
+
+        for event in &run.tool_events {
+            match tool_event_name(event).as_str() {
+                "web_search" | "x_search" | "web_extract" | "web_request" => {
+                    contract.require(TaskRequirement::WebResult)
+                }
+                "image_generate" => contract.require(TaskRequirement::ImageArtifact),
+                "write_file" | "patch" | "artifact" | "document" | "text_to_speech"
+                | "video_generate" => contract.require(TaskRequirement::FileArtifact),
+                "send_message" => contract.require(TaskRequirement::MessageDelivery),
+                _ => {}
+            }
+        }
+
+        contract
+    }
+
+    fn require(&mut self, requirement: TaskRequirement) {
+        if !self.requirements.contains(&requirement) {
+            self.requirements.push(requirement);
+        }
+    }
+
+    fn unsatisfied(&self, evidence: &EvidenceRegistry) -> Vec<TaskRequirement> {
+        self.requirements
+            .iter()
+            .copied()
+            .filter(|requirement| !requirement.is_satisfied_by(evidence))
+            .collect()
+    }
+
+    fn to_value(&self) -> Value {
+        json!({
+            "requirements": self.requirements.iter().map(|requirement| requirement.as_str()).collect::<Vec<_>>(),
+            "descriptions": self.requirements.iter().map(|requirement| requirement.description()).collect::<Vec<_>>(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct EvidenceRegistry {
+    web_result: bool,
+    image_generated: bool,
+    file_created: bool,
+    artifact_ready: bool,
+    message_sent: bool,
+    wechat_delivered: bool,
+    running_tools: Vec<String>,
+    failed_tools: Vec<String>,
+}
+
+impl EvidenceRegistry {
+    fn from_run(run: &AgentRunRecord) -> Self {
+        let mut evidence = Self::default();
+        for event in &run.tool_events {
+            let tool_name = tool_event_name(event);
+            let status = tool_event_status(event);
+            if matches!(status, Some("running" | "pending")) {
+                evidence.running_tools.push(tool_event_label(event, &tool_name));
+                continue;
+            }
+            if matches!(status, Some("failed")) {
+                evidence.failed_tools.push(tool_event_label(event, &tool_name));
+                continue;
+            }
+            if !tool_event_completed_ok(event) {
+                continue;
+            }
+
+            let name = tool_name.as_str();
+            if matches!(name, "web_search" | "x_search" | "web_extract" | "web_request")
+                || name.starts_with("browser_")
+            {
+                evidence.web_result = true;
+            }
+            if name == "image_generate" {
+                evidence.image_generated = true;
+                evidence.artifact_ready = true;
+            }
+            if matches!(name, "write_file" | "patch") {
+                evidence.file_created = true;
+            }
+            if matches!(
+                name,
+                "artifact" | "document" | "image_generate" | "video_generate" | "text_to_speech"
+            ) || tool_event_has_artifact(event)
+            {
+                evidence.artifact_ready = true;
+            }
+            if tool_event_has_path(event) && matches!(name, "write_file" | "patch" | "artifact" | "document") {
+                evidence.file_created = true;
+            }
+            if name == "send_message" {
+                evidence.message_sent = true;
+                let blob = tool_event_text_blob(event).to_ascii_lowercase();
+                if blob.contains("wechat") || blob.contains("weixin") || blob.contains("wecom") || blob.contains("微信") {
+                    evidence.wechat_delivered = true;
+                }
+            }
+        }
+        evidence
+    }
+
+    fn to_value(&self) -> Value {
+        json!({
+            "webResult": self.web_result,
+            "imageGenerated": self.image_generated,
+            "fileCreated": self.file_created,
+            "artifactReady": self.artifact_ready,
+            "messageSent": self.message_sent,
+            "wechatDelivered": self.wechat_delivered,
+            "runningTools": self.running_tools,
+            "failedTools": self.failed_tools,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CompletionGateAssessment {
+    contract: TaskContract,
+    evidence: EvidenceRegistry,
+    unsatisfied: Vec<TaskRequirement>,
+    has_blocker: bool,
+    looks_intermediate: bool,
+    looks_tool_or_transport_leak: bool,
+}
+
+impl CompletionGateAssessment {
+    fn to_value(&self) -> Value {
+        json!({
+            "schema": "synthchat_completion_gate_v1",
+            "contract": self.contract.to_value(),
+            "evidence": self.evidence.to_value(),
+            "unsatisfied": self.unsatisfied.iter().map(|requirement| requirement.as_str()).collect::<Vec<_>>(),
+            "hasBlocker": self.has_blocker,
+            "looksIntermediate": self.looks_intermediate,
+            "looksToolOrTransportLeak": self.looks_tool_or_transport_leak,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CompletionGateDecision {
+    assessment: CompletionGateAssessment,
+    observation: Option<String>,
+}
+
+fn final_answer_completion_gate_decision(
+    store: &AppStore,
+    run_id: &str,
+    content: &str,
+) -> AppResult<CompletionGateDecision> {
+    let trimmed = content.trim();
+    let run = store.agent_run(run_id)?;
+    let contract = TaskContract::from_run(&run);
+    let evidence = EvidenceRegistry::from_run(&run);
+    let unsatisfied = contract.unsatisfied(&evidence);
+    let has_blocker = final_answer_reports_blocker(trimmed);
+    let looks_intermediate = final_answer_looks_like_intermediate_progress(trimmed);
+    let looks_tool_or_transport_leak = final_answer_looks_like_tool_or_transport_leak(trimmed);
+    let assessment = CompletionGateAssessment {
+        contract,
+        evidence,
+        unsatisfied,
+        has_blocker,
+        looks_intermediate,
+        looks_tool_or_transport_leak,
+    };
+
+    if trimmed.is_empty() {
+        return Ok(CompletionGateDecision {
+            assessment,
+            observation: Some(
+            "final answer is empty; continue planning or report a concrete blocker".into(),
+            ),
+        });
+    }
+
+    if assessment.looks_tool_or_transport_leak {
+        return Ok(CompletionGateDecision {
+            observation: Some(
+                "completion gate rejected a raw tool/output-looking final answer. Summarize the tool evidence into a human-readable answer, retry the failed tool path, or return a concrete blocker instead of exposing stdout/stderr, function-call errors, or corrupted transport text.".into(),
+            ),
+            assessment,
+        });
+    }
+
+    if !assessment.evidence.running_tools.is_empty() && !assessment.has_blocker {
+        return Ok(CompletionGateDecision {
+            observation: Some(format!(
+                "completion gate found running tools without a blocker: {}. Wait for tool completion, close stale tool events, or return a blocker that names the unfinished work.",
+                assessment.evidence.running_tools.join(", ")
+            )),
+            assessment,
+        });
+    }
+
+    if !assessment.unsatisfied.is_empty() && !assessment.has_blocker {
+        let missing = assessment
+            .unsatisfied
+            .iter()
+            .map(|requirement| format!("{} ({})", requirement.as_str(), requirement.description()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Ok(CompletionGateDecision {
+            observation: Some(format!(
+                "completion gate rejected final answer because required evidence is missing: {missing}. Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+            )),
+            assessment,
+        });
+    }
+
+    if assessment.looks_intermediate && !assessment.has_blocker {
+        return Ok(CompletionGateDecision {
+            observation: Some(
+                "completion gate rejected a progress-style final answer. Continue execution until deliverables are ready, or return a final blocker with the missing evidence.".into(),
+            ),
+            assessment,
+        });
+    }
+
+    let latest_failed_tool = run
+        .tool_events
+        .iter()
+        .rev()
+        .find(|event| {
+            matches!(
+                event
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+                "completed" | "failed" | "canceled" | "cancelled"
+            )
+        })
+        .and_then(|event| {
+            let status = event.get("status").and_then(Value::as_str)?;
+            if status != "failed" {
+                return None;
+            }
+            let tool_name = event
+                .get("toolName")
+                .or_else(|| event.get("tool_name"))
+                .and_then(Value::as_str)
+                .unwrap_or("tool");
+            let error = event
+                .get("error")
+                .or_else(|| event.get("summary"))
+                .and_then(Value::as_str)
+                .unwrap_or("tool failed");
+            Some(format!("{tool_name}: {error}"))
+        });
+    if let Some(failure) = latest_failed_tool.filter(|_| assessment.looks_intermediate) {
+        return Ok(CompletionGateDecision {
+            observation: Some(format!(
+            "completion gate rejected an intermediate final answer after a failed tool ({failure}). Retry with an available tool, choose a fallback path, or return a final blocker that explicitly states what failed and what remains."
+        )),
+            assessment,
+        });
+    }
+
+    Ok(CompletionGateDecision {
+        assessment,
+        observation: None,
+    })
+}
+
+fn text_contains_any(content: &str, markers: &[&str]) -> bool {
+    markers.iter().any(|marker| content.contains(marker))
+}
+
+fn ascii_contains_any(content: &str, markers: &[&str]) -> bool {
+    markers.iter().any(|marker| content.contains(marker))
+}
+
+fn tool_event_name(event: &Value) -> String {
+    event
+        .get("toolName")
+        .or_else(|| event.get("tool_name"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn tool_event_status(event: &Value) -> Option<&str> {
+    event.get("status").and_then(Value::as_str)
+}
+
+fn tool_event_completed_ok(event: &Value) -> bool {
+    let status_completed = matches!(tool_event_status(event), Some("completed" | "success"));
+    let ok = event.get("ok").and_then(Value::as_bool).unwrap_or(status_completed);
+    status_completed && ok
+}
+
+fn tool_event_label(event: &Value, fallback_name: &str) -> String {
+    let status = tool_event_status(event).unwrap_or("unknown");
+    let summary = event
+        .get("error")
+        .or_else(|| event.get("summary"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(status);
+    format!("{fallback_name}: {summary}")
+}
+
+fn tool_event_has_path(event: &Value) -> bool {
+    let has_display_path = event
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|path| !path.is_empty())
+        && event.get("exists").and_then(Value::as_bool) != Some(false);
+    has_display_path || tool_event_text_blob(event).contains("\"path\"")
+}
+
+fn tool_event_has_artifact(event: &Value) -> bool {
+    let blob = tool_event_text_blob(event);
+    blob.contains("\"artifact\"")
+        || blob.contains("\"artifacts\"")
+        || event
+            .get("eventType")
+            .or_else(|| event.get("event_type"))
+            .and_then(Value::as_str)
+            .is_some_and(|kind| matches!(kind, "image" | "artifact" | "document"))
+}
+
+fn tool_event_text_blob(event: &Value) -> String {
+    let mut parts = Vec::new();
+    for key in ["summary", "text", "error", "raw"] {
+        if let Some(value) = event.get(key) {
+            parts.push(match value {
+                Value::String(text) => text.clone(),
+                other => other.to_string(),
+            });
+        }
+    }
+    parts.join("\n")
+}
+
+fn final_answer_reports_blocker(content: &str) -> bool {
+    let normalized = content.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return false;
+    }
+    let chinese_markers = [
+        "无法",
+        "不能",
+        "失败",
+        "未能",
+        "缺少",
+        "没有配置",
+        "未配置",
+        "需要你",
+        "需要用户",
+        "权限",
+        "被拒绝",
+        "不可用",
+        "报错",
+        "阻塞",
+        "已达到",
+    ];
+    if chinese_markers.iter().any(|marker| content.contains(marker)) {
+        return true;
+    }
+    [
+        "blocker",
+        "blocked",
+        "failed",
+        "unable",
+        "cannot",
+        "can't",
+        "missing",
+        "not configured",
+        "permission",
+        "denied",
+        "unavailable",
+        "error",
+        "timed out",
+        "requires user",
+        "need you",
+    ]
+    .iter()
+    .any(|marker| normalized.contains(marker))
+}
+
+fn final_answer_looks_like_intermediate_progress(content: &str) -> bool {
+    let normalized = content.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return true;
+    }
+    let chinese_markers = [
+        "正在",
+        "稍等",
+        "等一下",
+        "请稍候",
+        "请稍等",
+        "马上",
+        "处理中",
+        "我来查",
+        "我来搜",
+        "我再试",
+    ];
+    if chinese_markers.iter().any(|marker| content.contains(marker)) {
+        return true;
+    }
+    [
+        "one moment",
+        "please wait",
+        "hold on",
+        "searching",
+        "working on",
+        "i am searching",
+        "i'm searching",
+        "let me check",
+        "let me search",
+    ]
+    .iter()
+    .any(|marker| normalized.contains(marker))
+}
+
+fn final_answer_looks_like_tool_or_transport_leak(content: &str) -> bool {
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let normalized = trimmed.to_ascii_lowercase();
+
+    if text_contains_any(
+        trimmed,
+        &[
+            "<tool_result",
+            "</tool_result>",
+            "<tool_call",
+            "</tool_call>",
+            "<function_call",
+            "</function_call>",
+            "untrusted_tool_result",
+        ],
+    ) {
+        return true;
+    }
+
+    let has_mojibake = trimmed.contains('\u{FFFD}') || trimmed.contains("��");
+    let has_terminal_field = ascii_contains_any(
+        &normalized,
+        &[
+            "stdout",
+            "stderr",
+            "exitcode",
+            "exit code",
+            "cwd:",
+            "\"stdout\"",
+            "\"stderr\"",
+        ],
+    );
+    let has_function_error = ascii_contains_any(
+        &normalized,
+        &[
+            "function not found",
+            "function_not_found",
+            "tool not found",
+            "unknown tool",
+            "invalid tool call",
+        ],
+    );
+    let has_transport_fragment = ascii_contains_any(
+        &normalized,
+        &[
+            "charset=utf-8",
+            "utf-8\")",
+            "content-type",
+            "internal ·",
+            "internal.web_request",
+            "web_request",
+        ],
+    );
+
+    if has_mojibake && (has_terminal_field || has_function_error || has_transport_fragment) {
+        return true;
+    }
+    if has_function_error && (has_terminal_field || has_transport_fragment || has_mojibake) {
+        return true;
+    }
+
+    let terminal_marker_count = [
+        "stdout",
+        "stderr",
+        "exitcode",
+        "cwd:",
+        "transport:",
+        "backend:",
+        "target:",
+        "sandbox:",
+    ]
+    .iter()
+    .filter(|marker| normalized.contains(**marker))
+    .count();
+    if terminal_marker_count >= 2 && trimmed.len() < 800 {
+        return true;
+    }
+
+    if trimmed.starts_with('{')
+        && ascii_contains_any(
+            &normalized,
+            &[
+                "\"toolcalls\"",
+                "\"tool_calls\"",
+                "\"function_call\"",
+                "\"function_calls\"",
+                "\"arguments\"",
+                "\"toolname\"",
+                "\"tool_name\"",
+                "\"eventtype\"",
+                "\"event_type\"",
+                "\"stdout\"",
+                "\"stderr\"",
+            ],
+        )
+        && (
+            ascii_contains_any(
+                &normalized,
+                &[
+                    "\"tool\"",
+                    "\"toolname\"",
+                    "\"tool_name\"",
+                    "\"name\"",
+                    "\"function\"",
+                    "\"tool_calls\"",
+                ],
+            )
+            || ascii_contains_any(&normalized, &["\"stdout\"", "\"stderr\""])
+        )
+    {
+        return true;
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod completion_gate_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_corrupted_tool_output_as_final_answer() {
+        assert!(final_answer_looks_like_tool_or_transport_leak(
+            "urusuft-8\")(stdout��\\Function not found 体验功能"
+        ));
+    }
+
+    #[test]
+    fn allows_normal_function_not_found_explanation() {
+        assert!(!final_answer_looks_like_tool_or_transport_leak(
+            "这是 Function not found 错误，说明服务商没有识别到对应工具名，需要检查工具 schema 和 relay 兼容层。"
+        ));
+    }
+
+    #[test]
+    fn rejects_leaked_provider_tool_call_json_as_final_answer() {
+        assert!(final_answer_looks_like_tool_or_transport_leak(
+            r#"{"name":"image_generate","arguments":{"prompt":"湖边风景","size":"1024x1024"}}
+{"tool_calls":[{"type":"function","function":{"name":"image_generate","arguments":{"prompt":"湖边风景"}}}]}"#
+        ));
+    }
 }
 
 pub(super) fn resolve_workflow_planner_route(
@@ -3078,14 +3913,47 @@ pub(super) fn resolve_workflow_planner_route(
             })
         }
         _ => {
-            record_workflow_planner_to_reviewer(store, run_id, iteration, mode)?;
+            let final_content = decision
+                .get("content")
+                .or_else(|| decision.get("answer"))
+                .and_then(Value::as_str)
+                .unwrap_or(fallback_content.trim())
+                .to_string();
+            let gate = final_answer_completion_gate_decision(store, run_id, &final_content)?;
+            if let Some(observation) = gate.observation.as_deref() {
+                record_workflow_completion_gate_rejected(
+                    store,
+                    run_id,
+                    iteration,
+                    mode,
+                    &gate.assessment,
+                    observation,
+                )?;
+                record_workflow_planner_failed(
+                    store,
+                    run_id,
+                    Some(iteration),
+                    mode,
+                    WorkflowPlannerErrorKind::CompletionGate,
+                    &observation,
+                )?;
+                return Ok(WorkflowPlannerRoute::Recover {
+                    observation: format!(
+                        "{} completion gate: {}",
+                        workflow_iteration_label(mode, iteration),
+                        observation
+                    ),
+                });
+            }
+            record_workflow_planner_to_reviewer_with_completion_gate(
+                store,
+                run_id,
+                iteration,
+                mode,
+                Some(&gate.assessment),
+            )?;
             Ok(WorkflowPlannerRoute::ReviewFinal {
-                content: decision
-                    .get("content")
-                    .or_else(|| decision.get("answer"))
-                    .and_then(Value::as_str)
-                    .unwrap_or(fallback_content.trim())
-                    .to_string(),
+                content: final_content,
             })
         }
     }
@@ -3292,6 +4160,8 @@ pub(super) fn workflow_graph_runtime_summary(graph: Option<&Value>) -> Value {
         .or_else(|| graph.get("tool_context"))
         .cloned()
         .unwrap_or(Value::Null);
+    let human_gate =
+        workflow_graph_runtime_human_gate(nodes.map(Vec::as_slice), current_node.as_str());
     let tool_origins = workflow_graph_runtime_tool_origins(
         nodes.map(Vec::as_slice),
         transitions.map(Vec::as_slice),
@@ -3317,6 +4187,8 @@ pub(super) fn workflow_graph_runtime_summary(graph: Option<&Value>) -> Value {
         "transition_count": transitions.map(Vec::len).unwrap_or(0),
         "statusCounts": workflow_graph_runtime_status_counts(nodes.map(Vec::as_slice)),
         "status_counts": workflow_graph_runtime_status_counts(nodes.map(Vec::as_slice)),
+        "humanGate": human_gate.clone(),
+        "human_gate": human_gate,
         "toolOrigins": tool_origins.clone(),
         "tool_origins": tool_origins
     })
@@ -3351,6 +4223,41 @@ fn workflow_graph_runtime_status_counts(nodes: Option<&[Value]>) -> Value {
         counts.insert(status.into(), json!(count));
     }
     Value::Object(counts)
+}
+
+fn workflow_graph_runtime_human_gate(
+    nodes: Option<&[Value]>,
+    current_node: Option<&str>,
+) -> Value {
+    let Some(nodes) = nodes else {
+        return Value::Null;
+    };
+    if let Some(current_node) = current_node {
+        if let Some(gate) = nodes
+            .iter()
+            .find(|node| node.get("node").and_then(Value::as_str) == Some(current_node))
+            .and_then(workflow_node_human_gate)
+        {
+            return gate;
+        }
+    }
+    nodes
+        .iter()
+        .rev()
+        .filter(|node| node.get("status").and_then(Value::as_str) == Some("waiting"))
+        .find_map(workflow_node_human_gate)
+        .unwrap_or(Value::Null)
+}
+
+fn workflow_node_human_gate(node: &Value) -> Option<Value> {
+    node.get("detail")
+        .and_then(|detail| {
+            detail
+                .get("humanGate")
+                .or_else(|| detail.get("human_gate"))
+                .cloned()
+        })
+        .filter(|value| !value.is_null())
 }
 
 fn workflow_graph_runtime_tool_origins(
@@ -3706,6 +4613,28 @@ fn insert_workflow_detail_alias_value(
 ) {
     detail.insert(camel_key.into(), value.clone());
     detail.insert(snake_key.into(), value);
+}
+
+pub(super) fn workflow_human_gate_detail(
+    kind: &str,
+    status: &str,
+    run_id: &str,
+) -> Map<String, Value> {
+    let mut detail = Map::new();
+    detail.insert("schema".into(), json!(SYNTHCHAT_HUMAN_GATE_SCHEMA));
+    detail.insert("kind".into(), json!(kind));
+    detail.insert("status".into(), json!(status));
+    insert_workflow_detail_alias_value(&mut detail, "runId", "run_id", json!(run_id));
+    detail
+}
+
+pub(super) fn insert_workflow_human_gate(
+    detail: &mut Map<String, Value>,
+    gate: Map<String, Value>,
+) {
+    let gate = Value::Object(gate);
+    detail.insert("humanGate".into(), gate.clone());
+    detail.insert("human_gate".into(), gate);
 }
 
 fn workflow_bootstrap_node_detail(

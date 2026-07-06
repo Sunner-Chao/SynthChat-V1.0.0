@@ -16,14 +16,17 @@ use crate::{
     error::AppResult,
     models::{
         AgentCheckpointRecord, AgentDefinition, AgentQueuedRequest, AgentRunPhaseRecord,
-        AgentRunRecord, ChatMessage, Conversation, Persona, SendChatRequest,
+        AgentRunRecord, ChatMessage, Conversation, LlmProvider, Persona, SendChatRequest,
     },
+    model_catalog,
     skills as skill_library,
     store::AppStore,
 };
 
 use super::*;
-use super::workflow_graph::WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT;
+use super::workflow_graph::{
+    workflow_human_gate_detail, WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT,
+};
 
 const PET_WINDOW_LABEL: &str = "pet";
 
@@ -430,6 +433,9 @@ fn planner_visible_final_content_prefix(raw: &str) -> String {
 }
 
 fn final_content_from_planner_value(value: &Value) -> Option<String> {
+    if planner_value_looks_like_tool_call(value) {
+        return None;
+    }
     let action = value
         .get("action")
         .or_else(|| value.get("type"))
@@ -449,6 +455,38 @@ fn final_content_from_planner_value(value: &Value) -> Option<String> {
         .or_else(|| value.get("message"))
         .and_then(Value::as_str)
         .map(str::to_string)
+}
+
+fn planner_value_looks_like_tool_call(value: &Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    if object.get("toolCalls").and_then(Value::as_array).is_some()
+        || object.get("tool_calls").and_then(Value::as_array).is_some()
+        || object.get("function_calls").and_then(Value::as_array).is_some()
+    {
+        return true;
+    }
+    if object
+        .get("function")
+        .or_else(|| object.get("function_call"))
+        .and_then(Value::as_object)
+        .and_then(|function| function.get("name"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|name| !name.is_empty())
+    {
+        return true;
+    }
+    let has_name = object
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|name| !name.is_empty());
+    let has_arguments = ["arguments", "args", "payload", "input", "parameters"]
+        .iter()
+        .any(|key| object.get(*key).is_some());
+    has_name && has_arguments
 }
 
 fn extract_partial_final_content_from_json(raw: &str) -> Option<String> {
@@ -827,6 +865,55 @@ fn collect_attachment_metadata(
         }
     }
     attachments
+}
+
+fn attachment_metadata_is_image(attachment: &AttachmentMetadata) -> bool {
+    let mime = attachment.mime_type.trim().to_ascii_lowercase();
+    mime.starts_with("image/")
+        || attachment_mime_from_path(&attachment.path)
+            .to_ascii_lowercase()
+            .starts_with("image/")
+}
+
+fn image_attachment_count_for_request(content: &str, provider_data: Option<&Value>) -> usize {
+    collect_attachment_metadata(content, provider_data)
+        .iter()
+        .filter(|attachment| attachment_metadata_is_image(attachment))
+        .count()
+}
+
+fn llm_candidates_support_image_input(providers: &[LlmProvider], persona: &Persona) -> bool {
+    providers.iter().any(|provider| {
+        let mut effective_provider = provider.clone();
+        if !persona.llm_model.trim().is_empty() {
+            effective_provider.model = persona.llm_model.trim().to_string();
+        }
+        model_catalog::provider_model_capabilities(&effective_provider).supports_vision
+    })
+}
+
+fn image_input_preflight_blocker(
+    store: &AppStore,
+    content: &str,
+    provider_data: Option<&Value>,
+    providers: &[LlmProvider],
+    persona: &Persona,
+) -> AppResult<Option<(String, usize)>> {
+    let image_count = image_attachment_count_for_request(content, provider_data);
+    if image_count == 0 {
+        return Ok(None);
+    }
+    if llm_candidates_support_image_input(providers, persona) {
+        return Ok(None);
+    }
+    if store.enabled_vision_provider()?.is_some() {
+        return Ok(None);
+    }
+    Ok(Some((
+        "当前无法识图：图片已上传，但当前模型未声明视觉能力，且未配置视觉分析服务商。请启用视觉模型或配置 vision provider 后重试。"
+            .into(),
+        image_count,
+    )))
 }
 
 fn attachment_metadata_from_media_marker(trimmed: &str) -> Option<AttachmentMetadata> {
@@ -1359,6 +1446,48 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         if let Some(provider) = providers.get_mut(provider_index) {
             provider.base_url = base_url;
         }
+    }
+    if let Some((blocker, image_attachment_count)) = image_input_preflight_blocker(
+        store,
+        &request.content,
+        request.provider_data.as_ref(),
+        &providers,
+        &effective_persona,
+    )? {
+        append_parent_phase_event(
+            store,
+            &saved_run.run_id,
+            "completion_gate_blocked",
+            json!({
+                "reason": "image_input_without_vision_route",
+                "imageAttachmentCount": image_attachment_count,
+                "image_attachment_count": image_attachment_count,
+            }),
+        )?;
+        let mut blocked_run = store.agent_run(&saved_run.run_id)?;
+        blocked_run.state = "completed".into();
+        blocked_run.touch_activity("completion gate blocked: image input without vision route");
+        blocked_run.completed_at = Some(blocked_run.updated_at.clone());
+        let saved_blocked_run = store.save_agent_run(blocked_run)?;
+        run_session_finished_hooks(
+            store,
+            &saved_blocked_run,
+            json!({"source": "completion_gate_blocked", "reason": "image_input_without_vision_route"}),
+        )
+        .await;
+        let mut assistant_message = ChatMessage::new(
+            conversation.id.clone(),
+            "assistant",
+            blocker,
+            "desktop-agent",
+        );
+        if silent_pet_vision {
+            assistant_message.source = "pet-vision".into();
+            mark_message_visible_for_pet_vision(&mut assistant_message);
+        }
+        let assistant = store.append_message(assistant_message)?;
+        emit_agent_run_record(desktop_app, &saved_blocked_run, Some(&assistant));
+        return Ok(vec![user, assistant]);
     }
     let mut observations = Vec::new();
     let mut assistant_text = String::new();
@@ -3793,6 +3922,19 @@ pub(super) fn clarification_response_context_for_turn(
     run.updated_at = now;
     store.save_agent_run(run.clone())?;
     if let Some(checkpoint) = run.checkpoints.last() {
+        let mut human_gate = workflow_human_gate_detail("clarification", "completed", &run.run_id);
+        human_gate.insert("question".into(), json!(question.clone()));
+        human_gate.insert(
+            "checkpointId".into(),
+            json!(checkpoint.checkpoint_id.clone()),
+        );
+        human_gate.insert(
+            "checkpoint_id".into(),
+            json!(checkpoint.checkpoint_id.clone()),
+        );
+        human_gate.insert("responsePreview".into(), json!(truncate_for_prompt(response, 500)));
+        human_gate.insert("response_preview".into(), json!(truncate_for_prompt(response, 500)));
+        let human_gate = Value::Object(human_gate);
         WorkflowDriver::new(workflow_mode)
             .checkpoint()
             .completed(
@@ -3803,7 +3945,10 @@ pub(super) fn clarification_response_context_for_turn(
                 json!({
                     "kind": "clarification_response",
                     "checkpointId": checkpoint.checkpoint_id.clone(),
+                    "checkpoint_id": checkpoint.checkpoint_id.clone(),
                     "iteration": checkpoint.iteration,
+                    "humanGate": human_gate.clone(),
+                    "human_gate": human_gate,
                 }),
             )?;
     }
@@ -3884,6 +4029,26 @@ pub(super) fn pause_run_for_clarify_tool(
     });
     let mut saved_run = store.save_agent_run(run.clone())?;
     if let Some(checkpoint) = run.checkpoints.last() {
+        let mut human_gate = workflow_human_gate_detail("clarification", "waiting", &run.run_id);
+        human_gate.insert("question".into(), json!(question));
+        human_gate.insert("reason".into(), json!(WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT));
+        human_gate.insert("requiresUserInput".into(), json!(true));
+        human_gate.insert("requires_user_input".into(), json!(true));
+        human_gate.insert(
+            "checkpointId".into(),
+            json!(checkpoint.checkpoint_id.clone()),
+        );
+        human_gate.insert(
+            "checkpoint_id".into(),
+            json!(checkpoint.checkpoint_id.clone()),
+        );
+        human_gate.insert("toolName".into(), json!(event.tool_name.clone()));
+        human_gate.insert("tool_name".into(), json!(event.tool_name.clone()));
+        if let Some(call_id) = event.call_id.clone() {
+            human_gate.insert("callId".into(), json!(call_id.clone()));
+            human_gate.insert("call_id".into(), json!(call_id));
+        }
+        let human_gate = Value::Object(human_gate);
         WorkflowDriver::new(workflow_mode)
             .checkpoint()
             .waiting_from_executor(
@@ -3891,18 +4056,28 @@ pub(super) fn pause_run_for_clarify_tool(
                 &run.run_id,
                 WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT,
                 json!({
-                    "toolName": event.tool_name,
+                    "toolName": event.tool_name.clone(),
+                    "tool_name": event.tool_name.clone(),
                     "callId": event.call_id.clone(),
+                    "call_id": event.call_id.clone(),
                     "checkpointId": checkpoint.checkpoint_id.clone(),
+                    "checkpoint_id": checkpoint.checkpoint_id.clone(),
+                    "humanGate": human_gate.clone(),
+                    "human_gate": human_gate.clone(),
                 }),
                 &checkpoint.state,
                 &checkpoint.summary,
                 json!({
                     "kind": "clarify_pause",
                     "checkpointScope": "user_input",
-                    "toolName": event.tool_name,
+                    "checkpoint_scope": "user_input",
+                    "toolName": event.tool_name.clone(),
+                    "tool_name": event.tool_name.clone(),
                     "checkpointId": checkpoint.checkpoint_id.clone(),
+                    "checkpoint_id": checkpoint.checkpoint_id.clone(),
                     "iteration": checkpoint.iteration,
+                    "humanGate": human_gate.clone(),
+                    "human_gate": human_gate,
                 }),
             )?;
     }

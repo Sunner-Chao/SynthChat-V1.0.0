@@ -42,6 +42,7 @@ pub(super) async fn complete_openai_compatible(
         cache_policy.as_ref(),
         &tool_name_map,
     );
+    let thinking_cards_enabled = options.thinking_enabled && provider_thinking_enabled(provider);
     let url = chat_url(provider);
     let api_key = resolve_api_key(provider);
 
@@ -59,7 +60,7 @@ pub(super) async fn complete_openai_compatible(
         "temperature": persona.temperature,
         "max_tokens": persona.max_tokens
     });
-    if !options.thinking_enabled {
+    if !thinking_cards_enabled {
         body["reasoning_effort"] = json!("none");
         body["enable_thinking"] = json!(false);
     }
@@ -137,7 +138,12 @@ pub(super) async fn complete_openai_compatible(
                 retry_count,
                 retry_reason,
             };
-            return parse_openai_compatible_with_tool_name_map(payload, &tool_name_map).map(|reply| {
+            return parse_openai_compatible_with_tool_name_map_and_thinking_cards(
+                payload,
+                &tool_name_map,
+                thinking_cards_enabled,
+            )
+            .map(|reply| {
                 with_reply_metadata_and_transport(
                     reply,
                     provider,
@@ -169,6 +175,7 @@ pub(super) async fn complete_openai_compatible(
             callback,
             provider_stream_stale_timeout_duration(provider, model),
             &tool_name_map,
+            thinking_cards_enabled,
         )
         .await?;
         return Ok(with_reply_metadata_and_transport(
@@ -187,7 +194,7 @@ pub(super) async fn complete_openai_compatible(
     let payload: Value = match serde_json::from_str(&text) {
         Ok(payload) => payload,
         Err(error) => {
-            if let Some(reply) = parse_openai_sse(&text, &tool_name_map) {
+            if let Some(reply) = parse_openai_sse(&text, &tool_name_map, thinking_cards_enabled) {
                 return Ok(with_reply_metadata_and_transport(
                     reply,
                     provider,
@@ -203,7 +210,12 @@ pub(super) async fn complete_openai_compatible(
         }
     };
 
-    parse_openai_compatible_with_tool_name_map(payload, &tool_name_map).map(|reply| {
+    parse_openai_compatible_with_tool_name_map_and_thinking_cards(
+        payload,
+        &tool_name_map,
+        thinking_cards_enabled,
+    )
+    .map(|reply| {
         with_reply_metadata_and_transport(
             reply,
             provider,
@@ -219,11 +231,13 @@ async fn read_openai_sse_stream(
     callback: &LlmDeltaCallback,
     stale_timeout: Option<std::time::Duration>,
     tool_name_map: &serde_json::Map<String, Value>,
+    thinking_cards_enabled: bool,
 ) -> AppResult<LlmReply> {
     let mut buffer = String::new();
     let mut content = String::new();
     let mut prompt_tokens = 0usize;
     let mut completion_tokens = 0usize;
+    let mut reasoning_content = String::new();
     let mut finish_reason = None;
     let mut tool_calls = BTreeMap::<usize, OpenAiStreamToolCall>::new();
     let mut stream = response.bytes_stream();
@@ -256,10 +270,12 @@ async fn read_openai_sse_stream(
                 &line,
                 callback,
                 &mut content,
+                &mut reasoning_content,
                 &mut prompt_tokens,
                 &mut completion_tokens,
                 &mut finish_reason,
                 &mut tool_calls,
+                thinking_cards_enabled,
             )?;
         }
     }
@@ -269,10 +285,12 @@ async fn read_openai_sse_stream(
             &line,
             callback,
             &mut content,
+            &mut reasoning_content,
             &mut prompt_tokens,
             &mut completion_tokens,
             &mut finish_reason,
             &mut tool_calls,
+            thinking_cards_enabled,
         )?;
     }
 
@@ -317,7 +335,7 @@ async fn read_openai_sse_stream(
         } else {
             finish_reason.or_else(|| Some("stop".into()))
         },
-        provider_data: None,
+        provider_data: openai_stream_provider_data(&reasoning_content, thinking_cards_enabled),
         failover_attempts: Vec::new(),
     })
 }
@@ -326,10 +344,12 @@ fn handle_openai_sse_line(
     line: &str,
     callback: &LlmDeltaCallback,
     content: &mut String,
+    reasoning_content: &mut String,
     prompt_tokens: &mut usize,
     completion_tokens: &mut usize,
     finish_reason: &mut Option<String>,
     tool_calls: &mut BTreeMap<usize, OpenAiStreamToolCall>,
+    thinking_cards_enabled: bool,
 ) -> AppResult<()> {
     let Some(data) = line.trim().strip_prefix("data:") else {
         return Ok(());
@@ -341,6 +361,12 @@ fn handle_openai_sse_line(
     let Ok(payload) = serde_json::from_str::<Value>(data) else {
         return Ok(());
     };
+    if let Some(delta) = openai_reasoning_delta(&payload).filter(|delta| !delta.is_empty()) {
+        reasoning_content.push_str(&delta);
+        if thinking_cards_enabled {
+            callback(LlmStreamDeltaKind::Thinking, &delta)?;
+        }
+    }
     if let Some(delta) = payload
         .pointer("/choices/0/delta/content")
         .and_then(Value::as_str)
@@ -450,8 +476,10 @@ fn openai_stream_tool_calls(
 fn parse_openai_sse(
     text: &str,
     _tool_name_map: &serde_json::Map<String, Value>,
+    thinking_cards_enabled: bool,
 ) -> Option<LlmReply> {
     let mut content = String::new();
+    let mut reasoning_content = String::new();
     let mut prompt_tokens = 0;
     let mut completion_tokens = 0;
 
@@ -477,6 +505,9 @@ fn parse_openai_sse(
             })
         {
             content.push_str(delta);
+        }
+        if let Some(delta) = openai_reasoning_delta(&payload).filter(|delta| !delta.is_empty()) {
+            reasoning_content.push_str(&delta);
         }
         if prompt_tokens == 0 {
             prompt_tokens = payload
@@ -517,7 +548,7 @@ fn parse_openai_sse(
             rate_limit_state: None,
             transport_diagnostics: None,
             finish_reason: Some("stop".into()),
-            provider_data: None,
+            provider_data: openai_stream_provider_data(&reasoning_content, thinking_cards_enabled),
             failover_attempts: Vec::new(),
         })
     }
@@ -530,6 +561,14 @@ pub(super) fn parse_openai_compatible(payload: Value) -> AppResult<LlmReply> {
 fn parse_openai_compatible_with_tool_name_map(
     payload: Value,
     tool_name_map: &serde_json::Map<String, Value>,
+) -> AppResult<LlmReply> {
+    parse_openai_compatible_with_tool_name_map_and_thinking_cards(payload, tool_name_map, true)
+}
+
+fn parse_openai_compatible_with_tool_name_map_and_thinking_cards(
+    payload: Value,
+    tool_name_map: &serde_json::Map<String, Value>,
+    thinking_cards_enabled: bool,
 ) -> AppResult<LlmReply> {
     let content_value = payload
         .pointer("/choices/0/message/content")
@@ -570,7 +609,7 @@ fn parse_openai_compatible_with_tool_name_map(
         .pointer("/usage/completion_tokens_details/reasoning_tokens")
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
-    let provider_data = openai_provider_data(&payload);
+    let provider_data = openai_provider_data(&payload, thinking_cards_enabled);
 
     Ok(LlmReply {
         content,
@@ -620,11 +659,12 @@ fn extract_openai_message_content(value: &Value) -> Option<String> {
     (!text.trim().is_empty()).then_some(text)
 }
 
-fn openai_provider_data(payload: &Value) -> Option<Value> {
+fn openai_provider_data(payload: &Value, thinking_cards_enabled: bool) -> Option<Value> {
     let message = payload
         .pointer("/choices/0/message")
         .or_else(|| payload.get("message"))?;
     let mut openai = serde_json::Map::new();
+    let reasoning_summary = openai_reasoning_text_from_message(message);
     for key in ["reasoning_content", "reasoning", "reasoning_details"] {
         if let Some(value) = message
             .get(key)
@@ -636,7 +676,161 @@ fn openai_provider_data(payload: &Value) -> Option<Value> {
     if openai.is_empty() {
         None
     } else {
-        Some(json!({ "openai": Value::Object(openai) }))
+        let mut root = serde_json::Map::new();
+        root.insert("openai".into(), Value::Object(openai));
+        if thinking_cards_enabled {
+            if let Some(cards) = openai_thinking_cards(reasoning_summary.as_deref()) {
+                root.insert("thinkingCards".into(), cards);
+            }
+        }
+        Some(Value::Object(root))
+    }
+}
+
+fn openai_stream_provider_data(reasoning_content: &str, thinking_cards_enabled: bool) -> Option<Value> {
+    let reasoning_content = reasoning_content.trim();
+    if reasoning_content.is_empty() {
+        return None;
+    }
+    let mut root = serde_json::Map::new();
+    root.insert(
+        "openai".into(),
+        json!({
+            "reasoning_content": reasoning_content,
+        }),
+    );
+    if thinking_cards_enabled {
+        if let Some(cards) = openai_thinking_cards(Some(reasoning_content)) {
+            root.insert("thinkingCards".into(), cards);
+        }
+    }
+    Some(Value::Object(root))
+}
+
+fn openai_thinking_cards(summary: Option<&str>) -> Option<Value> {
+    let summary = summary.map(str::trim).filter(|value| !value.is_empty())?;
+    if summary.chars().count() < 8 {
+        return None;
+    }
+    Some(json!([{
+        "provider": "openai",
+        "kind": "thinking",
+        "title": "模型思考",
+        "summary": summary,
+        "redacted": false,
+        "streaming": false
+    }]))
+}
+
+fn openai_reasoning_delta(payload: &Value) -> Option<String> {
+    for pointer in [
+        "/choices/0/delta/reasoning_content",
+        "/choices/0/delta/reasoning",
+        "/choices/0/delta/reasoning/text",
+        "/choices/0/delta/reasoning/summary",
+        "/choices/0/delta/reasoning_details",
+        "/choices/0/message/reasoning_content",
+        "/choices/0/message/reasoning",
+        "/choices/0/message/reasoning/text",
+        "/choices/0/message/reasoning/summary",
+        "/message/reasoning_content",
+        "/message/reasoning",
+    ] {
+        if let Some(value) = payload.pointer(pointer) {
+            if let Some(text) = openai_reasoning_text_from_value(value) {
+                return Some(text);
+            }
+        }
+    }
+    None
+}
+
+fn openai_reasoning_text_from_message(message: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+    for key in ["reasoning_content", "reasoning", "reasoning_details"] {
+        if let Some(value) = message.get(key) {
+            collect_openai_reasoning_text(value, &mut parts);
+        }
+    }
+    let text = parts
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    (!text.trim().is_empty()).then_some(text)
+}
+
+fn openai_reasoning_text_from_value(value: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+    collect_openai_reasoning_text(value, &mut parts);
+    let text = parts
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    (!text.trim().is_empty()).then_some(text)
+}
+
+fn collect_openai_reasoning_text(value: &Value, parts: &mut Vec<String>) {
+    match value {
+        Value::String(text) => {
+            if !text.trim().is_empty() {
+                parts.push(text.clone());
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_openai_reasoning_text(item, parts);
+            }
+        }
+        Value::Object(object) => {
+            for key in ["text", "content", "summary", "reasoning_content"] {
+                if let Some(value) = object.get(key) {
+                    collect_openai_reasoning_text(value, parts);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(test)]
+mod reasoning_tests {
+    use super::*;
+
+    #[test]
+    fn openai_reasoning_delta_reads_kimi_style_stream_field() {
+        let payload = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning_content": "先确认工具结果是否可用。"
+                }
+            }]
+        });
+
+        assert_eq!(
+            openai_reasoning_delta(&payload).as_deref(),
+            Some("先确认工具结果是否可用。")
+        );
+    }
+
+    #[test]
+    fn openai_stream_provider_data_projects_thinking_cards() {
+        let data = openai_stream_provider_data("先确认工具结果是否可用。", true).unwrap();
+
+        assert_eq!(data["openai"]["reasoning_content"], "先确认工具结果是否可用。");
+        assert_eq!(data["thinkingCards"][0]["provider"], "openai");
+        assert_eq!(data["thinkingCards"][0]["streaming"], false);
+    }
+
+    #[test]
+    fn openai_stream_provider_data_can_keep_reasoning_without_cards() {
+        let data = openai_stream_provider_data("先确认工具结果是否可用。", false).unwrap();
+
+        assert_eq!(data["openai"]["reasoning_content"], "先确认工具结果是否可用。");
+        assert!(data.get("thinkingCards").is_none());
     }
 }
 

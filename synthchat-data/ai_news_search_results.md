@@ -1,0 +1,11 @@
+- generic [active] [ref=f18e1] [box=0,0,1905,1885]:
+  - generic [box=0,0,0,88]:
+    - generic [box=0,80,0,0]
+  - generic [ref=f18e8] [box=230,26,1675,52]:
+    - search [ref=f18e9] [box=230,26,861,52]
+    - generic [ref=f18e40] [box=1622,26,283,52]
+  - generic [ref=f18e63] [box=0,86,1905,1799]:
+    - navigation [ref=f18e69] [box=230,82,861,54]
+    - heading "搜索结果" [level=1] [ref=f18e124] [box=0,136,1,1]
+    - main [ref=f18e130] [box=230,160,652,1620]
+    - contentinfo [ref=f18e522] [box=0,1780,1905,105]

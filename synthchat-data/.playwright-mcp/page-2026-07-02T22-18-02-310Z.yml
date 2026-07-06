@@ -1,0 +1,140 @@
+- generic [ref=f9e3]:
+  - generic:
+    - generic [ref=f9e6]:
+      - link "新闻" [ref=f9e7] [cursor=pointer]:
+        - /url: http://news.baidu.com
+      - link "hao123" [ref=f9e8] [cursor=pointer]:
+        - /url: https://www.hao123.com?src=from_pc
+      - link "地图" [ref=f9e9] [cursor=pointer]:
+        - /url: http://map.baidu.com
+      - link "贴吧" [ref=f9e10] [cursor=pointer]:
+        - /url: http://tieba.baidu.com/
+      - link "视频" [ref=f9e11] [cursor=pointer]:
+        - /url: https://haokan.baidu.com/?sfrom=baidu-top
+      - link "图片" [ref=f9e12] [cursor=pointer]:
+        - /url: http://image.baidu.com/
+      - link "网盘" [ref=f9e13] [cursor=pointer]:
+        - /url: https://pan.baidu.com?from=1026962h
+      - link "文库" [ref=f9e14] [cursor=pointer]:
+        - /url: https://wenku.baidu.com/?fr=bdpcindex
+      - link "文心" [ref=f9e15] [cursor=pointer]:
+        - /url: https://chat.baidu.com/search?isShowHello=1&pd=csaitab&setype=csaitab&extParamsJson=%7B%22enter_type%22%3A%22home_tab%22%7D
+      - link "搭子DuMate" [ref=f9e16] [cursor=pointer]:
+        - /url: https://dumate.cn?track=bdsy
+      - link "更多" [ref=f9e18] [cursor=pointer]:
+        - /url: http://www.baidu.com/more/
+    - generic [ref=f9e19]:
+      - generic [ref=f9e20] [cursor=pointer]: 设置
+      - link "登录" [ref=f9e21] [cursor=pointer]:
+        - /url: https://passport.baidu.com/v2/?login&tpl=mn&u=http%3A%2F%2Fwww.baidu.com%2F&sms=5
+  - generic [ref=f9e24]:
+    - generic [ref=f9e25]:
+      - img [ref=f9e26]
+      - generic:
+        - link "点击一下，了解更多":
+          - /url: //www.baidu.com/s?wd=%E7%99%BE%E5%BA%A6%E7%83%AD%E6%90%9C&sa=ire_dl_gh_logo_texing&rsv_dl=igh_logo_pcs
+    - generic [ref=f9e31]:
+      - generic [ref=f9e34]:
+        - textbox "TVB女演员梁珊去世" [active] [ref=f9e36]
+        - generic [ref=f9e38]:
+          - generic [ref=f9e39]:
+            - img [ref=f9e47] [cursor=pointer]
+            - generic [ref=f9e50]:
+              - img [ref=f9e54] [cursor=pointer]
+              - img [ref=f9e59] [cursor=pointer]
+          - button "百度一下" [ref=f9e63] [cursor=pointer]
+      - link "复杂问题就找文心助手，深入思考回答更优 " [ref=f9e67] [cursor=pointer]:
+        - /url: https://chat.baidu.com/search?extParams=%7B%22enter_type%22%3A%22home_operate%22%7D&isShowHello=1
+        - img [ref=f9e68]
+        - generic [ref=f9e69]:
+          - generic [ref=f9e70]: 复杂问题就找文心助手，深入思考回答更优
+          - generic [ref=f9e71]: 
+    - generic [ref=f9e74]:
+      - generic [ref=f9e75]:
+        - link "百度热搜":
+          - /url: https://top.baidu.com/board?platform=pc&sa=pcindex_entry
+          - generic "百度热搜" [ref=f9e76] [cursor=pointer]: 
+        - generic [ref=f9e77] [cursor=pointer]:
+          - generic [ref=f9e78]: 
+          - text: 换一换
+      - list:
+        - listitem [ref=f9e79]:
+          - link " 庆祝建党105周年大会温暖瞬间" [ref=f9e80] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E5%BA%86%E7%A5%9D%E5%BB%BA%E5%85%9A105%E5%91%A8%E5%B9%B4%E5%A4%A7%E4%BC%9A%E6%B8%A9%E6%9A%96%E7%9E%AC%E9%97%B4&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e81]: 
+            - text: 庆祝建党105周年大会温暖瞬间
+        - listitem [ref=f9e83]:
+          - link "5 吐鲁番火焰山地表温度飙至84℃" [ref=f9e84] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E5%90%90%E9%B2%81%E7%95%AA%E7%81%AB%E7%84%B0%E5%B1%B1%E5%9C%B0%E8%A1%A8%E6%B8%A9%E5%BA%A6%E9%A3%99%E8%87%B384%E2%84%83&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e85]: "5"
+            - text: 吐鲁番火焰山地表温度飙至84℃
+        - listitem [ref=f9e87]:
+          - link "1 多地停运、停航 台风来了" [ref=f9e88] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E5%A4%9A%E5%9C%B0%E5%81%9C%E8%BF%90%E3%80%81%E5%81%9C%E8%88%AA+%E5%8F%B0%E9%A3%8E%E6%9D%A5%E4%BA%86&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e89]: "1"
+            - text: 多地停运、停航 台风来了
+          - generic [ref=f9e90]: 热
+        - listitem [ref=f9e91]:
+          - link "6 批发商称雪糕销量近乎减半" [ref=f9e92] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E6%89%B9%E5%8F%91%E5%95%86%E7%A7%B0%E9%9B%AA%E7%B3%95%E9%94%80%E9%87%8F%E8%BF%91%E4%B9%8E%E5%87%8F%E5%8D%8A&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e93]: "6"
+            - text: 批发商称雪糕销量近乎减半
+          - generic [ref=f9e94]: 热
+        - listitem [ref=f9e95]:
+          - link "2 西班牙3-0奥地利 晋级16强" [ref=f9e96] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E8%A5%BF%E7%8F%AD%E7%89%993-0%E5%A5%A5%E5%9C%B0%E5%88%A9+%E6%99%8B%E7%BA%A716%E5%BC%BA&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e97]: "2"
+            - text: 西班牙3-0奥地利 晋级16强
+          - generic [ref=f9e98]: 新
+        - listitem [ref=f9e99]:
+          - link "7 世界杯：葡萄牙vs克罗地亚" [ref=f9e100] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E4%B8%96%E7%95%8C%E6%9D%AF%EF%BC%9A%E8%91%A1%E8%90%84%E7%89%99vs%E5%85%8B%E7%BD%97%E5%9C%B0%E4%BA%9A&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e101]: "7"
+            - text: 世界杯：葡萄牙vs克罗地亚
+          - generic [ref=f9e102]: 新
+        - listitem [ref=f9e103]:
+          - link "3 各地多措并举助推高质量发展" [ref=f9e104] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E5%90%84%E5%9C%B0%E5%A4%9A%E6%8E%AA%E5%B9%B6%E4%B8%BE%E5%8A%A9%E6%8E%A8%E9%AB%98%E8%B4%A8%E9%87%8F%E5%8F%91%E5%B1%95&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e105]: "3"
+            - text: 各地多措并举助推高质量发展
+        - listitem [ref=f9e107]:
+          - link "8 地铁吐血女孩称生命进入倒计时" [ref=f9e108] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E5%9C%B0%E9%93%81%E5%90%90%E8%A1%80%E5%A5%B3%E5%AD%A9%E7%A7%B0%E7%94%9F%E5%91%BD%E8%BF%9B%E5%85%A5%E5%80%92%E8%AE%A1%E6%97%B6&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e109]: "8"
+            - text: 地铁吐血女孩称生命进入倒计时
+          - generic [ref=f9e110]: 热
+        - listitem [ref=f9e111]:
+          - link "4 茉莉奶白成第1个被奢侈品牌告的奶茶" [ref=f9e112] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E8%8C%89%E8%8E%89%E5%A5%B6%E7%99%BD%E6%88%90%E7%AC%AC1%E4%B8%AA%E8%A2%AB%E5%A5%A2%E4%BE%88%E5%93%81%E7%89%8C%E5%91%8A%E7%9A%84%E5%A5%B6%E8%8C%B6&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e113]: "4"
+            - text: 茉莉奶白成第1个被奢侈品牌告的奶茶
+          - generic [ref=f9e114]: 热
+        - listitem [ref=f9e115]:
+          - link "9 伊拉克女议员家中搜出黄金内衣" [ref=f9e116] [cursor=pointer]:
+            - /url: https://www.baidu.com/s?wd=%E4%BC%8A%E6%8B%89%E5%85%8B%E5%A5%B3%E8%AE%AE%E5%91%98%E5%AE%B6%E4%B8%AD%E6%90%9C%E5%87%BA%E9%BB%84%E9%87%91%E5%86%85%E8%A1%A3&sa=fyb_n_homepage&rsv_dl=fyb_n_homepage&from=super&cl=3&tn=baidutop10&fr=top1000&rsv_idx=2&hisfilter=1
+            - generic [ref=f9e117]: "9"
+            - text: 伊拉克女议员家中搜出黄金内衣
+  - generic [ref=f9e120]:
+    - paragraph [ref=f9e121]:
+      - link "关于百度" [ref=f9e122] [cursor=pointer]:
+        - /url: //home.baidu.com
+    - paragraph [ref=f9e123]:
+      - link "About Baidu" [ref=f9e124] [cursor=pointer]:
+        - /url: http://ir.baidu.com
+    - paragraph [ref=f9e125]:
+      - link "使用百度前必读" [ref=f9e126] [cursor=pointer]:
+        - /url: //www.baidu.com/duty
+    - paragraph [ref=f9e127]:
+      - link "帮助中心" [ref=f9e128] [cursor=pointer]:
+        - /url: https://help.baidu.com/question?prod_id=1
+    - paragraph [ref=f9e129]:
+      - link "企业推广" [ref=f9e130] [cursor=pointer]:
+        - /url: https://e.baidu.com/?refer=1271
+    - paragraph [ref=f9e131]:
+      - link "京公网安备11000002000001号" [ref=f9e132] [cursor=pointer]:
+        - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11000002000001
+    - paragraph [ref=f9e133]:
+      - link "京ICP证030173号" [ref=f9e134] [cursor=pointer]:
+        - /url: https://beian.miit.gov.cn
+    - generic [ref=f9e135]: 
+    - generic [ref=f9e136]: 

@@ -327,6 +327,19 @@ function matchesPersistedUserMessage(liveMessage: ChatMessage, backendMessage: C
   );
 }
 
+function matchesLocalUserReplacement(liveMessage: ChatMessage, backendMessage: ChatMessage) {
+  if (!matchesPersistedUserMessage(liveMessage, backendMessage)) {
+    return false;
+  }
+  const liveCreatedAt = messageTime(liveMessage);
+  const backendCreatedAt = messageTime(backendMessage);
+  return !(
+    liveCreatedAt > 0
+    && backendCreatedAt > 0
+    && backendCreatedAt < liveCreatedAt - 5_000
+  );
+}
+
 function isTrackedStreamingAssistantMessage(
   message: ChatMessage,
   conversationId: string | null,
@@ -379,11 +392,7 @@ function mergeLocalUiMessages(
       return false;
     }
     if (message.role === "user") {
-      const localContent = normalizeMessageContentForMatch(message.content);
-      return !backendMessages.some((backend) =>
-        backend.role === "user"
-        && normalizeMessageContentForMatch(backend.content) === localContent
-      );
+      return !backendMessages.some((backend) => matchesLocalUserReplacement(message, backend));
     }
     if (isLocalStatusMessage(message)) {
       const localCreatedAt = messageTime(message);
@@ -1293,9 +1302,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       const state = get();
       const messageLimit = conversationMessageLimit(state.config, state.activeConversationId, state.conversationMessageLimits);
       const previewChars = uiMessagePreviewChars(state.config);
-      const nextMessages = state.activeConversationId
+      const backendMessages = state.activeConversationId
         ? visibleChatMessages(await api.listMessages(state.activeConversationId, messageLimit, previewChars))
         : [];
+      const liveState = get();
+      const nextMessages = mergeLocalUiMessages(
+        backendMessages,
+        liveState.messages,
+        state.activeConversationId,
+        messageLimit,
+        liveState.streamedAssistantIds
+      );
       set({
         agentRuns: nextRuns,
         agentQueue: nextQueue,
@@ -1711,12 +1728,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           const currentState = get();
           const messageLimit = conversationMessageLimit(currentState.config, conversationIdForSend, currentState.conversationMessageLimits);
           set((current) => {
-            const backendUserIds = new Set(
-              visibleResponseMessages.filter((m) => m.role === "user").map((m) => m.id)
-            );
             const withoutTemp = current.messages.filter((m) => {
               if (m.conversationId !== conversationIdForSend) return true;
-              if (m.role === "user" && isLocalUiMessage(m) && backendUserIds.size > 0) return false;
+              if (
+                m.role === "user"
+                && isLocalUiMessage(m)
+                && visibleResponseMessages.some((backend) => matchesLocalUserReplacement(m, backend))
+              ) {
+                return false;
+              }
               if (hasAssistantReply && isLocalStatusMessage(m)) return false;
               return true;
             });

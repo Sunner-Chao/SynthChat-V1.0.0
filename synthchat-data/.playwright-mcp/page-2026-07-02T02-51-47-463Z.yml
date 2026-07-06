@@ -1,0 +1,18 @@
+- generic [ref=f3e2]:
+  - separator [ref=f3e3]
+  - iframe [ref=f3e8]:
+    - generic [ref=f4e2]:
+      - generic [ref=f4e3]:
+        - checkbox "进行人机身份验证" [ref=f4e7]
+        - generic [ref=f4e11]: 进行人机身份验证
+      - generic [ref=f4e15]: reCAPTCHA
+  - separator [ref=f3e9]
+  - generic [ref=f3e10]:
+    - text: 关于此网页
+    - text: 我们的系统检测到您的计算机网络中存在异常流量。此网页用于确认这些请求是由您而不是自动程序发出的。
+    - link "为什么会这样？" [ref=f3e11] [cursor=pointer]:
+      - /url: "#"
+    - generic [ref=f3e12]:
+      - text: IP 地址：203.10.99.34
+      - text: 时间：2026-07-02T02:51:46Z
+      - text: 网址：https://www.google.com/search?q=AI+news+today+2025+latest

@@ -1,0 +1,290 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e3]:
+    - group [ref=f5e4]
+    - group [ref=f5e6]:
+      - generic [ref=f5e7]:
+        - text: 使用此网站即表示你同意将 Cookie 用于分析、个性化内容和广告。
+        - link "了解有关第三方 Cookie 的详细信息" [ref=f5e8] [cursor=pointer]:
+          - /url: https://www.bing.com/ck/a?!&&p=02410263ad97a7eda3b96ca7d949bec20333bb98e9b036cb1208c6581eda4bf8JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9ha2EubXMvM3JkcGFydHljb29raWVz&ntb=1
+        - text: "|"
+        - link "Microsoft 隐私权政策" [ref=f5e9] [cursor=pointer]:
+          - /url: https://www.bing.com/ck/a?!&&p=b0486965383b24b248e9c8acef442d6f3ca9884f84370b175b26fd590972fc8aJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9nby5taWNyb3NvZnQuY29tL2Z3bGluay8_bGlua2lkPTUyMTgzOQ&ntb=1
+    - group:
+      - link "关闭" [ref=f5e10] [cursor=pointer]:
+        - /url: "javascript:"
+  - banner [ref=f5e11]:
+    - button "跳至内容" [ref=f5e12] [cursor=pointer]:
+      - generic [ref=f5e14]: 跳至内容
+    - button "辅助功能反馈" [ref=f5e15] [cursor=pointer]:
+      - generic [ref=f5e17]: 辅助功能反馈
+    - generic [ref=f5e18]:
+      - link "返回到必应搜索" [ref=f5e19] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "返回到必应搜索" [level=1] [ref=f5e20]
+      - search [ref=f5e21]:
+        - button "搜索" [ref=f5e24] [cursor=pointer]
+        - searchbox "在此处输入你的搜索 — 输入时会显示搜索建议" [ref=f5e25]: ChatGPT GPT-4 企业应用 医疗 教育 零售 案例 2024 2025
+        - button "使用图像搜索" [ref=f5e31] [cursor=pointer]
+    - complementary "帐户奖励和偏好设置" [ref=f5e33]:
+      - button "Microsoft Rewards"
+      - link "登录" [ref=f5e34] [cursor=pointer]:
+        - /url: javascript:void(0)
+        - generic "登录" [ref=f5e35]
+    - navigation "主菜单" [ref=f5e36]:
+      - list [ref=f5e37]:
+        - listitem [ref=f5e38]:
+          - link "全部" [ref=f5e39] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=f5e40]:
+          - link "搜索" [ref=f5e41] [cursor=pointer]:
+            - /url: /copilotsearch?q=ChatGPT+GPT-4+%e4%bc%81%e4%b8%9a%e5%ba%94%e7%94%a8+%e5%8c%bb%e7%96%97+%e6%95%99%e8%82%b2+%e9%9b%b6%e5%94%ae+%e6%a1%88%e4%be%8b+2024+2025&FORM=CSSCOP
+            - img [ref=f5e42]
+            - text: 搜索
+        - listitem [ref=f5e44]:
+          - link "图片" [ref=f5e45] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4aaef8689bb70a68504f3f5995d3615bb82bdca615cc77d2de5c6cd73fccdcb7JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L2ltYWdlcy9zZWFyY2g_cT1DaGF0R1BUK0dQVC00KyVlNCViYyU4MSVlNCViOCU5YSVlNSViYSU5NCVlNyU5NCVhOCslZTUlOGMlYmIlZTclOTYlOTcrJWU2JTk1JTk5JWU4JTgyJWIyKyVlOSU5YiViNiVlNSU5NCVhZSslZTYlYTElODglZTQlYmUlOGIrMjAyNCsyMDI1JkZPUk09SERSU0Mz&ntb=1
+        - listitem [ref=f5e46]:
+          - link "视频" [ref=f5e47] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=256c8ce32369c931dd4e26c55165a05aba95205b4dba3e70facb9d3595205994JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L3ZpZGVvcy9zZWFyY2g_cT1DaGF0R1BUK0dQVC00KyVlNCViYyU4MSVlNCViOCU5YSVlNSViYSU5NCVlNyU5NCVhOCslZTUlOGMlYmIlZTclOTYlOTcrJWU2JTk1JTk5JWU4JTgyJWIyKyVlOSU5YiViNiVlNSU5NCVhZSslZTYlYTElODglZTQlYmUlOGIrMjAyNCsyMDI1JkZPUk09SERSU0M0&ntb=1
+        - listitem [ref=f5e48]:
+          - link "地图" [ref=f5e49] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=1f45adecb0d1bfcecc9da9b67f9e62d97ea1d8e517351245fb89c00d31294835JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L21hcHM_cT1DaGF0R1BUK0dQVC00KyVlNCViYyU4MSVlNCViOCU5YSVlNSViYSU5NCVlNyU5NCVhOCslZTUlOGMlYmIlZTclOTYlOTcrJWU2JTk1JTk5JWU4JTgyJWIyKyVlOSU5YiViNiVlNSU5NCVhZSslZTYlYTElODglZTQlYmUlOGIrMjAyNCsyMDI1JkZPUk09SERSU0M2&ntb=1
+        - listitem [ref=f5e50]:
+          - link "资讯" [ref=f5e51] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=b30a8dd8876f892728f86610df2fe66291f06ceba43f59fba8f404021a44ba68JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L25ld3Mvc2VhcmNoP3E9Q2hhdEdQVCtHUFQtNCslZTQlYmMlODElZTQlYjglOWElZTUlYmElOTQlZTclOTQlYTgrJWU1JThjJWJiJWU3JTk2JTk3KyVlNiU5NSU5OSVlOCU4MiViMislZTklOWIlYjYlZTUlOTQlYWUrJWU2JWExJTg4JWU0JWJlJThiKzIwMjQrMjAyNSZGT1JNPUhEUlNDNw&ntb=1
+        - listitem [ref=f5e52]:
+          - link "Copilot" [ref=f5e53] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=60148f27de1d6ad0c1def913d2a093be9e3d1ff90bd6e6eb9ce28007bf064a49JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1L2NoYXQ_cHJvbXB0PUNoYXRHUFQrR1BULTQrJWU0JWJjJTgxJWU0JWI4JTlhJWU1JWJhJTk0JWU3JTk0JWE4KyVlNSU4YyViYiVlNyU5NiU5NyslZTYlOTUlOTklZTglODIlYjIrJWU5JTliJWI2JWU1JTk0JWFlKyVlNiVhMSU4OCVlNCViZSU4YisyMDI0KzIwMjUmc2VuZHF1ZXJ5PTEmRk9STT1TQ0NPRFg&ntb=1
+        - listitem [ref=f5e54]:
+          - button "更多" [ref=f5e55] [cursor=pointer]:
+            - img [ref=f5e57]
+            - text: 更多
+  - main "搜索结果" [ref=f5e60]:
+    - generic [ref=f5e62]: 约 6 个结果
+    - generic [ref=f5e73]:
+      - list [ref=f5e74]:
+        - listitem [ref=f5e75]:
+          - list [ref=f5e76]:
+            - listitem [ref=f5e77]:
+              - generic [ref=f5e78]:
+                - generic [ref=f5e79] [cursor=pointer]:
+                  - generic [ref=f5e84]: AI Chatbot LLC
+                  - generic [ref=f5e85]:
+                    - generic [ref=f5e86]: https://chat-box.ai
+                    - button "关于我们的广告" [ref=f5e87]:
+                      - img "关于我们的广告" [ref=f5e89]
+                - heading "Chat GPT AI Assistant | ChatGPT 5" [level=2] [ref=f5e90]:
+                  - link "Chat GPT AI Assistant | ChatGPT 5" [ref=f5e91] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e8w2vzASrWmskSw5Rv81uTNjVUCUzMCYQutt2SEaU0-sVos7LwxKzmOSnOCRjEuP6-U--AYDXJUpQj4pqOdmrf-qX1_30_zq2OACjfmemXJdykFUAhwtFS9JJmPKLE2B40RiARVEbffH8AfQudPW7Bauq1sHw1cFhQv14qeJt5nK_Nf543HjCNiI-7gg9E91hwu_OLGWd2Np46qEL5cRJihQ-DZAI&u=aHR0cHMlM2ElMmYlMmZjaGF0LWJveC5haSUyZmFwcCUyZmNoYXQlM2ZwdGglM2RwdGYlMjZtb2RlbCUzZGdwdCUyNnV0bV9zb3VyY2UlM2RiaW5nJTI2dXRtX21lZGl1bSUzZGNwYyUyNnV0bV9jb250ZW50JTNkSlAlMjUyMC0lMjUyME1CMiUyNTIwLSUyNTIwRW5nbGlzaCUyNTIwLSUyNTIwQ29tcHV0ZXIlMjUyMC0lMjUyME9wZW5BSSUyNTIwLSUyNTIwQ2hhdEdQVCUyNnV0bV9jYW1wYWlnbiUzZEpQJTI1MjAtJTI1MjBNQjIlMjUyMC0lMjUyMEVuZ2xpc2glMjUyMC0lMjUyMENvbXB1dGVyJTI1MjAtJTI1MjBPcGVuQUklMjZ1dG1fdGVybSUzZGNoYXQlMjUyMGdwdCUyNTIwYWklMjZjYW1wYWlnbklkJTNkNDg3OTcwNzYyJTI2YWRHcm91cElkJTNkMTI0MTM1MDE0MDcyMzY2MyUyNmZlZWRJdGVtSWQlM2QlMjZ0YXJnZXRJZCUzZGt3ZC03NzU4NTA1MTMwODYxOCUzYWxvYy05NiUyNm1hdGNoVHlwZSUzZHAlMjZuZXR3b3JrJTNkbyUyNmRldmljZSUzZGMlMjZkZXZpY2VUeXBlJTNkZGVza3RvcCUyNmNhbXBhaWduVHlwZSUzZHNlYXJjaCUyNmNyZWF0aXZlSWQlM2Q3NzU4NDUyODg2MzQ1MCUyNmtleXdvcmQlM2RDaGF0R1BUJTI1MjBHUFQtNCUyNTIwJWU0JWJjJTgxJWU0JWI4JTlhJWU1JWJhJTk0JWU3JTk0JWE4JTI1MjAlZTUlOGMlYmIlZTclOTYlOTclMjUyMCVlNiU5NSU5OSVlOCU4MiViMiUyNTIwJWU5JTliJWI2JWU1JTk0JWFlJTI1MjAlZTYlYTElODglZTQlYmUlOGIlMjUyMDIwMjQlMjUyMDIwMjUlMjZ1dG1faWQlM2Q0ODc5NzA3NjIlMjZnYWlkJTNkSlAtRU4tQy1PQUktTVMlMjZtc2Nsa2lkJTNkYjRjYzIzYzliYzIwMTAxMzI1OWU0OThkZTVlNzU3NzA&rlid=b4cc23c9bc201013259e498de5e75770&ntb=1
+                    - text: Chat
+                    - strong [ref=f5e92]: GPT
+                    - text: AI Assistant |
+                    - strong [ref=f5e93]: ChatGPT
+                    - text: "5"
+                - generic [ref=f5e95]:
+                  - generic [ref=f5e98]: 广告
+                  - text: Access
+                  - strong [ref=f5e99]: ChatGPT
+                  - text: 5 Without Any Limits. Quickly Get Answers to Any Questions. Experience the Power of AI with Chat
+                  - strong [ref=f5e100]: GPT
+                  - text: . Try
+                  - strong [ref=f5e101]: GPT
+                  - text: Now for Free. Quick & Easy
+            - listitem [ref=f5e102]:
+              - generic [ref=f5e103]:
+                - generic [ref=f5e104] [cursor=pointer]:
+                  - generic [ref=f5e109]: AIBY
+                  - generic [ref=f5e110]:
+                    - generic [ref=f5e111]: https://chaton.ai
+                    - button "关于我们的广告" [ref=f5e112]:
+                      - img "关于我们的广告" [ref=f5e114]
+                - heading "Download for Free | Free AI | Ask AI Chatbot" [level=2] [ref=f5e115]:
+                  - link "Download for Free | Free AI | Ask AI Chatbot" [ref=f5e116] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e84UiDk8M_K2YvJoOoczN_rDVUCUyvulM8RwtILjD7yivh_UupUeaKWYcwf7lJRiM-kDUDHjTcr4O8s61YqXrwflKWjrVJWBIivIp2yi_KU5lhdjL74TbuY4nhRuTPsODQ4ZElLMl_z3JYig_WL3NKaW8IMM94fDSd2ILiatzDnYFOoc2bdt30IbOQAQno-SXrgzvSW0ugD2p-wOQX3N8VAFjEXiQ&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmZ3ZWJfMTUlMmYlM2Z1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZ1dG1fY2FtcGFpZ24lM2RCaW5nJTI1MjAlN2MlMjUyMENoYXRPbiUyNTIwJTdjJTI1MjBXZWIlMjUyMCU3YyUyNTIwV1clMjUyMCU3YyUyNTIwU2VhcmNoJTI1MjAlN2MlMjUyME1haW4lMjUyMCU3YyUyNTIwQ1BBJTI1MjAlN2MlMjUyMDA1LjAxLjI2JTI2dXRtX2NvbnRlbnQlM2Q3NzUxNTc5NDU2NTU3MCUyNnV0bV90ZXJtJTNkY2hhdGd0cCUyNmNhbXBhaWduX2lkJTNkNDg3MzE4NDMzJTI2YWRzZXRfaWQlM2QxMjQwMjUwNDMzMDAzMTgyJTI2YWRfaWQlM2Q3NzUxNTc5NDU2NTU3MCUyNm1zY2xraWQlM2Q2MGIyMzAxMTg1M2ExNDRjZDVmNDVhNTVkY2ZkYThiYg&rlid=60b23011853a144cd5f45a55dcfda8bb&ntb=1
+                - generic [ref=f5e118]:
+                  - generic [ref=f5e121]: 广告
+                  - text: No Credit Card Required. Chaton Ai Writes, Edits, And Explains For You - Free! Create, Edit, And Plan Anything With Powerful Ai — No Cost, No Hassle.
+            - listitem [ref=f5e122]:
+              - generic [ref=f5e123]:
+                - generic [ref=f5e124] [cursor=pointer]:
+                  - generic [ref=f5e129]: OpenAI
+                  - generic [ref=f5e130]:
+                    - generic [ref=f5e132]:
+                      - text: https://
+                      - strong [ref=f5e133]: chatgpt
+                      - text: .com › サインアップ
+                    - button "关于我们的广告" [ref=f5e134]:
+                      - img "关于我们的广告" [ref=f5e136]
+                - heading "ChatGPT：すぐ簡単に使えるAI | ChatGPTに無料でサインアップ | ChatGPT：賢くシンプルなAI" [level=2] [ref=f5e137]:
+                  - link "ChatGPT：すぐ簡単に使えるAI | ChatGPTに無料でサインアップ | ChatGPT：賢くシンプルなAI" [ref=f5e138] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e8XVDrQZaQ7q6vHNIsVPltEzVUCUxxh0sQBQI5rVSrD9cB6wu9yp3IAL3qpc-c6WmE8d7xaOZEjlMNYehr5-D0VpzUf5Mvo9WeShJcm1dpdkmjaeMbGbrv3iJPLs2yVxsp2xFXdFG6x72FWPL8DyGblnAmbCgIyE51ozDz7em4PLDRnCHO0S7tnynTtFlaRnxr8hpfr1vIWanuH9N0GKba5q6z1EM&u=aHR0cHMlM2ElMmYlMmZjaGF0Z3B0LmNvbSUzZnV0bV9zb3VyY2UlM2RtaWNyb3NvZnQlMjZ1dG1fbWVkaXVtJTNkcGFpZF9zZWFyY2glMjZ1dG1fY2FtcGFpZ24lM2RNU0ZUX0NfU0VNX0JCUl9Db3JlX0NIVF9CQVVfQUNRX1BFUl9NSVhfQUxMX0FQQUNfSlBfSkFfMTEwNjI1JTI2Y19pZCUzZDU3MDYxMjkwOCUyNmNfYWdpZCUzZDExODMwNzY1MDEzOTY5ODYlMjZjX2NyaWQlM2QlMjZjX2t3aWQlM2Rrd2QtNzM5NDI3Mjc5MTc4OTQlM2Fsb2MtOTYlMjZjX2ltcyUzZCUyNmNfcG1zJTNkMTQwMDMxJTI2Y19udyUzZG8lMjZjX2R2YyUzZGMlMjZtc2Nsa2lkJTNkYzkyM2UxNmM2YTg0MTgyMTUzM2M4YjI4MzM0MzRkMWQ&rlid=c923e16c6a841821533c8b2833434d1d&ntb=1
+                    - strong [ref=f5e139]: ChatGPT
+                    - text: ：すぐ簡単に使えるAI |
+                    - strong [ref=f5e140]: ChatGPT
+                    - text: に無料でサインアップ |
+                    - strong [ref=f5e141]: ChatGPT
+                    - text: ：賢くシンプルなAI
+                - generic [ref=f5e142]:
+                  - generic [ref=f5e143]:
+                    - generic [ref=f5e146]: 广告
+                    - strong [ref=f5e147]: ChatGPT
+                    - text: を使うと、答えがもらえて毎日のタスクがシンプルに。質問するだけで
+                    - strong [ref=f5e148]: ChatGPT
+                    - text: がお手伝い。.
+                    - strong [ref=f5e149]: ChatGPT
+                    - text: で可能性を秘めた世界を発見しましょう。使いやすく、いつでもどこでもアクセスが可能。
+                  - paragraph [ref=f5e150]: ChatGPTに何でも尋ねよう · AIがあらゆるタスクを支援 · ChatGPT検索をチェック
+      - list [ref=f5e151]:
+        - listitem [ref=f5e152]:
+          - link "百度开发者中心" [ref=f5e154] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=26200af351792ab3da3bf78fd8cd5aea1b957f62fbe165a06b485c0ffac899e3JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NTMxNDk0Mw&ntb=1
+            - generic [ref=f5e159]:
+              - generic [ref=f5e160]: 百度开发者中心
+              - generic [ref=f5e163]: https://developer.baidu.com › article › detail.html
+          - heading "ChatGPT技术解析与应用全景：从原理到行业实践-百度开发 ..." [level=2] [ref=f5e164]:
+            - link "ChatGPT技术解析与应用全景：从原理到行业实践-百度开发 ..." [ref=f5e165] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=26200af351792ab3da3bf78fd8cd5aea1b957f62fbe165a06b485c0ffac899e3JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9kZXZlbG9wZXIuYmFpZHUuY29tL2FydGljbGUvZGV0YWlsLmh0bWw_aWQ9NTMxNDk0Mw&ntb=1
+          - paragraph [ref=f5e167]: 2025年12月7日 · 本文深入解析ChatGPT核心技术架构与训练机制，系统梳理其在教育、医疗、金融等领域的创新应用场景，结合典型 …
+        - listitem [ref=f5e168]:
+          - link "百度智能云" [ref=f5e170] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=dc6009c33902c63a45438464c3a6f117a81686a70827e54ec690ce61a62ce180JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9jbG91ZC5iYWlkdS5jb20vYXJ0aWNsZS81MjgzNDUw&ntb=1
+            - generic [ref=f5e175]:
+              - generic [ref=f5e176]: 百度智能云
+              - generic [ref=f5e179]: https://cloud.baidu.com › article
+          - heading "ChatGPT技术深度解析与应用场景专项调研报告" [level=2] [ref=f5e180]:
+            - link "ChatGPT技术深度解析与应用场景专项调研报告" [ref=f5e181] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=dc6009c33902c63a45438464c3a6f117a81686a70827e54ec690ce61a62ce180JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly9jbG91ZC5iYWlkdS5jb20vYXJ0aWNsZS81MjgzNDUw&ntb=1
+          - paragraph [ref=f5e183]: 2025年11月25日 · 本报告建议企业采用”小步快跑”策略，优先在客服、内容生成等成熟场景落地，同步建设模型评估体系，为后续大规 …
+        - listitem [ref=f5e184]:
+          - link "生物通" [ref=f5e186] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=da6f0a0b7f4ab14d89b5d9d3e75e2936f98398d449e114458c1bd88b9dda1207JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuZWJpb3RyYWRlLmNvbS9uZXdzZi8yMDI1LTEwLzIwMjUxMDI5MDA1NTQ5NjAzLmh0bQ&ntb=1
+            - generic [ref=f5e191]:
+              - generic [ref=f5e192]: 生物通
+              - generic [ref=f5e195]: https://www.ebiotrade.com › newsf › ...
+          - heading "大型语言模型在医学教育中的应用探索：ChatGPT生成眼科 ..." [level=2] [ref=f5e196]:
+            - link "大型语言模型在医学教育中的应用探索：ChatGPT生成眼科 ..." [ref=f5e197] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=da6f0a0b7f4ab14d89b5d9d3e75e2936f98398d449e114458c1bd88b9dda1207JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly93d3cuZWJpb3RyYWRlLmNvbS9uZXdzZi8yMDI1LTEwLzIwMjUxMDI5MDA1NTQ5NjAzLmh0bQ&ntb=1
+          - paragraph [ref=f5e199]: 2025年10月29日 · 正是在此背景下，张奇及其合作者在《BMC Medical Education》上发表了他们的研究成果，系统评估了使 …
+        - listitem [ref=f5e200]:
+          - generic [ref=f5e201]:
+            - link "浏览此图像" [ref=f5e204] [cursor=pointer]:
+              - /url: /images/search?view=detailV2&ccid=E3qbU97Z&id=9B8800C91A5D97F485D1F5E4C516D6D44EF96F93&thid=OIP.E3qbU97ZiBPQs-mM_oH8rQHaE8&mediaurl=https://pic1.zhimg.com/v2-a0db8f8916cb1b542eb1404f3b9fc842_720w.jpg?source=172ae18b&q=ChatGPT+GPT-4+%e4%bc%81%e4%b8%9a%e5%ba%94%e7%94%a8+%e5%8c%bb%e7%96%97+%e6%95%99%e8%82%b2+%e9%9b%b6%e5%94%ae+%e6%a1%88%e4%be%8b+2024+2025&ck=D20EB264BFB7E1049FC40F56A1D6ADDB&idpp=rc&expw=640&exph=427&form=rc2idp
+            - generic [ref=f5e206]:
+              - link "知乎专栏" [ref=f5e208] [cursor=pointer]:
+                - /url: https://www.bing.com/ck/a?!&&p=5d603943c23c7366c707fd11cb0fcc158c9bcaa9d7e026a40bc6718fcec63ec7JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC82MTkxMzAxNDU&ntb=1
+                - generic [ref=f5e213]:
+                  - generic [ref=f5e214]: 知乎专栏
+                  - generic [ref=f5e217]: https://zhuanlan.zhihu.com
+              - heading "医药行业专题报告：当医药遇上ChatGPT - 知乎" [level=2] [ref=f5e218]:
+                - link "医药行业专题报告：当医药遇上ChatGPT - 知乎" [ref=f5e219] [cursor=pointer]:
+                  - /url: https://www.bing.com/ck/a?!&&p=5d603943c23c7366c707fd11cb0fcc158c9bcaa9d7e026a40bc6718fcec63ec7JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC82MTkxMzAxNDU&ntb=1
+              - paragraph [ref=f5e220]: 2023年4月3日 · ChatGPT改变： 智能化导诊：ChatGPT的快速资料检索和匹配能力、强大的多回合语言交 …
+        - listitem [ref=f5e222]:
+          - list [ref=f5e223]:
+            - listitem [ref=f5e224]:
+              - generic [ref=f5e225]:
+                - generic [ref=f5e226] [cursor=pointer]:
+                  - generic [ref=f5e231]: AIBY
+                  - generic [ref=f5e232]:
+                    - generic [ref=f5e233]: https://chaton.ai
+                    - button "关于我们的广告" [ref=f5e234]:
+                      - img "关于我们的广告" [ref=f5e236]
+                - heading "Download for Free | Free AI | Ask AI Chatbot" [level=2] [ref=f5e237]:
+                  - link "Download for Free | Free AI | Ask AI Chatbot" [ref=f5e238] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e8kSbaOE9IueHb28uR-GMa4jVUCUyw3UE6qflHS48WZShUDtCF_3Rqmi79q5vzR3vR9KT4rr4jIlSatq0ANJVMp3tuHW5P8TwGuY7x-nVnAVVf-LJZ_if3HE3SjLWpellfLV3pjjkg2NP1nlDrr2hg3c97ftOudAf-kdOvrTQbxf7weBFoSsRGJeAviwoHWZzud9YFmlSw14tlMO0CxIqLx54XfAs&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmZ3ZWJfMTUlMmYlM2Z1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZ1dG1fY2FtcGFpZ24lM2RCaW5nJTI1MjAlN2MlMjUyMENoYXRPbiUyNTIwJTdjJTI1MjBXZWIlMjUyMCU3YyUyNTIwV1clMjUyMCU3YyUyNTIwU2VhcmNoJTI1MjAlN2MlMjUyME1haW4lMjUyMCU3YyUyNTIwQ1BBJTI1MjAlN2MlMjUyMDA1LjAxLjI2JTI2dXRtX2NvbnRlbnQlM2Q3NzUxNTc5NDU2NTU3MCUyNnV0bV90ZXJtJTNkY2hhdGd0cCUyNmNhbXBhaWduX2lkJTNkNDg3MzE4NDMzJTI2YWRzZXRfaWQlM2QxMjQwMjUwNDMzMDAzMTgyJTI2YWRfaWQlM2Q3NzUxNTc5NDU2NTU3MCUyNm1zY2xraWQlM2Q0YTUwZjVjMWU0NWMxNWE3ZDg0ZjlmODViZDliMWQ3NA&rlid=4a50f5c1e45c15a7d84f9f85bd9b1d74&ntb=1
+                - generic [ref=f5e239]:
+                  - generic [ref=f5e240]:
+                    - generic [ref=f5e243]: 广告
+                    - text: No Credit Card Required. Chaton Ai Writes, Edits, And Explains For You - Free! Create, Edit, And Plan Anything With Powerful Ai — No Cost, No Hassle.
+                  - generic [ref=f5e244]:
+                    - strong [ref=f5e245]: Service Features
+                    - text: ": WhatsApp Integration, Unlimited Chat, Image Creation 和其他"
+                - generic [ref=f5e246]:
+                  - list [ref=f5e247]:
+                    - listitem [ref=f5e248]:
+                      - link "Sign In" [ref=f5e250] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8o_WNTk_ZhmtIBOisuiMOejVUCUyCtlEGRZMHdPOO06LwvRl5EnohNafrL_m8QzRwIBKf12nnKlbKb9dyQwomqx9u-kPqAY8ZIXNmFJjQphUlKkdd2IDzu8V-zP2TwSQbBXwasEcqpF2k-9I8mjlOlW8RjpxRJhMHB2pkvVytnwty3qJ09Cv_4kWzNPPv1X-R7Ls08bQj51QgUMpksvDRGU0fkDxtQE94PDy8vuneX88oFZ8g&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmZ3ZWJfMDYlM2Z1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZ1dG1fY2FtcGFpZ24lM2RCaW5nJTI1MjAlN2MlMjUyMENoYXRPbiUyNTIwJTdjJTI1MjBXZWIlMjUyMCU3YyUyNTIwV1clMjUyMCU3YyUyNTIwU2VhcmNoJTI1MjAlN2MlMjUyME1haW4lMjUyMCU3YyUyNTIwQ1BBJTI1MjAlN2MlMjUyMDA1LjAxLjI2JTI2dXRtX2NvbnRlbnQlM2Q3NzUxNTc5NDU2NTU3MCUyNnV0bV90ZXJtJTNkY2hhdGd0cCUyNmNhbXBhaWduX2lkJTNkNDg3MzE4NDMzJTI2YWRzZXRfaWQlM2QxMjQwMjUwNDMzMDAzMTgyJTI2YWRfaWQlM2Q3NzUxNTc5NDU2NTU3MCUyNm1zY2xraWQlM2Q1NzM4MmVjMzhmNzQxYTA0ZDdhYzQ0ODdkNmIzODcyNA&rlid=57382ec38f741a04d7ac4487d6b38724&ntb=1
+                    - listitem [ref=f5e251]:
+                      - link "Contact Us" [ref=f5e253] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8j21mAew7l_0ZZn5eG23C_zVUCUyIMEt91JIcIqMc2JU4wSRZO3BntPAjdUa1gr_qI-8XacEjW1j0llRsDrQYG8ujSs10b3M_Oj0SmUJMMrYhdOfVfqusqfIBF85JDY1zMklHI93HMBCuPzmgbEdJpmbkVRBqgvi657YauLkSqDHJzz2EZNp6LBxVhyPzQHvGAR5EkJCqDHs5F8M12ICGCh5DmhVrUtYz9leEMhJxHkK9F196&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmZzdXBwb3J0JTJmJTNmdXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2dXRtX2NhbXBhaWduJTNkQmluZyUyNTIwJTdjJTI1MjBDaGF0T24lMjUyMCU3YyUyNTIwV2ViJTI1MjAlN2MlMjUyMFdXJTI1MjAlN2MlMjUyMFNlYXJjaCUyNTIwJTdjJTI1MjBNYWluJTI1MjAlN2MlMjUyMENQQSUyNTIwJTdjJTI1MjAwNS4wMS4yNiUyNnV0bV9jb250ZW50JTNkNzc1MTU3OTQ1NjU1NzAlMjZ1dG1fdGVybSUzZGNoYXRndHAlMjZjYW1wYWlnbl9pZCUzZDQ4NzMxODQzMyUyNmFkc2V0X2lkJTNkMTI0MDI1MDQzMzAwMzE4MiUyNmFkX2lkJTNkNzc1MTU3OTQ1NjU1NzAlMjZtc2Nsa2lkJTNkOGI0NzlkOGQ2ZDQ2MWYyMjAxMTZmN2M5MzQ4MWNjNGU&rlid=8b479d8d6d461f220116f7c93481cc4e&ntb=1
+                    - listitem [ref=f5e254]:
+                      - link "Sign Up" [ref=f5e256] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8N4JagO87DQXbevIq1nVl4jVUCUzbJIJVUC354Ubqp4ln5TQ1PQBBrSqptJ94lPSth-U0vWqnyF_nB1F4menJ-6pteSSZcCs79IrmCuAyoHz6sBPH5DI0QuXAx4J8TIJEXf6nX-OdBuSJVHp3IySTd-VfxNuYtla-3oFdxj0DStwMc5ABwCDQQtAfxNTgZaaC4r6QCGX8k_npRP1w8t1lmvofNsCs6eV6Yjp9MzAfSdviYJaw&u=aHR0cHMlM2ElMmYlMmZjaGF0LmNoYXRvbi5haSUyZmF1dGglMmZyZWdpc3RlciUzZmV4dGVybmFsX2lkJTNkMjMxQjgzNkRCMDRDMzE3NEYxQUJDMEEzNjY5NjM2RkM3NDlDQzkzOTEwMkFCNzdDRjhGQzQ5MzdGOERBNDcxOCUyNnV0bV9zb3VyY2UlM2RiaW5nJTI2dXRtX21lZGl1bSUzZGNwYyUyNnV0bV9jYW1wYWlnbiUzZEJpbmclMjUyMCU3YyUyNTIwQ2hhdE9uJTI1MjAlN2MlMjUyMFdlYiUyNTIwJTdjJTI1MjBXVyUyNTIwJTdjJTI1MjBTZWFyY2glMjUyMCU3YyUyNTIwTWFpbiUyNTIwJTdjJTI1MjBDUEElMjUyMCU3YyUyNTIwMDUuMDEuMjYlMjZ1dG1fY29udGVudCUzZDc3NTE1Nzk0NTY1NTcwJTI2dXRtX3Rlcm0lM2RjaGF0Z3RwJTI2Y2FtcGFpZ25faWQlM2Q0ODczMTg0MzMlMjZhZHNldF9pZCUzZDEyNDAyNTA0MzMwMDMxODIlMjZhZF9pZCUzZDc3NTE1Nzk0NTY1NTcwJTI2bXNjbGtpZCUzZDViZDU0MWNmMzJjYjE0NGZmNmQ4MmI4YjZiMGM3MmMx&rlid=5bd541cf32cb144ff6d82b8b6b0c72c1&ntb=1
+                  - list [ref=f5e257]:
+                    - listitem [ref=f5e258]:
+                      - link "Our Plans" [ref=f5e260] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8FzZ7xOREdRf38sFiY2MKfzVUCUx5a4t-rgTQN0088x1x_tCGd10peRBMjALl6lc1PcMB7cJ47aubE-StNIRYH8Lfzme4nnB_MXi67pCUvs6qurjS4Y9O3V1bWJy58TV7ekugCqh4QXJlalD-v0EVDKVI4nzc__hERdwerbtHNN2IbGVrWztHC5SoYDjOLBGAOvShR78AwmEy70jN86p9o2tfn1-cGWFwPfHMUwhvgbUJ2fbk&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmYlMjNjb21wYXJlLXBsYW5zJTNmdXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2dXRtX2NhbXBhaWduJTNkQmluZyUyNTIwJTdjJTI1MjBDaGF0T24lMjUyMCU3YyUyNTIwV2ViJTI1MjAlN2MlMjUyMFdXJTI1MjAlN2MlMjUyMFNlYXJjaCUyNTIwJTdjJTI1MjBNYWluJTI1MjAlN2MlMjUyMENQQSUyNTIwJTdjJTI1MjAwNS4wMS4yNiUyNnV0bV9jb250ZW50JTNkNzc1MTU3OTQ1NjU1NzAlMjZ1dG1fdGVybSUzZGNoYXRndHAlMjZjYW1wYWlnbl9pZCUzZDQ4NzMxODQzMyUyNmFkc2V0X2lkJTNkMTI0MDI1MDQzMzAwMzE4MiUyNmFkX2lkJTNkNzc1MTU3OTQ1NjU1NzA&rlid=f119423bd1401a7857b8287f88875efb&ntb=1
+                    - listitem [ref=f5e261]:
+                      - link "Support Center" [ref=f5e263] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8-ZgZijGnsICx9XL2cOz5oDVUCUwWCbvDaoBVJmhe5RbR-q8rZDd4UbGEdVMEzJSPuoeI8x9GIUXDd-duygQB5z5QrLz8ob6vZxoSaxs1V0NRXLVbXPZu73c4PE6YMcnazl0bZfEOj0xpPwZC9ZGrOXoR03lDVt669QsBZD_JjFA5LDar06VYIWlpgqlZ5boc997ARUEM83bie-S67YhL7izf-QiR4Pp-YfKB1L02DHrilJgs&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmZzdXBwb3J0JTJmJTNmdXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2dXRtX2NhbXBhaWduJTNkQmluZyUyNTIwJTdjJTI1MjBDaGF0T24lMjUyMCU3YyUyNTIwV2ViJTI1MjAlN2MlMjUyMFdXJTI1MjAlN2MlMjUyMFNlYXJjaCUyNTIwJTdjJTI1MjBNYWluJTI1MjAlN2MlMjUyMENQQSUyNTIwJTdjJTI1MjAwNS4wMS4yNiUyNnV0bV9jb250ZW50JTNkNzc1MTU3OTQ1NjU1NzAlMjZ1dG1fdGVybSUzZGNoYXRndHAlMjZjYW1wYWlnbl9pZCUzZDQ4NzMxODQzMyUyNmFkc2V0X2lkJTNkMTI0MDI1MDQzMzAwMzE4MiUyNmFkX2lkJTNkNzc1MTU3OTQ1NjU1NzAlMjZtc2Nsa2lkJTNkNjdkNGJlNjI4ZTk5MTg4NWNhYjNkNDI2ZDc1ZWNjNTA&rlid=67d4be628e991885cab3d426d75ecc50&ntb=1
+                    - listitem [ref=f5e264]:
+                      - link "Reviews" [ref=f5e266] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8IVGLDGk3rllwXTFzTQz2YjVUCUwXQDWN2wIeoDakH28sgfTncdLF0SNgFGRtko6wK412a2fLLMeN6e5rhfXZydizIWbsSPcnQupCJoMWYhDKX0VVsRtPXAazbPvi_qKuJN7kVlR_2xVdcg3heJR9bnbxb2gJHjuVtlBvNK-xV0jRD2qsq2WpOUQjRxMbuEepHGiPhCY5lGP7-pdWVkzUiKtipmJW_tVZ-1G00yU8vMxeXoFC&u=aHR0cHMlM2ElMmYlMmZjaGF0b24uYWklMmZ3ZWJfMDYlM2Z1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZ1dG1fY2FtcGFpZ24lM2RCaW5nJTI1MjAlN2MlMjUyMENoYXRPbiUyNTIwJTdjJTI1MjBXZWIlMjUyMCU3YyUyNTIwV1clMjUyMCU3YyUyNTIwU2VhcmNoJTI1MjAlN2MlMjUyME1haW4lMjUyMCU3YyUyNTIwQ1BBJTI1MjAlN2MlMjUyMDA1LjAxLjI2JTI2dXRtX2NvbnRlbnQlM2Q3NzUxNTc5NDU2NTU3MCUyNnV0bV90ZXJtJTNkY2hhdGd0cCUyNmNhbXBhaWduX2lkJTNkNDg3MzE4NDMzJTI2YWRzZXRfaWQlM2QxMjQwMjUwNDMzMDAzMTgyJTI2YWRfaWQlM2Q3NzUxNTc5NDU2NTU3MCUyNm1zY2xraWQlM2QyZDVkZjRkY2U5MGUxYTc2ODQwYjllOThiMGM5MzNhMQ&rlid=2d5df4dce90e1a76840b9e98b0c933a1&ntb=1
+            - listitem [ref=f5e267]:
+              - generic [ref=f5e268]:
+                - generic [ref=f5e269] [cursor=pointer]:
+                  - generic [ref=f5e274]: exawizards.com
+                  - generic [ref=f5e275]:
+                    - generic [ref=f5e276]: https://lp.exawizards.com › 法人向け生成AI › 国内シェア1位
+                    - button "关于我们的广告" [ref=f5e277]:
+                      - img "关于我们的广告" [ref=f5e279]
+                - heading "【ChatGPT/Gemini/Claudeなど】 | 【国内シェアNo.1】法人用生成AI | 【複雑なプロンプト不要】" [level=2] [ref=f5e280]:
+                  - link "【ChatGPT/Gemini/Claudeなど】 | 【国内シェアNo.1】法人用生成AI | 【複雑なプロンプト不要】" [ref=f5e281] [cursor=pointer]:
+                    - /url: https://www.bing.com/aclick?ld=e8iJRdEcvjJdtEBnQ7QEvmNTVUCUxT9yTeyrwbVgU2hdI5yUnkyLezn5wzfDAGXScmj4zEqUIAx3Gg_rFI_hHwPyvHj1IGKtNzXLqRA4-DGBid5Wl07WWu75pC-LasYtoHeRrJpyn2SxqVaZL3mv_e94sq2cOs9Rw9eBWtBcZa7NMs05zara6tGCwGVq1NAlOngICqbuap7AkEO4fPcHPi0RnVxUw&u=aHR0cHMlM2ElMmYlMmZscC5leGF3aXphcmRzLmNvbSUyZmV4YUJhc2VBSS1scG8lMmZjaGF0Z3B0JTNmdXRtX3Rlcm0lM2RDaGF0R1BUXzQ4NjM2NjcxOV8xMjQwMjUwNTg0NjQ5MDIyXyUyNnV0bV9jYW1wYWlnbiUzZGJpbmdfZ2VuZXJhbCUyNnV0bV9zb3VyY2UlM2RiaW5nJTI2dXRtX21lZGl1bSUzZGNwYyUyNmhzYV9hY2MlM2Q0MDcwOTY0NzkxJTI2aHNhX2NhbSUzZDIyMjc3NzcxNzA1JTI2aHNhX2dycCUzZDEyNDAyNTA1ODQ2NDkwMjIlMjZoc2FfYWQlM2QlMjZoc2Ffc3JjJTNkbyUyNmhzYV90Z3QlM2Rrd2QtNzc1MTYyNjM2NTUzNzAlM2Fsb2MtOTYlMjZoc2Ffa3clM2RDaGF0R1BUJTI2aHNhX210JTNkcCUyNmhzYV9uZXQlM2RhZHdvcmRzJTI2aHNhX3ZlciUzZDMlMjZtc2Nsa2lkJTNkY2M3ODcyOTdiOWUxMTBkYzczMGExOGQzZTAyNjYyOTg&rlid=cc787297b9e110dc730a18d3e0266298&ntb=1
+                    - text: 【
+                    - strong [ref=f5e282]: ChatGPT
+                    - text: /Gemini/Claudeなど】 | 【国内シェアNo.1】法人
+                    - strong [ref=f5e283]: 用
+                    - text: 生成AI | 【複雑なプロンプト不要】
+                - generic [ref=f5e284]:
+                  - generic [ref=f5e285]:
+                    - generic [ref=f5e288]: 广告
+                    - text: 【
+                    - strong [ref=f5e289]: Chatgpt
+                    - text: 企業導入なら】導入実績1400社超！高度なセキュリティ対策で大企業でも安心. 【
+                    - strong [ref=f5e290]: ChatGPT
+                    - text: /Gemini/Claudeなど】複数の最新言語モデルを利用可能！業務効率化を誰でも簡単に。
+                  - paragraph [ref=f5e291]: 業務効率を大幅改善 · 直感操作のUIで使いやすい · AIエージェント機能搭載 · 柔軟なカスタマイズ
+                  - generic [ref=f5e292]:
+                    - strong [ref=f5e293]: サービス
+                    - text: ": ChatGPT, Gemini, Claude, OpenAI, 複数の最新LLMを利用可能, 高精度RAGを搭載, 安心の …"
+                - generic [ref=f5e294]:
+                  - list [ref=f5e295]:
+                    - listitem [ref=f5e296]:
+                      - link "【導入・活用事例】" [ref=f5e298] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8ya4d6BhCMDgE3bRhrcLr-DVUCUzm3BXYca55s3J0cII7Zd17-wCHlZlFIcJNEEe7k5JlVLSRGv_XHF7liPvdENuOcj_Dy0i1zQAKH_1YLRrSc59hoP2Xkmd4xGYRN8VZoImOoueKp3S11yY--r_DBXUBjPY8kp0x92n1ubktgNp9H7JP-zrYuI1kuD_Hx9tqv3Z-Ukz3DMTLNRAGMNhqZ6pw5mnVXZngk9q4bfX0vIaJuvuV&u=aHR0cHMlM2ElMmYlMmZleGF3aXphcmRzLmNvbSUyZmV4YWJhc2UlMmZncHQlMmZscF9hZF8wMDIlMmYlMjNjYXNlcyUzZnV0bV90ZXJtJTNkQ2hhdEdQVF80ODYzNjY3MTlfMTI0MDI1MDU4NDY0OTAyMl8lMjZ1dG1fY2FtcGFpZ24lM2RiaW5nX2dlbmVyYWwlMjZ1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZoc2FfYWNjJTNkNDA3MDk2NDc5MSUyNmhzYV9jYW0lM2QyMjI3Nzc3MTcwNSUyNmhzYV9ncnAlM2QxMjQwMjUwNTg0NjQ5MDIyJTI2aHNhX2FkJTNkJTI2aHNhX3NyYyUzZG8lMjZoc2FfdGd0JTNka3dkLTc3NTE2MjYzNjU1MzcwJTNhbG9jLTk2JTI2aHNhX2t3JTNkQ2hhdEdQVCUyNmhzYV9tdCUzZHAlMjZoc2FfbmV0JTNkYWR3b3JkcyUyNmhzYV92ZXIlM2Qz&rlid=94296c05f55011fe0e4e0641ac97eeae&ntb=1
+                    - listitem [ref=f5e299]:
+                      - link "【導入事例】" [ref=f5e301] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8o3UegLc0THwm8cYjHLB1TjVUCUy9K__ge-6Bjgl5BIvAnlmipEXa7yqmZG_JHWS5G7w9G7rHMAI4_b_GzHsPisx4m_yahtXRex2OR-UFPE3TXhNwmG05Tfyer0mm-JTDP_WZh-mO4bfqnu1wT8vqThMLevIaenvJEF1jQpvPslYVonal_MDurJA9AGHOoazBljCmYe1pzlscpZLG4pqLwCT0wWrfeXPVSDT5-Akwggy-BP3U&u=aHR0cHMlM2ElMmYlMmZleGF3aXphcmRzLmNvbSUyZndvcmtzJTJmJTNmdXRtX3Rlcm0lM2RDaGF0R1BUXzQ4NjM2NjcxOV8xMjQwMjUwNTg0NjQ5MDIyXyUyNnV0bV9jYW1wYWlnbiUzZGJpbmdfZ2VuZXJhbCUyNnV0bV9zb3VyY2UlM2RiaW5nJTI2dXRtX21lZGl1bSUzZGNwYyUyNmhzYV9hY2MlM2Q0MDcwOTY0NzkxJTI2aHNhX2NhbSUzZDIyMjc3NzcxNzA1JTI2aHNhX2dycCUzZDEyNDAyNTA1ODQ2NDkwMjIlMjZoc2FfYWQlM2QlMjZoc2Ffc3JjJTNkbyUyNmhzYV90Z3QlM2Rrd2QtNzc1MTYyNjM2NTUzNzAlM2Fsb2MtOTYlMjZoc2Ffa3clM2RDaGF0R1BUJTI2aHNhX210JTNkcCUyNmhzYV9uZXQlM2RhZHdvcmRzJTI2aHNhX3ZlciUzZDMlMjZtc2Nsa2lkJTNkMTcxMDhjOGM5YjAzMTMxMzgwYjBlNmM4YzJjNDFhMDI&rlid=17108c8c9b03131380b0e6c8c2c41a02&ntb=1
+                    - listitem [ref=f5e302]:
+                      - link "【お問い合わせ】" [ref=f5e304] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8N_droYvHL54mQFS7pqHU2TVUCUyHHea-RoxyAWRLAe23VGkD4x2wMHtwJDObNHn14z7w3Q3Xoa-C6AThJDIcGbtBh4fwRV9rPB3xsimq1JDnNKlWE62KS8vRMFmgA18qt0TvoTl_5IBk7KQL1E3MmyGNs5l2kQhsz5N-xUU7Zzagkksj6fWLV2x8WFLvwSZm6_UmNx0GzvBB1vmmFDz6EyB4O6RAL1LuYnffDx_Cr1siF32O&u=aHR0cHMlM2ElMmYlMmZleGF3aXphcmRzLmNvbSUyZmV4YWJhc2UlMmZncHQlMmZscF9hZCUyZmNvbnRhY3QlMmYlM2Z1dG1fdGVybSUzZENoYXRHUFRfNDg2MzY2NzE5XzEyNDAyNTA1ODQ2NDkwMjJfJTI2dXRtX2NhbXBhaWduJTNkYmluZ19nZW5lcmFsJTI2dXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2aHNhX2FjYyUzZDQwNzA5NjQ3OTElMjZoc2FfY2FtJTNkMjIyNzc3NzE3MDUlMjZoc2FfZ3JwJTNkMTI0MDI1MDU4NDY0OTAyMiUyNmhzYV9hZCUzZCUyNmhzYV9zcmMlM2RvJTI2aHNhX3RndCUzZGt3ZC03NzUxNjI2MzY1NTM3MCUzYWxvYy05NiUyNmhzYV9rdyUzZENoYXRHUFQlMjZoc2FfbXQlM2RwJTI2aHNhX25ldCUzZGFkd29yZHMlMjZoc2FfdmVyJTNkMyUyNm1zY2xraWQlM2RlZmI2YmViNWUwZTYxMDIwNjMxMGQ0ZjFiOTIxZWUyYw&rlid=efb6beb5e0e610206310d4f1b921ee2c&ntb=1
+                  - list [ref=f5e305]:
+                    - listitem [ref=f5e306]:
+                      - link "【無料資料ダウンロード】" [ref=f5e308] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8XSw2C70mgvxSF6_lc2_7WjVUCUyDCgsnJfxI4ozF10GN4j6kvfB3bPNw_Zj97-K5ZZupaAUNjMJpFcImZjRtVHcSqkh--7jU_wUP4hzVdco4jemWSIdkp9arRfjwo3q5Av0iwQMa7C0MeWqlAC4u9PbyNVCSsX_oJyrMoaYRJrv-2NytVt68B-vrR-XaRXZWt1eTe3fnHIjJqsTcMDGYOMs5XQq0sWfuETGDktTqOWUP8lq4&u=aHR0cHMlM2ElMmYlMmZleGF3aXphcmRzLmNvbSUyZmV4YWJhc2UlMmZncHQlMmZkb2N1bWVudCUyZiUzZnV0bV90ZXJtJTNkQ2hhdEdQVF80ODYzNjY3MTlfMTI0MDI1MDU4NDY0OTAyMl8lMjZ1dG1fY2FtcGFpZ24lM2RiaW5nX2dlbmVyYWwlMjZ1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZoc2FfYWNjJTNkNDA3MDk2NDc5MSUyNmhzYV9jYW0lM2QyMjI3Nzc3MTcwNSUyNmhzYV9ncnAlM2QxMjQwMjUwNTg0NjQ5MDIyJTI2aHNhX2FkJTNkJTI2aHNhX3NyYyUzZG8lMjZoc2FfdGd0JTNka3dkLTc3NTE2MjYzNjU1MzcwJTNhbG9jLTk2JTI2aHNhX2t3JTNkQ2hhdEdQVCUyNmhzYV9tdCUzZHAlMjZoc2FfbmV0JTNkYWR3b3JkcyUyNmhzYV92ZXIlM2QzJTI2bXNjbGtpZCUzZDRiYTg4M2FmZDJkZTFjMDdkNTUyZTllYjhiMTkyZTk3&rlid=4ba883afd2de1c07d552e9eb8b192e97&ntb=1
+                    - listitem [ref=f5e309]:
+                      - link "【自治体向けはこちら】" [ref=f5e311] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8FZ_t82-oXvR0lPDJCvtmeDVUCUxIhEgpKJ8Hc0EwiAmh9ErAZGyTDT3027ZZ56z1T8SUByl5AZAfIULzyP_aXojjY6zl1k7r3G47RXpQPGt06mzjY_BMnPrpRr1hCQpyx0AgRtzSnNlNuvlnpBZpz9lFIlLAY2f4RBSAhG_sA9P_tYHlRqI3MU9ZtzVaFAM8qDuUrH3TEnefWvsbdNKhmfoYKmyKlYdMB9vg__TMk6I8rJdT&u=aHR0cHMlM2ElMmYlMmZleGF3aXphcmRzLmNvbSUyZmV4YWJhc2UlMmZncHQlMmZnb3YlM2Z1dG1fdGVybSUzZENoYXRHUFRfNDg2MzY2NzE5XzEyNDAyNTA1ODQ2NDkwMjJfJTI2dXRtX2NhbXBhaWduJTNkYmluZ19nZW5lcmFsJTI2dXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2aHNhX2FjYyUzZDQwNzA5NjQ3OTElMjZoc2FfY2FtJTNkMjIyNzc3NzE3MDUlMjZoc2FfZ3JwJTNkMTI0MDI1MDU4NDY0OTAyMiUyNmhzYV9hZCUzZCUyNmhzYV9zcmMlM2RvJTI2aHNhX3RndCUzZGt3ZC03NzUxNjI2MzY1NTM3MCUzYWxvYy05NiUyNmhzYV9rdyUzZENoYXRHUFQlMjZoc2FfbXQlM2RwJTI2aHNhX25ldCUzZGFkd29yZHMlMjZoc2FfdmVyJTNkMyUyNm1zY2xraWQlM2Q0MWIxYzE0YzAyNTAxMzBkZTE4OWFiMDg1Yjk3ZDVkMA&rlid=41b1c14c0250130de189ab085b97d5d0&ntb=1
+                    - listitem [ref=f5e312]:
+                      - link "【最新のLLMを複数利用】" [ref=f5e314] [cursor=pointer]:
+                        - /url: https://www.bing.com/aclick?ld=e8icbszFh28CTCKi66Vmmy1DVUCUxy_wrAozRKkgpIoYWTB41ArgrIVx8kDSKcFk-laTIK2Lwra9pjpKiqBQhbXsSD4R7dFfk74Hn0rMayMlw2-mRG0-u8k40YKK5gzrg4lLZIIQMM_XL0lkQTKno-iq3A0qtC83lcrCkrifnOAuzHXcZZMlADD0IEWNXVHjnvTmnlaV8HOGoYlA2neIGbqrCU_Kc-WVUyLf1gt-EiAfrBaZAM&u=aHR0cHMlM2ElMmYlMmZleGF3aXphcmRzLmNvbSUyZmV4YWJhc2UlMmZncHQlMmYlMjNwb2ludF8wMiUzZnV0bV90ZXJtJTNkQ2hhdEdQVF80ODYzNjY3MTlfMTI0MDI1MDU4NDY0OTAyMl8lMjZ1dG1fY2FtcGFpZ24lM2RiaW5nX2dlbmVyYWwlMjZ1dG1fc291cmNlJTNkYmluZyUyNnV0bV9tZWRpdW0lM2RjcGMlMjZoc2FfYWNjJTNkNDA3MDk2NDc5MSUyNmhzYV9jYW0lM2QyMjI3Nzc3MTcwNSUyNmhzYV9ncnAlM2QxMjQwMjUwNTg0NjQ5MDIyJTI2aHNhX2FkJTNkJTI2aHNhX3NyYyUzZG8lMjZoc2FfdGd0JTNka3dkLTc3NTE2MjYzNjU1MzcwJTNhbG9jLTk2JTI2aHNhX2t3JTNkQ2hhdEdQVCUyNmhzYV9tdCUzZHAlMjZoc2FfbmV0JTNkYWR3b3JkcyUyNmhzYV92ZXIlM2Qz&rlid=6f0d58a17e0910d0d9bf32e527cefb2d&ntb=1
+        - listitem [ref=f5e315]:
+          - link "某些结果已被删除" [ref=f5e317] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=6b4847a4b6127ebf73b2b30a129c9086a29d183fdf9cc9be16c6981f5505cd0dJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9NjE3MzUw&ntb=1
+        - listitem [ref=f5e318]:
+          - navigation "ChatGPT GPT-4 企业应用 医疗 教育 零售 案例 2024 2025 的更多搜索结果":
+            - list:
+              - listitem [ref=f5e319]:
+                - link "下一页" [ref=f5e320] [cursor=pointer]:
+                  - /url: /search?q=ChatGPT+GPT-4+%e4%bc%81%e4%b8%9a%e5%ba%94%e7%94%a8+%e5%8c%bb%e7%96%97+%e6%95%99%e8%82%b2+%e9%9b%b6%e5%94%ae+%e6%a1%88%e4%be%8b+2024+2025&setlang=zh-CN&FPIG=566F095E16A5462D8B527F0A9F93DBA0&first=5&FORM=PORE
+      - complementary "更多结果"
+  - contentinfo [ref=f5e321]:
+    - generic [ref=f5e322]:
+      - list:
+        - listitem [ref=f5e323]:
+          - link "隐私" [ref=f5e324] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=65e14e0db5602b42b8b59d064bae6fce9d9d154de5d2bbf58bdd907124970569JmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1
+        - listitem [ref=f5e325]:
+          - link "条款" [ref=f5e326] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=edfc33725ae51257e466be872ce418499c27c48c3d4f59ed981ef0ea7287e85cJmltdHM9MTc4Mjc3NzYwMA&ptn=3&ver=2&hsh=4&fclid=0beb4314-f88a-6cc3-0216-549df9616d52&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1

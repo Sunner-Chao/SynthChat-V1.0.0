@@ -1,0 +1,260 @@
+- generic [active] [ref=f8e1]:
+  - banner [ref=f8e2]:
+    - generic [ref=f8e3]:
+      - link "返回到必应搜索" [ref=f8e4] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "返回到必应搜索" [level=1] [ref=f8e5]
+      - search [ref=f8e6]:
+        - button "搜索" [ref=f8e9] [cursor=pointer]
+        - searchbox "在此处输入你的搜索 — 输入时会显示搜索建议" [ref=f8e10]: AI artificial intelligence news 2025-08-25
+        - button "使用图像搜索" [ref=f8e16] [cursor=pointer]
+    - complementary "帐户奖励和偏好设置" [ref=f8e18]:
+      - button "Microsoft Rewards" [ref=f8e19] [cursor=pointer]
+      - link "登录" [ref=f8e20] [cursor=pointer]:
+        - /url: javascript:void(0)
+        - button "登录" [ref=f8e23]
+      - button "设置和快速链接" [ref=f8e24] [cursor=pointer]
+    - navigation "主菜单" [ref=f8e25]:
+      - list [ref=f8e26]:
+        - listitem [ref=f8e27]:
+          - link "全部" [ref=f8e28] [cursor=pointer]:
+            - /url: /search?q=AI+artificial+intelligence+news+2025-08-25&FORM=HDRSC1
+        - listitem [ref=f8e29]:
+          - link "搜索" [ref=f8e30] [cursor=pointer]:
+            - /url: /copilotsearch?q=AI+artificial+intelligence+news+2025-08-25&FORM=CSSCOP
+            - img [ref=f8e31]
+            - text: 搜索
+        - listitem [ref=f8e33]:
+          - link "图片" [ref=f8e34] [cursor=pointer]:
+            - /url: /images/search?q=AI+artificial+intelligence+news+2025-08-25&FORM=HDRSC3
+        - listitem [ref=f8e35]:
+          - link "视频" [ref=f8e36] [cursor=pointer]:
+            - /url: /videos/search?q=AI+artificial+intelligence+news+2025-08-25&FORM=HDRSC4
+        - listitem [ref=f8e37]:
+          - link "地图" [ref=f8e38] [cursor=pointer]:
+            - /url: /maps?q=AI+artificial+intelligence+news+2025-08-25&FORM=HDRSC6
+        - listitem [ref=f8e39]:
+          - link "Copilot" [ref=f8e40] [cursor=pointer]:
+            - /url: /chat?prompt=AI+artificial+intelligence+news+2025-08-25&sendquery=1&FORM=SCCODX
+        - listitem [ref=f8e41]:
+          - link "资讯" [ref=f8e42] [cursor=pointer]:
+            - /url: /?scope=news&FORM=HDRSC7
+        - listitem [ref=f8e43]:
+          - button "更多" [ref=f8e44] [cursor=pointer]:
+            - img [ref=f8e46]
+            - text: 更多
+  - generic [ref=f8e48]:
+    - tabpanel [ref=f8e49]:
+      - navigation "类别栏" [ref=f8e50]:
+        - tablist [ref=f8e51]:
+          - tab "搜索有关 Top stories 的新闻" [ref=f8e53] [cursor=pointer]:
+            - generic "Top stories" [ref=f8e54]:
+              - img [ref=f8e55]
+            - generic [ref=f8e57]: Top stories
+          - tab "搜索有关 Singapore 的新闻" [ref=f8e59] [cursor=pointer]:
+            - generic "Singapore" [ref=f8e60]:
+              - img [ref=f8e61]
+            - generic [ref=f8e63]: Singapore
+          - tab "搜索有关 World 的新闻" [ref=f8e65] [cursor=pointer]:
+            - generic "World" [ref=f8e66]:
+              - img [ref=f8e67]
+            - generic [ref=f8e69]: World
+          - tab "搜索有关 Entertainment 的新闻" [ref=f8e71] [cursor=pointer]:
+            - generic "Entertainment" [ref=f8e72]:
+              - img [ref=f8e73]
+            - generic [ref=f8e75]: Entertainment
+          - tab "搜索有关 Business 的新闻" [ref=f8e77] [cursor=pointer]:
+            - generic "Business" [ref=f8e78]:
+              - img [ref=f8e79]
+            - generic [ref=f8e81]: Business
+          - tab "搜索有关 Sports 的新闻" [ref=f8e83] [cursor=pointer]:
+            - generic "Sports" [ref=f8e84]:
+              - img [ref=f8e85]
+            - generic [ref=f8e87]: Sports
+          - tab "搜索有关 Sci/Tech 的新闻" [ref=f8e89] [cursor=pointer]:
+            - generic "Sci/Tech" [ref=f8e90]:
+              - img [ref=f8e91]
+            - generic [ref=f8e95]: Sci/Tech
+    - generic [ref=f8e100]:
+      - list [ref=f8e103]:
+        - listitem [ref=f8e104]:
+          - button "时间不限" [ref=f8e105] [cursor=pointer]: 时间不限
+          - list [ref=f8e107]:
+            - listitem [ref=f8e108]:
+              - link "过去 1 小时" [ref=f8e109] [cursor=pointer]:
+                - /url: /news/search?q=AI+artificial+intelligence+news+2025-08-25&qft=interval%3d%224%22+sortbydate%3d%221%22&form=PTFTNR
+            - listitem [ref=f8e110]:
+              - link "过去 24 小时" [ref=f8e111] [cursor=pointer]:
+                - /url: /news/search?q=AI+artificial+intelligence+news+2025-08-25&qft=interval%3d%227%22+sortbydate%3d%221%22&form=PTFTNR
+            - listitem [ref=f8e112]:
+              - link "过去 7 天" [ref=f8e113] [cursor=pointer]:
+                - /url: /news/search?q=AI+artificial+intelligence+news+2025-08-25&qft=interval%3d%228%22+sortbydate%3d%221%22&form=PTFTNR
+            - listitem [ref=f8e114]:
+              - link "过去 30 天" [ref=f8e115] [cursor=pointer]:
+                - /url: /news/search?q=AI+artificial+intelligence+news+2025-08-25&qft=interval%3d%229%22+sortbydate%3d%221%22&form=PTFTNR
+        - listitem [ref=f8e116]:
+          - button "最新" [ref=f8e117] [cursor=pointer]: 最新
+          - list [ref=f8e119]:
+            - listitem [ref=f8e120]:
+              - link "最佳匹配" [ref=f8e121] [cursor=pointer]:
+                - /url: /news/search?q=AI+artificial+intelligence+news+2025-08-25&form=YFNR
+      - main "资讯" [ref=f8e124]:
+        - generic "Are insurance carriers cyber ready?" [ref=f8e125]:
+          - generic [ref=f8e126]:
+            - link [ref=f8e128] [cursor=pointer]:
+              - /url: https://www.dig-in.com/opinion/are-insurance-carriers-cyber-ready
+              - img [ref=f8e129]
+              - generic [ref=f8e131]: Opinion
+            - generic [ref=f8e133]:
+              - generic [ref=f8e134]:
+                - generic [ref=f8e135]:
+                  - link "搜索 Digital Insurance 中的新闻" [ref=f8e136] [cursor=pointer]:
+                    - /url: /news/search?q=site%3awww.dig-in.com&FORM=NWBCLM
+                    - img [ref=f8e138]
+                    - text: Digital Insurance
+                  - generic "1 小时前" [ref=f8e139]:
+                    - generic [ref=f8e140]: 1 小时
+                  - text: Opinion
+                - link "Are insurance carriers cyber ready?" [ref=f8e141] [cursor=pointer]:
+                  - /url: https://www.dig-in.com/opinion/are-insurance-carriers-cyber-ready
+                  - heading "Are insurance carriers cyber ready?" [level=2] [ref=f8e142]
+              - generic "Genuine readiness in 2026 requires documented third-party access audits across broker and TPA relationships plus evidence ..." [ref=f8e143]
+        - 'generic "Palantir stock gains: here''s why analysts want you to buy the stock right now" [ref=f8e144]':
+          - generic [ref=f8e145]:
+            - link [ref=f8e147] [cursor=pointer]:
+              - /url: https://invezz.com/news/2026/07/02/palantir-stock-gains-heres-why-analysts-want-you-to-buy-the-stock-right-now/
+              - img [ref=f8e148]
+            - generic [ref=f8e150]:
+              - generic [ref=f8e151]:
+                - generic [ref=f8e152]:
+                  - link "搜索 Invezz 中的新闻" [ref=f8e153] [cursor=pointer]:
+                    - /url: /news/search?q=site%3ainvezz.com&FORM=NWBCLM
+                    - img "Invezz" [ref=f8e155]
+                  - generic [ref=f8e156]: 2 小时
+                - 'link "Palantir stock gains: here''s why analysts want you to buy the stock right now" [ref=f8e157] [cursor=pointer]':
+                  - /url: https://invezz.com/news/2026/07/02/palantir-stock-gains-heres-why-analysts-want-you-to-buy-the-stock-right-now/
+                  - 'heading "Palantir stock gains: here''s why analysts want you to buy the stock right now" [level=2] [ref=f8e158]'
+              - generic "DA Davidson’s upgrade plus the Nvidia government partnership validate Palantir as the “orchestration layer” that lets ..." [ref=f8e159]
+        - generic "Abaxx Exchange Reports Highest Monthly and Quarterly Trading Volume to Date, Surpassing One ..." [ref=f8e160]:
+          - generic [ref=f8e163]:
+            - generic [ref=f8e164]:
+              - generic [ref=f8e165]:
+                - link "搜索 Le Lézard 中的新闻" [ref=f8e166] [cursor=pointer]:
+                  - /url: /news/search?q=site%3awww.lelezard.com&FORM=NWBCLM
+                  - img [ref=f8e168]
+                  - text: Le Lézard
+                - generic "3 小时前" [ref=f8e169]:
+                  - generic [ref=f8e170]: 3 小时
+              - link "Abaxx Exchange Reports Highest Monthly and Quarterly Trading Volume to Date, Surpassing One ..." [ref=f8e171] [cursor=pointer]:
+                - /url: https://www.lelezard.com/en/news-22285483.html
+                - heading "Abaxx Exchange Reports Highest Monthly and Quarterly Trading Volume to Date, Surpassing One ..." [level=2] [ref=f8e172]
+            - generic "Abaxx Technologies Inc. (\"Abaxx\" or the \"Company\"), a financial software and market infrastructure company, majority shareholder of Abaxx Singapore Pte Ltd., the owner of Abaxx Commodity Exchange and ..." [ref=f8e173]
+        - generic "Inception42 launches Arabic AI model with Microsoft" [ref=f8e174]:
+          - generic [ref=f8e177]:
+            - generic [ref=f8e178]:
+              - generic [ref=f8e179]:
+                - link "搜索 Gulf Business 中的新闻" [ref=f8e180] [cursor=pointer]:
+                  - /url: /news/search?q=site%3agulfbusiness.com&FORM=NWBCLM
+                  - img [ref=f8e182]
+                  - text: Gulf Business
+                - generic "4 小时前" [ref=f8e183]:
+                  - generic [ref=f8e184]: 4 小时
+              - link "Inception42 launches Arabic AI model with Microsoft" [ref=f8e185] [cursor=pointer]:
+                - /url: https://gulfbusiness.com/en/2026/artificial-intelligence/inception42-launches-arabic-ai-model-with-microsoft/
+                - heading "Inception42 launches Arabic AI model with Microsoft" [level=2] [ref=f8e186]
+            - generic "The model has been designed to address a long-standing challenge facing organisations across the Middle East, where frontier AI systems have typically delivered stronger performance in English than in ..." [ref=f8e187]
+        - 'generic "Stock Market Close: Sensex jumps 579 pts, Nifty ends at 24,176; Nifty IT posts best day in ..." [ref=f8e188]':
+          - generic [ref=f8e189]:
+            - link [ref=f8e191] [cursor=pointer]:
+              - /url: https://www.business-standard.com/markets/news/stock-market-live-july-2-nse-bse-sensex-today-nifty-gift-nifty-us-iran-deal-brent-crude-prices-ipos-share-market-today-126070200102_1.html
+              - img [ref=f8e192]
+            - generic [ref=f8e194]:
+              - generic [ref=f8e195]:
+                - generic [ref=f8e196]:
+                  - link "搜索 Business Standard 中的新闻" [ref=f8e197] [cursor=pointer]:
+                    - /url: /news/search?q=site%3awww.business-standard.com&FORM=NWBCLM
+                    - img "Business Standard" [ref=f8e199]
+                  - generic [ref=f8e200]: 13 小时
+                - 'link "Stock Market Close: Sensex jumps 579 pts, Nifty ends at 24,176; Nifty IT posts best day in ..." [ref=f8e201] [cursor=pointer]':
+                  - /url: https://www.business-standard.com/markets/news/stock-market-live-july-2-nse-bse-sensex-today-nifty-gift-nifty-us-iran-deal-brent-crude-prices-ipos-share-market-today-126070200102_1.html
+                  - 'heading "Stock Market Close: Sensex jumps 579 pts, Nifty ends at 24,176; Nifty IT posts best day in ..." [level=2] [ref=f8e202]'
+              - generic "South Korea’s Kospi led losses with a nearly 7 per cent intraday decline. Japan’s Nikkei 225 and China’s CSI 300 were trading ..." [ref=f8e203]
+        - generic "Embark Small Cap Equity Fund Q4 2025 Commentary" [ref=f8e204]:
+          - generic [ref=f8e207]:
+            - generic [ref=f8e208]:
+              - generic [ref=f8e209]:
+                - link "搜索 Seeking Alpha 中的新闻" [ref=f8e210] [cursor=pointer]:
+                  - /url: /news/search?q=site%3aseekingalpha.com&FORM=NWBCLM
+                  - img "Seeking Alpha" [ref=f8e212]
+                - generic [ref=f8e213]: 21 小时
+              - link "Embark Small Cap Equity Fund Q4 2025 Commentary" [ref=f8e214] [cursor=pointer]:
+                - /url: https://seekingalpha.com/article/4919253-embark-small-cap-equity-fund-q4-2025-commentary
+                - heading "Embark Small Cap Equity Fund Q4 2025 Commentary" [level=2] [ref=f8e215]
+            - generic "During Q4, Embark Small Cap Equity Fund (Institutional Class) delivered a total return of -0.51%, underperforming its benchmark, the Russell 2000® Index, which delivered 2.19%." [ref=f8e216]
+        - 'generic "Datadog Acquires Adaptive ML to Pioneer RLOps: What''s Ahead?" [ref=f8e217]':
+          - generic [ref=f8e220]:
+            - generic [ref=f8e221]:
+              - generic [ref=f8e222]:
+                - link "搜索 sharewise 中的新闻" [ref=f8e223] [cursor=pointer]:
+                  - /url: /news/search?q=site%3awww.sharewise.com&FORM=NWBCLM
+                  - img [ref=f8e225]
+                  - text: sharewise
+                - generic "23 小时前" [ref=f8e226]:
+                  - generic [ref=f8e227]: 23 小时
+              - 'link "Datadog Acquires Adaptive ML to Pioneer RLOps: What''s Ahead?" [ref=f8e228] [cursor=pointer]':
+                - /url: https://www.sharewise.com/us/news_articles/Datadog_Acquires_Adaptive_ML_to_Pioneer_RLOps_Whats_Ahead_Zacks_20260701_1636
+                - 'heading "Datadog Acquires Adaptive ML to Pioneer RLOps: What''s Ahead?" [level=2] [ref=f8e229]'
+            - generic "Datadog DDOG is deepening its bet on artificial intelligence with the acquisition of Adaptive ML, a startup building what the company describes as the world's first Reinforcement Learning Operations ..." [ref=f8e230]
+        - generic "Ford Hires Over 300 Engineers, Including Former Employees, After Finding AI Couldn't Do ..." [ref=f8e231]:
+          - generic [ref=f8e232]:
+            - link [ref=f8e234] [cursor=pointer]:
+              - /url: https://people.com/ford-hires-over-300-engineers-including-former-employees-after-finding-ai-couldnt-replicate-their-work-12010429
+            - generic [ref=f8e236]:
+              - generic [ref=f8e237]:
+                - generic [ref=f8e238]:
+                  - link "搜索 People 中的新闻" [ref=f8e239] [cursor=pointer]:
+                    - /url: /news/search?q=site%3apeople.com&FORM=NWBCLM
+                    - img "People" [ref=f8e241]
+                  - generic [ref=f8e242]: 1 天
+                - link "Ford Hires Over 300 Engineers, Including Former Employees, After Finding AI Couldn't Do ..." [ref=f8e243] [cursor=pointer]:
+                  - /url: https://people.com/ford-hires-over-300-engineers-including-former-employees-after-finding-ai-couldnt-replicate-their-work-12010429
+                  - heading "Ford Hires Over 300 Engineers, Including Former Employees, After Finding AI Couldn't Do ..." [level=2] [ref=f8e244]
+              - generic "Ford has hired more than 300 human engineers, including some previous employees, after it found drawbacks with artificial ..." [ref=f8e245]
+        - generic "Beeline Holdings Completes Acquisition of MagicBlocks, Accelerating AI Integration Across ..." [ref=f8e246]:
+          - generic [ref=f8e249]:
+            - generic [ref=f8e250]:
+              - generic [ref=f8e251]:
+                - link "搜索 Markets Insider 中的新闻" [ref=f8e252] [cursor=pointer]:
+                  - /url: /news/search?q=site%3amarkets.businessinsider.com&FORM=NWBCLM
+                  - img "Markets Insider" [ref=f8e254]
+                - generic [ref=f8e255]: 1 天
+              - link "Beeline Holdings Completes Acquisition of MagicBlocks, Accelerating AI Integration Across ..." [ref=f8e256] [cursor=pointer]:
+                - /url: https://markets.businessinsider.com/news/stocks/beeline-holdings-completes-acquisition-of-magicblocks-accelerating-ai-integration-across-mortgage-and-title-operations-1036290205
+                - heading "Beeline Holdings Completes Acquisition of MagicBlocks, Accelerating AI Integration Across ..." [level=2] [ref=f8e257]
+            - 'generic "Beeline Holdings, Inc. (NASDAQ: BLNE) (\"Beeline\" or the \"Company\"), a technology-driven mortgage and title platform, today announced the completion of its acquisition of MagicBlocks, the artificial ..." [ref=f8e258]'
+        - generic "Taiwan Semiconductor Suppliers Are Moving to the US, Creating New Opportunities" [ref=f8e259]:
+          - generic [ref=f8e262]:
+            - generic [ref=f8e263]:
+              - generic [ref=f8e264]:
+                - link "搜索 Markets Insider 中的新闻" [ref=f8e265] [cursor=pointer]:
+                  - /url: /news/search?q=site%3amarkets.businessinsider.com&FORM=NWBCLM
+                  - img "Markets Insider" [ref=f8e267]
+                - generic [ref=f8e268]: 1 天
+              - link "Taiwan Semiconductor Suppliers Are Moving to the US, Creating New Opportunities" [ref=f8e269] [cursor=pointer]:
+                - /url: https://markets.businessinsider.com/news/stocks/taiwan-semiconductor-suppliers-are-moving-to-the-us-creating-new-opportunities-1036290162
+                - heading "Taiwan Semiconductor Suppliers Are Moving to the US, Creating New Opportunities" [level=2] [ref=f8e270]
+            - 'generic "AINewsWire Editorial Coverage: The semiconductor industry is in the middle of a historic reorientation. Vast sums of new investment capital are moving into American chip manufacturing, drawing ..." [ref=f8e271]'
+  - button "反馈" [ref=f8e274] [cursor=pointer]:
+    - generic:
+      - img
+    - generic [ref=f8e275]: 反馈
+  - contentinfo [ref=f8e276]:
+    - generic [ref=f8e277]:
+      - list:
+        - listitem [ref=f8e278]:
+          - link "隐私" [ref=f8e279] [cursor=pointer]:
+            - /url: http://go.microsoft.com/fwlink/?LinkId=521839
+        - listitem [ref=f8e280]:
+          - link "条款" [ref=f8e281] [cursor=pointer]:
+            - /url: http://go.microsoft.com/fwlink/?LinkID=246338
+  - generic: "\"%24%20is%20not%20defined\",\"Stack\":\"ReferenceError%3A%20%24%20is%20not%20defined%0A%20%20%20%20at%20self%3A70%3A8430%0A%20%20%20%20at%20self%3A70%3A8436\",\"Meta\":\"self\",\"Line\":\"70\",\"Char\":\"8430\"\"NewsPublisherHandler%20is%20not%20defined\",\"Stack\":\"ReferenceError%3A%20NewsPublisherHandler%20is%20not%20defined%0A%20%20%20%20at%20self%3A72%3A1\",\"Meta\":\"self\",\"Line\":\"72\",\"Char\":\"1\""

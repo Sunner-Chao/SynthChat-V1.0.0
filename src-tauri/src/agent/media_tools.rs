@@ -950,7 +950,18 @@ pub(super) async fn image_generate_tool(
             .await
         }
         ImageProviderKind::Gemini => {
-            gemini_image_generate(store, run_id, &provider, &model, &effective_prompt).await
+            if image_provider_uses_openai_compatible_image_endpoint(&provider) {
+                openai_compatible_image_generate(
+                    store,
+                    run_id,
+                    &provider,
+                    &effective_prompt,
+                    &effective_payload,
+                )
+                .await
+            } else {
+                gemini_image_generate(store, run_id, &provider, &model, &effective_prompt).await
+            }
         }
         ImageProviderKind::NovelAi => Err(AppError::BadRequest(
             "NovelAI image provider is configured, but the direct NovelAI image adapter is not implemented yet. Use an OpenAI-compatible image endpoint or proxy for now."
@@ -1110,6 +1121,15 @@ fn image_provider_kind(provider: &ImageProvider) -> ImageProviderKind {
     }
 }
 
+fn image_provider_uses_openai_compatible_image_endpoint(provider: &ImageProvider) -> bool {
+    let Ok(url) = reqwest::Url::parse(provider.base_url.trim()) else {
+        return false;
+    };
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    let path = url.path().trim_end_matches('/').to_ascii_lowercase();
+    path.ends_with("/images/generations") || host.ends_with("synthapi.asia")
+}
+
 fn image_http_client(provider: &ImageProvider) -> AppResult<reqwest::Client> {
     let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
@@ -1120,6 +1140,195 @@ fn image_http_client(provider: &ImageProvider) -> AppResult<reqwest::Client> {
     builder
         .build()
         .map_err(|error| AppError::BadRequest(format!("failed to build image client: {error}")))
+}
+
+#[derive(Debug, Clone)]
+enum GeneratedImageSource {
+    Base64 {
+        value: String,
+        mime_type: Option<String>,
+    },
+    Url(String),
+}
+
+fn image_mime_type_from_extension(extension: &str) -> String {
+    match extension.trim_start_matches('.').to_ascii_lowercase().as_str() {
+        "jpg" | "jpeg" => "image/jpeg".into(),
+        "webp" => "image/webp".into(),
+        "gif" => "image/gif".into(),
+        "bmp" => "image/bmp".into(),
+        "svg" => "image/svg+xml".into(),
+        _ => "image/png".into(),
+    }
+}
+
+fn collect_generated_image_sources(value: &Value, sources: &mut Vec<GeneratedImageSource>) {
+    match value {
+        Value::Array(items) => {
+            for item in items {
+                collect_generated_image_sources(item, sources);
+            }
+        }
+        Value::Object(object) => {
+            let mut object_has_embedded_image = false;
+            for key in ["inlineData", "inline_data", "outputImage", "output_image"] {
+                if let Some(inline_data) = object.get(key).and_then(Value::as_object) {
+                    if let Some(data) = inline_data.get("data").and_then(Value::as_str) {
+                        sources.push(GeneratedImageSource::Base64 {
+                            value: data.to_string(),
+                            mime_type: inline_data
+                                .get("mimeType")
+                                .or_else(|| inline_data.get("mime_type"))
+                                .and_then(Value::as_str)
+                                .map(str::to_string),
+                        });
+                        object_has_embedded_image = true;
+                    }
+                }
+            }
+            let object_mime_type = object
+                .get("mimeType")
+                .or_else(|| object.get("mime_type"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|mime| mime.starts_with("image/"));
+            if let (Some(data), Some(mime_type)) =
+                (object.get("data").and_then(Value::as_str), object_mime_type)
+            {
+                sources.push(GeneratedImageSource::Base64 {
+                    value: data.to_string(),
+                    mime_type: Some(mime_type.to_string()),
+                });
+                object_has_embedded_image = true;
+            }
+            for key in [
+                "b64_json",
+                "base64",
+                "image_base64",
+                "imageBase64",
+                "image_b64",
+                "imageB64",
+                "imageData",
+                "image_data",
+            ] {
+                if let Some(data) = object.get(key).and_then(Value::as_str) {
+                    sources.push(GeneratedImageSource::Base64 {
+                        value: data.to_string(),
+                        mime_type: object
+                            .get("mimeType")
+                            .or_else(|| object.get("mime_type"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
+                    });
+                    object_has_embedded_image = true;
+                }
+            }
+            if object
+                .get("type")
+                .and_then(Value::as_str)
+                .is_some_and(|kind| kind.to_ascii_lowercase().contains("image"))
+            {
+                if let Some(result) = object.get("result").and_then(Value::as_str) {
+                    sources.push(GeneratedImageSource::Base64 {
+                        value: result.to_string(),
+                        mime_type: object
+                            .get("mimeType")
+                            .or_else(|| object.get("mime_type"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
+                    });
+                    object_has_embedded_image = true;
+                }
+            }
+            if !object_has_embedded_image {
+                for key in ["url", "uri", "image_url", "imageUrl", "signedUrl", "signed_url"] {
+                    match object.get(key) {
+                        Some(Value::String(url)) => {
+                            if validate_web_url(url).is_ok() {
+                                sources.push(GeneratedImageSource::Url(url.to_string()));
+                            }
+                        }
+                        Some(Value::Array(urls)) => {
+                            for url in urls {
+                                if let Some(url) = url.as_str() {
+                                    if validate_web_url(url).is_ok() {
+                                        sources.push(GeneratedImageSource::Url(url.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            for key in [
+                "data",
+                "result",
+                "results",
+                "images",
+                "image",
+                "output",
+                "outputs",
+                "artifacts",
+                "candidates",
+                "content",
+                "parts",
+            ] {
+                if let Some(child) = object.get(key) {
+                    collect_generated_image_sources(child, sources);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+async fn save_generated_image_artifacts_from_response(
+    store: &AppStore,
+    run_id: &str,
+    tool_name: &str,
+    client: &reqwest::Client,
+    value: &Value,
+) -> AppResult<Vec<Value>> {
+    let mut sources = Vec::new();
+    collect_generated_image_sources(value, &mut sources);
+    let mut seen = HashSet::new();
+    let mut artifacts = Vec::new();
+    for source in sources {
+        match source {
+            GeneratedImageSource::Base64 { value, mime_type } => {
+                let key = format!("b64:{}", value.chars().take(96).collect::<String>());
+                if !seen.insert(key) {
+                    continue;
+                }
+                let mime_type = mime_type.unwrap_or_else(|| "image/png".into());
+                let bytes = decode_base64_image(&value)?;
+                let extension = image_extension_from_content_type(&mime_type);
+                let path = store.save_tool_binary_artifact(run_id, tool_name, &extension, &bytes)?;
+                artifacts.push(json!({
+                    "path": path.to_string_lossy(),
+                    "source": "b64_json",
+                    "mimeType": image_mime_type_from_extension(&extension),
+                    "sizeBytes": bytes.len()
+                }));
+            }
+            GeneratedImageSource::Url(url) => {
+                if !seen.insert(format!("url:{url}")) {
+                    continue;
+                }
+                validate_web_url(&url)?;
+                let (bytes, extension) = download_image_bytes(client, &url).await?;
+                let path = store.save_tool_binary_artifact(run_id, tool_name, &extension, &bytes)?;
+                artifacts.push(json!({
+                    "path": path.to_string_lossy(),
+                    "source": url,
+                    "mimeType": image_mime_type_from_extension(&extension),
+                    "sizeBytes": bytes.len()
+                }));
+            }
+        }
+    }
+    Ok(artifacts)
 }
 
 pub(super) async fn openai_compatible_image_generate(
@@ -1151,8 +1360,9 @@ pub(super) async fn openai_compatible_image_generate(
         .filter(|value| !value.trim().is_empty())
         .unwrap_or(&provider.model);
     let client = image_http_client(provider)?;
-    if model.trim().eq_ignore_ascii_case("gpt-image-2") {
-        return gpt_image_2_generate(store, run_id, provider, &client, url, prompt, payload).await;
+    if is_gpt_image_2_model(model) {
+        return gpt_image_2_generate(store, run_id, provider, &client, url, model, prompt, payload)
+            .await;
     }
     let mut body = json!({
         "model": model,
@@ -1190,27 +1400,17 @@ pub(super) async fn openai_compatible_image_generate(
     }
     let value = serde_json::from_str::<Value>(&text)
         .map_err(|error| AppError::BadRequest(format!("invalid image JSON: {error}")))?;
-    let data = value
-        .get("data")
-        .and_then(Value::as_array)
-        .ok_or_else(|| AppError::BadRequest("image response missing data array".into()))?;
-    let mut artifacts = Vec::new();
-    for item in data {
-        if let Some(b64) = item.get("b64_json").and_then(Value::as_str) {
-            let bytes = decode_base64_image(b64)?;
-            let path = store.save_tool_binary_artifact(run_id, "image_generate", "png", &bytes)?;
-            artifacts.push(json!({"path": path.to_string_lossy(), "source": "b64_json", "sizeBytes": bytes.len()}));
-        } else if let Some(image_url) = item.get("url").and_then(Value::as_str) {
-            validate_web_url(image_url)?;
-            let (bytes, extension) = download_image_bytes(&client, image_url).await?;
-            let path =
-                store.save_tool_binary_artifact(run_id, "image_generate", &extension, &bytes)?;
-            artifacts.push(json!({"path": path.to_string_lossy(), "source": image_url, "sizeBytes": bytes.len()}));
-        }
-    }
+    let artifacts = save_generated_image_artifacts_from_response(
+        store,
+        run_id,
+        "image_generate",
+        &client,
+        &value,
+    )
+    .await?;
     if artifacts.is_empty() {
         return Err(AppError::BadRequest(
-            "image response did not contain b64_json or url".into(),
+            "image response did not contain a supported image artifact".into(),
         ));
     }
     Ok(serde_json::to_string_pretty(&json!({
@@ -1227,10 +1427,11 @@ async fn gpt_image_2_generate(
     provider: &ImageProvider,
     client: &reqwest::Client,
     submit_url: reqwest::Url,
+    model: &str,
     prompt: &str,
     payload: &Value,
 ) -> AppResult<String> {
-    let body = gpt_image_2_request_body(prompt, payload);
+    let body = gpt_image_2_request_body(model, prompt, payload);
     let mut request = client.post(submit_url).json(&body);
     if let Some(api_key) = provider_api_key(&provider.api_key, &provider.api_key_env) {
         request = request.bearer_auth(api_key);
@@ -1240,34 +1441,47 @@ async fn gpt_image_2_generate(
         .await
         .map_err(|error| AppError::BadRequest(format!("gpt-image-2 submit failed: {error}")))?;
     let submit = response_json_or_error(response, "gpt-image-2 submit").await?;
+    let immediate_artifacts = save_generated_image_artifacts_from_response(
+        store,
+        run_id,
+        "image_generate",
+        client,
+        &submit,
+    )
+    .await?;
+    if !immediate_artifacts.is_empty() {
+        return Ok(serde_json::to_string_pretty(&json!({
+            "providerId": provider.id,
+            "model": model,
+            "prompt": prompt,
+            "task": submit,
+            "artifacts": immediate_artifacts
+        }))?);
+    }
     let task_id = gpt_image_2_task_id(&submit).ok_or_else(|| {
         AppError::BadRequest(format!(
-            "gpt-image-2 submit response missing task_id: {}",
+            "gpt-image-2 submit response missing task_id or image artifact: {}",
             truncate_output(&submit.to_string(), 2000)
         ))
     })?;
     let result = poll_gpt_image_2_task(client, provider, &task_id).await?;
-    let image_urls = gpt_image_2_result_urls(&result);
-    if image_urls.is_empty() {
+    let artifacts = save_generated_image_artifacts_from_response(
+        store,
+        run_id,
+        "image_generate",
+        client,
+        &result,
+    )
+    .await?;
+    if artifacts.is_empty() {
         return Err(AppError::BadRequest(format!(
-            "gpt-image-2 completed without result image URLs: {}",
+            "gpt-image-2 completed without supported image artifacts: {}",
             truncate_output(&result.to_string(), 2000)
         )));
     }
-    let mut artifacts = Vec::new();
-    for image_url in image_urls {
-        validate_web_url(&image_url)?;
-        let (bytes, extension) = download_image_bytes(client, &image_url).await?;
-        let path = store.save_tool_binary_artifact(run_id, "image_generate", &extension, &bytes)?;
-        artifacts.push(json!({
-            "path": path.to_string_lossy(),
-            "source": image_url,
-            "sizeBytes": bytes.len()
-        }));
-    }
     Ok(serde_json::to_string_pretty(&json!({
-        "providerId": provider.id,
-        "model": "gpt-image-2",
+            "providerId": provider.id,
+        "model": model,
         "prompt": prompt,
         "taskId": task_id,
         "task": result,
@@ -1275,9 +1489,9 @@ async fn gpt_image_2_generate(
     }))?)
 }
 
-fn gpt_image_2_request_body(prompt: &str, payload: &Value) -> Value {
+fn gpt_image_2_request_body(model: &str, prompt: &str, payload: &Value) -> Value {
     let mut body = json!({
-        "model": "gpt-image-2",
+        "model": model,
         "prompt": prompt,
         "n": 1,
         "size": gpt_image_2_size(payload),
@@ -1314,6 +1528,14 @@ fn gpt_image_2_request_body(prompt: &str, payload: &Value) -> Value {
         }
     }
     body
+}
+
+fn is_gpt_image_2_model(model: &str) -> bool {
+    let normalized = model
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['-', '_', ' '], "");
+    normalized == "gptimage2"
 }
 
 fn gpt_image_2_size(payload: &Value) -> String {
@@ -1504,57 +1726,21 @@ async fn gemini_image_generate(
     }
     let value = serde_json::from_str::<Value>(&text)
         .map_err(|error| AppError::BadRequest(format!("invalid Gemini image JSON: {error}")))?;
-    let candidates = value
-        .get("candidates")
-        .and_then(Value::as_array)
-        .ok_or_else(|| AppError::BadRequest("Gemini image response missing candidates".into()))?;
-    let mut artifacts = Vec::new();
     let mut text_parts = Vec::new();
-    for candidate in candidates {
-        let parts = candidate
-            .get("content")
-            .and_then(|content| content.get("parts"))
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten();
-        for part in parts {
-            if let Some(text) = part.get("text").and_then(Value::as_str) {
-                if !text.trim().is_empty() {
-                    text_parts.push(text.trim().to_string());
-                }
-            }
-            let inline_data = part
-                .get("inlineData")
-                .or_else(|| part.get("inline_data"));
-            if let Some(inline_data) = inline_data {
-                let b64 = inline_data
-                    .get("data")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| {
-                        AppError::BadRequest("Gemini inline image missing data".into())
-                    })?;
-                let mime_type = inline_data
-                    .get("mimeType")
-                    .or_else(|| inline_data.get("mime_type"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("image/png");
-                let bytes = decode_base64_image(b64)?;
-                let extension = image_extension_from_content_type(mime_type);
-                let path =
-                    store.save_tool_binary_artifact(run_id, "image_generate", &extension, &bytes)?;
-                artifacts.push(json!({
-                    "path": path.to_string_lossy(),
-                    "source": "gemini_inline_data",
-                    "mimeType": mime_type,
-                    "sizeBytes": bytes.len()
-                }));
-            }
-        }
-    }
+    collect_generated_text_parts(&value, &mut text_parts);
+    let artifacts = save_generated_image_artifacts_from_response(
+        store,
+        run_id,
+        "image_generate",
+        &client,
+        &value,
+    )
+    .await?;
     if artifacts.is_empty() {
-        return Err(AppError::BadRequest(
-            "Gemini image response did not contain inline image data".into(),
-        ));
+        return Err(AppError::BadRequest(format!(
+            "Gemini image response did not contain a supported image artifact: {}",
+            truncate_output(&value.to_string(), 2000)
+        )));
     }
     Ok(serde_json::to_string_pretty(&json!({
         "providerId": provider.id,
@@ -1563,6 +1749,35 @@ async fn gemini_image_generate(
         "text": text_parts,
         "artifacts": artifacts
     }))?)
+}
+
+fn collect_generated_text_parts(value: &Value, text_parts: &mut Vec<String>) {
+    match value {
+        Value::Array(items) => {
+            for item in items {
+                collect_generated_text_parts(item, text_parts);
+            }
+        }
+        Value::Object(object) => {
+            if let Some(text) = object
+                .get("text")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                let text = text.to_string();
+                if !text_parts.iter().any(|item| item == &text) {
+                    text_parts.push(text);
+                }
+            }
+            for key in ["candidates", "content", "parts", "data", "result", "results"] {
+                if let Some(child) = object.get(key) {
+                    collect_generated_text_parts(child, text_parts);
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 const MAX_VIDEO_GENERATE_DOWNLOAD_BYTES: usize = 200 * 1024 * 1024;
@@ -2034,7 +2249,7 @@ pub(super) fn desktop_text_to_speech(
             Err(error) => errors.push(format!("local command: {error}")),
         }
     }
-    if let Some(command) = desktop_chattts_command_template(payload) {
+    if let Some(command) = desktop_chattts_command_template(store, payload) {
         let provider = desktop_voice_provider("desktop-chattts", "local_command", "", &command, 240);
         match local_command_text_to_speech(store, run_id, &provider, text, payload) {
             Ok(value) => return Ok(value),
@@ -2129,7 +2344,7 @@ fn push_payload_path_candidates(candidates: &mut Vec<PathBuf>, value: &str, root
     }
 }
 
-fn resolve_desktop_chattts_script() -> Option<PathBuf> {
+fn resolve_desktop_chattts_script(store: &AppStore) -> Option<PathBuf> {
     let mut candidates = Vec::new();
     if let Some(path) = env_path_value(&[
         "SYNTHCHAT_CHATTTS_SCRIPT",
@@ -2146,8 +2361,28 @@ fn resolve_desktop_chattts_script() -> Option<PathBuf> {
     if let Some(exe_dir) = current_exe_dir() {
         push_path_with_ancestors(&mut roots, exe_dir);
     }
+    candidates.push(
+        store
+            .data_dir()
+            .join("data")
+            .join("tts")
+            .join("chattts_synth.py"),
+    );
     for root in roots {
+        candidates.push(
+            root.join("synthchat-data")
+                .join("data")
+                .join("tts")
+                .join("chattts_synth.py"),
+        );
         candidates.push(root.join("data").join("tts").join("chattts_synth.py"));
+        candidates.push(
+            root.join("resources")
+                .join("synthchat-data")
+                .join("data")
+                .join("tts")
+                .join("chattts_synth.py"),
+        );
         candidates.push(
             root.join("resources")
                 .join("data")
@@ -2173,7 +2408,7 @@ fn payload_string(payload: &Value, keys: &[&str]) -> Option<String> {
     })
 }
 
-fn resolve_desktop_chattts_model_dir(payload: &Value) -> Option<PathBuf> {
+fn resolve_desktop_chattts_model_dir(store: &AppStore, payload: &Value) -> Option<PathBuf> {
     let mut candidates = Vec::new();
     let mut roots = Vec::new();
     if let Ok(current_dir) = std::env::current_dir() {
@@ -2195,9 +2430,30 @@ fn resolve_desktop_chattts_model_dir(payload: &Value) -> Option<PathBuf> {
     ]) {
         candidates.push(path);
     }
+    candidates.push(
+        store
+            .data_dir()
+            .join("data")
+            .join("models")
+            .join("ChatTTS"),
+    );
     for root in roots {
+        candidates.push(
+            root.join("synthchat-data")
+                .join("data")
+                .join("models")
+                .join("ChatTTS"),
+        );
+        candidates.push(root.join("synthchat-data").join("models").join("ChatTTS"));
         candidates.push(root.join("models").join("ChatTTS"));
         candidates.push(root.join("ChatTTS"));
+        candidates.push(
+            root.join("resources")
+                .join("synthchat-data")
+                .join("data")
+                .join("models")
+                .join("ChatTTS"),
+        );
         candidates.push(root.join("resources").join("models").join("ChatTTS"));
         candidates.push(root.join("resources").join("ChatTTS"));
     }
@@ -2279,13 +2535,34 @@ fn desktop_voice_provider(
     provider
 }
 
-fn desktop_chattts_command_template(payload: &Value) -> Option<String> {
+fn resolve_desktop_chattts_venv_python(store: &AppStore) -> Option<String> {
+    let python = if cfg!(windows) {
+        store
+            .data_dir()
+            .join("runtime")
+            .join("python")
+            .join("chattts-venv")
+            .join("Scripts")
+            .join("python.exe")
+    } else {
+        store
+            .data_dir()
+            .join("runtime")
+            .join("python")
+            .join("chattts-venv")
+            .join("bin")
+            .join("python")
+    };
+    python.exists().then(|| python.to_string_lossy().to_string())
+}
+
+fn desktop_chattts_command_template(store: &AppStore, payload: &Value) -> Option<String> {
     let engine = desktop_tts_engine(payload);
     if !matches!(engine.as_str(), "chattts" | "chat_tts") {
         return None;
     }
-    let script = resolve_desktop_chattts_script()?;
-    let model_path = resolve_desktop_chattts_model_dir(payload)?;
+    let script = resolve_desktop_chattts_script(store)?;
+    let model_path = resolve_desktop_chattts_model_dir(store, payload)?;
     let model_dir = model_path.to_string_lossy().to_string();
     let python = payload
         .get("pythonPath")
@@ -2301,6 +2578,7 @@ fn desktop_chattts_command_template(payload: &Value) -> Option<String> {
                 .or_else(|| std::env::var("HERMES_CHATTTS_PYTHON").ok())
                 .or_else(|| std::env::var("HERMES_TTS_PYTHON").ok())
         })
+        .or_else(|| resolve_desktop_chattts_venv_python(store))
         .unwrap_or_else(default_desktop_python_command);
     let sample_rate = payload
         .get("sampleRate")
@@ -3593,7 +3871,18 @@ pub(super) fn edge_text_to_speech(
                 pitch,
             )
         })
-        .unwrap_or_else(|| default_edge_tts_command(&input_path, &output_path, voice, &rate, volume, pitch));
+        .unwrap_or_else(|| {
+            default_edge_tts_command(
+                store,
+                payload,
+                &input_path,
+                &output_path,
+                voice,
+                &rate,
+                volume,
+                pitch,
+            )
+        });
     let result = (|| {
         let _ = run_shell_command_with_timeout(&command_text, timeout_seconds)?;
         let audio = fs::read(&output_path).map_err(|error| {
@@ -3655,6 +3944,8 @@ pub(super) fn edge_tts_rate_from_speed(speed: &str) -> AppResult<String> {
 }
 
 pub(super) fn default_edge_tts_command(
+    store: &AppStore,
+    payload: &Value,
     input_path: &Path,
     output_path: &Path,
     voice: &str,
@@ -3662,8 +3953,10 @@ pub(super) fn default_edge_tts_command(
     volume: &str,
     pitch: &str,
 ) -> String {
+    let python = resolve_edge_tts_python_command(store, payload);
     format!(
-        "python -m edge_tts --file {} --voice {} --rate={} --volume={} --pitch={} --write-media {}",
+        "{} -m edge_tts --file {} --voice {} --rate={} --volume={} --pitch={} --write-media {}",
+        shell_quote_command_program(&python),
         shell_quote_path(input_path),
         shell_quote_value(voice),
         shell_quote_value(rate),
@@ -3671,6 +3964,46 @@ pub(super) fn default_edge_tts_command(
         shell_quote_value(pitch),
         shell_quote_path(output_path)
     )
+}
+
+fn resolve_edge_tts_python_command(store: &AppStore, payload: &Value) -> String {
+    payload
+        .get("pythonPath")
+        .or_else(|| payload.get("python_path"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            std::env::var("SYNTHCHAT_EDGE_TTS_PYTHON")
+                .ok()
+                .or_else(|| std::env::var("SYNTHCHAT_TTS_PYTHON").ok())
+                .or_else(|| std::env::var("HERMES_EDGE_TTS_PYTHON").ok())
+                .or_else(|| std::env::var("HERMES_TTS_PYTHON").ok())
+        })
+        .or_else(|| {
+            let venv_python = if cfg!(windows) {
+                store
+                    .data_dir()
+                    .join("runtime")
+                    .join("python")
+                    .join("edge-tts-venv")
+                    .join("Scripts")
+                    .join("python.exe")
+            } else {
+                store
+                    .data_dir()
+                    .join("runtime")
+                    .join("python")
+                    .join("edge-tts-venv")
+                    .join("bin")
+                    .join("python")
+            };
+            venv_python
+                .exists()
+                .then(|| venv_python.to_string_lossy().to_string())
+        })
+        .unwrap_or_else(default_desktop_python_command)
 }
 
 fn render_edge_tts_command(
@@ -5744,6 +6077,15 @@ fn shell_quote_value(value: &str) -> String {
     }
 }
 
+fn shell_quote_command_program(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.contains('\\') || trimmed.contains('/') || Path::new(trimmed).is_absolute() {
+        shell_quote_value(trimmed)
+    } else {
+        trimmed.to_string()
+    }
+}
+
 fn default_desktop_python_command() -> String {
     if command_available("python") {
         return "python".into();
@@ -6553,8 +6895,15 @@ pub(super) fn required_string_arg(
 
 pub(super) fn decode_base64_image(value: &str) -> AppResult<Vec<u8>> {
     use base64::Engine;
+    let value = value
+        .split_once("base64,")
+        .map(|(_, data)| data)
+        .unwrap_or(value)
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>();
     base64::engine::general_purpose::STANDARD
-        .decode(value)
+        .decode(value.as_bytes())
         .map_err(|error| AppError::BadRequest(format!("invalid image base64: {error}")))
 }
 
@@ -7168,7 +7517,7 @@ mod tests {
             id: "img".into(),
             name: "OpenAI Image".into(),
             provider_type: "openai_image".into(),
-            base_url: "https://api.apimart.ai/v1".into(),
+            base_url: "https://synthapi.asia/v1/images/generations".into(),
             api_key_env: String::new(),
             api_key: None,
             model: "gpt-image-2".into(),
@@ -7184,8 +7533,9 @@ mod tests {
     }
 
     #[test]
-    fn gpt_image_2_request_body_matches_apimart_shape() {
+    fn gpt_image_2_request_body_matches_synthapi_shape() {
         let body = gpt_image_2_request_body(
+            "gpt-image-2",
             "draw",
             &json!({
                 "n": 4,
@@ -7206,7 +7556,7 @@ mod tests {
     }
 
     #[test]
-    fn gpt_image_2_task_id_reads_apimart_submit_response() {
+    fn gpt_image_2_task_id_reads_synthapi_submit_response() {
         let value = json!({
             "code": 200,
             "data": [
@@ -7221,7 +7571,7 @@ mod tests {
     }
 
     #[test]
-    fn gpt_image_2_result_urls_reads_apimart_task_response() {
+    fn gpt_image_2_result_urls_reads_synthapi_task_response() {
         let value = json!({
             "code": 200,
             "data": {
@@ -7230,7 +7580,7 @@ mod tests {
                     "images": [
                         {
                             "url": [
-                                "https://upload.apimart.ai/f/image/out.png"
+                                "https://synthapi.asia/f/image/out.png"
                             ]
                         }
                     ]
@@ -7240,7 +7590,7 @@ mod tests {
 
         assert_eq!(
             gpt_image_2_result_urls(&value),
-            vec!["https://upload.apimart.ai/f/image/out.png".to_string()]
+            vec!["https://synthapi.asia/f/image/out.png".to_string()]
         );
     }
 

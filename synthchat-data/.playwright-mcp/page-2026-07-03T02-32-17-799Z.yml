@@ -1,0 +1,383 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - link "跳到主要内容" [ref=e2] [cursor=pointer]
+      - link "无障碍功能帮助" [ref=e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=zh-CN
+  - generic [ref=e8]:
+    - search [ref=e9]:
+      - generic [ref=e11]:
+        - link "Google 首页" [ref=e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=zh-CN&sa=X&ved=0ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQPAgI
+          - img [ref=e14]
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - combobox "搜索" [ref=e25]: AI news today 2026 July 3 AI news today 2026 July 3
+            - generic [ref=e26]:
+              - button "清除" [ref=e28] [cursor=pointer]:
+                - img [ref=e30]
+              - generic [ref=e33]:
+                - button "按语音搜索" [ref=e34] [cursor=pointer]:
+                  - img [ref=e35]
+                - button "按图搜索" [ref=e37] [cursor=pointer]:
+                  - img [ref=e38]
+          - button "搜索" [ref=e40] [cursor=pointer]:
+            - img [ref=e43]
+    - generic [ref=e45]:
+      - button "设置" [ref=e47] [cursor=pointer]:
+        - img [ref=e50]
+      - button "分享" [ref=e53] [cursor=pointer]:
+        - img [ref=e57]
+      - generic [ref=e59]:
+        - button "Google 应用" [ref=e61] [cursor=pointer]:
+          - img [ref=e62]
+        - link "登录" [ref=e66] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=zh-CN&passive=true&continue=https://www.google.com/search%3Fq%3DAI%2Bnews%2Btoday%2B2026%2BJuly%2B3%26tbs%3Dqdr:d&ec=futura_srp_og_si_72236_p
+  - generic [ref=e68]:
+    - navigation [ref=e74]:
+      - generic [ref=e80]:
+        - list [ref=e81]:
+          - listitem [ref=e82]:
+            - link "AI 模式" [ref=e85] [cursor=pointer]:
+              - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&udm=50&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lS5SOZnNlu70K9OdHWFVuJxQQFYPhI_ANhmMbhAqw7Y8ud6yY4N1IqMQfHOYdZuBIXftFU5azYetl5xTBiSkuOgEAUzto-ObC9yOEM2N54773ypPKlbRxIsuHg4hd2Skr9OvdrtY6l6xtvKFeIS1qDB2mUGhA&aep=1&ntc=1&sa=X&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ2J8OegQIDxAD
+              - generic [ref=e88]: AI 模式
+          - listitem [ref=e89]:
+            - link "全部" [disabled] [ref=e90]:
+              - generic [ref=e92]: 全部
+          - listitem [ref=e93]:
+            - link "视频" [ref=e94] [cursor=pointer]:
+              - /url: /search?sca_esv=71de47c470c80ff5&udm=7&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lS5SOZnNlu70K9OdHWFVuJxQQFYPhI_ANhmMbhAqw7Y8ud6yY4N1IqMQfHOYdZuBIXftFU5azYetl5xTBiSkuOgEAUzto-ObC9yOEM2N54773ypPKlbRxIsuHg4hd2Skr9OvdrtY6l6xtvKFeIS1qDB2mUGhA&q=AI+news+today+2026+July+3&sa=X&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQtKgLegQIFRAB
+              - generic [ref=e96]: 视频
+          - listitem [ref=e97]:
+            - link "新闻" [ref=e98] [cursor=pointer]:
+              - /url: /search?sca_esv=71de47c470c80ff5&tbs=qdr:d&q=AI+news+today+2026+July+3&tbm=nws&source=lnms&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lS5SOZnNlu70K9OdHWFVuJxQQFYPhI_ANhmMbhAqw7Y8ud6yY4N1IqMQfHOYdZuBIXftFU5azYetl5xTBiSkuOgEAUzto-ObC9yOEM2N54773ypPKlbRxIsuHg4hd2Skr9OvdrtY6l6xtvKFeIS1qDB2mUGhA&sa=X&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ0pQJegQIERAB
+              - generic [ref=e100]: 新闻
+          - listitem [ref=e101]:
+            - link "短视频" [ref=e102] [cursor=pointer]:
+              - /url: /search?sca_esv=71de47c470c80ff5&udm=39&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lS5SOZnNlu70K9OdHWFVuJxQQFYPhI_ANhmMbhAqw7Y8ud6yY4N1IqMQfHOYdZuBIXftFU5azYetl5xTBiSkuOgEAUzto-ObC9yOEM2N54773ypPKlbRxIsuHg4hd2Skr9OvdrtY6l6xtvKFeIS1qDB2mUGhA&q=AI+news+today+2026+July+3&sa=X&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQs6gLegQIFBAB
+              - generic [ref=e104]: 短视频
+          - listitem [ref=e105]:
+            - link "图片" [ref=e106] [cursor=pointer]:
+              - /url: /search?sca_esv=71de47c470c80ff5&udm=2&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lS5SOZnNlu70K9OdHWFVuJxQQFYPhI_ANhmMbhAqw7Y8ud6yY4N1IqMQfHOYdZuBIXftFU5azYetl5xTBiSkuOgEAUzto-ObC9yOEM2N54773ypPKlbRxIsuHg4hd2Skr9OvdrtY6l6xtvKFeIS1qDB2mUGhA&q=AI+news+today+2026+July+3&sa=X&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQtKgLegQIExAB
+              - generic [ref=e108]: 图片
+          - listitem [ref=e109]:
+            - link "购物" [ref=e110] [cursor=pointer]:
+              - /url: /search?sca_esv=71de47c470c80ff5&udm=28&fbs=ABfTbFUhNGvvPEUFOvrsPMHwBXgO5pJ2ROERAFrb15qpZFNMhpztTzx55HFhOSWbDuuu6lS5SOZnNlu70K9OdHWFVuJxQQFYPhI_ANhmMbhAqw7Y8ud6yY4N1IqMQfHOYdZuBIXftFU5azYetl5xTBiSkuOgEAUzto-ObC9yOEM2N54773ypPKlbRxIsuHg4hd2Skr9OvdrtY6l6xtvKFeIS1qDB2mUGhA&q=AI+news+today+2026+July+3&ved=1t:220175&ictx=111
+              - generic [ref=e112]: 购物
+          - listitem [ref=e113]:
+            - button "更多过滤条件" [ref=e114] [cursor=pointer]:
+              - generic "更多过滤条件" [ref=e115]:
+                - generic [ref=e116]:
+                  - generic [ref=e117]: 更多
+                  - img [ref=e119]
+        - button "工具" [ref=e122] [cursor=pointer]:
+          - generic [ref=e124]:
+            - generic [ref=e125]: 工具
+            - img [ref=e127]
+    - heading "搜索结果" [level=1] [ref=e129]
+    - main [ref=e135]:
+      - generic [ref=e139]:
+        - generic [ref=e142]:
+          - heading "Web results" [level=2] [ref=e143]
+          - generic [ref=e144]:
+            - generic [ref=e147]:
+              - 'link "AI News Today July 3 2026: 15 Biggest Stories Build Fast with AI https://www.buildfastwithai.com › Blog" [ref=e149] [cursor=pointer]':
+                - /url: https://www.buildfastwithai.com/blogs/ai-news-today-july-3-2026
+                - 'heading "AI News Today July 3 2026: 15 Biggest Stories" [level=3] [ref=e150]'
+                - generic [ref=e156]:
+                  - generic [ref=e158]: Build Fast with AI
+                  - generic [ref=e160]: https://www.buildfastwithai.com › Blog
+              - generic [ref=e161]:
+                - generic [ref=e162]: ·
+                - link "翻译此页" [ref=e163] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://www.buildfastwithai.com/blogs/ai-news-today-july-3-2026&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=e166] [cursor=pointer]:
+                - img [ref=e169]
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - generic [ref=e174]: 2小时前
+                - text: —
+              - generic [ref=e175]:
+                - emphasis [ref=e176]: Fable 5 restored globally July 1
+                - text: after export controls lifted, White House advances voluntary AI model standards due August 1, Menlo Ventures raises $3B on.
+        - generic [ref=e180]:
+          - generic [ref=e183]:
+            - link "Japan and India Deepen AI and Strategic Partnership 天下雜誌 https://english.cw.com.tw › article.action" [ref=e185] [cursor=pointer]:
+              - /url: https://english.cw.com.tw/article/article.action?id=4869
+              - heading "Japan and India Deepen AI and Strategic Partnership" [level=3] [ref=e186]
+              - generic [ref=e192]:
+                - generic [ref=e194]: 天下雜誌
+                - generic [ref=e196]: https://english.cw.com.tw › article.action
+            - generic [ref=e197]:
+              - generic [ref=e198]: ·
+              - link "翻译此页" [ref=e199] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://english.cw.com.tw/article/article.action?id%3D4869&hl=zh-CN&sl=en&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e202] [cursor=pointer]:
+              - img [ref=e205]
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]: 1小时前
+              - text: —
+            - generic [ref=e211]:
+              - text: "July 3, 2026 -- Today's top stories:"
+              - emphasis [ref=e212]: Japan and India Deepen AI and Strategic Partnership
+              - text: ", Vietnam and Philippines Reach Upper-Middle-Income Milestone, ..."
+        - generic [ref=e216]:
+          - generic [ref=e219]:
+            - link "Kioxia readies next-gen memory mass production as AI ... Reuters https://www.reuters.com › business › kioxia..." [ref=e221] [cursor=pointer]:
+              - /url: https://www.reuters.com/business/autos-transportation/kioxia-readies-next-gen-memory-mass-production-ai-boom-fuels-dramatic-comeback-2026-07-02/
+              - heading "Kioxia readies next-gen memory mass production as AI ..." [level=3] [ref=e222]
+              - generic [ref=e228]:
+                - generic [ref=e230]: Reuters
+                - generic [ref=e232]: https://www.reuters.com › business › kioxia...
+            - generic [ref=e233]:
+              - generic [ref=e234]: ·
+              - link "翻译此页" [ref=e235] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://www.reuters.com/business/autos-transportation/kioxia-readies-next-gen-memory-mass-production-ai-boom-fuels-dramatic-comeback-2026-07-02/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e238] [cursor=pointer]:
+              - img [ref=e241]
+          - generic [ref=e244]:
+            - generic [ref=e245]:
+              - generic [ref=e246]: 4小时前
+              - text: —
+            - generic [ref=e247]:
+              - text: The growth of
+              - emphasis [ref=e248]: AI
+              - text: has fueled ‌a remarkable turnaround for Kioxia, which was previously seen as an example of Japan's chipmaking struggles but whose shares have ...
+        - generic [ref=e252]:
+          - generic [ref=e255]:
+            - link "A new, inexpensive Chinese AI model is catching up with ... The Japan Times https://www.japantimes.co.jp › tech › china..." [ref=e257] [cursor=pointer]:
+              - /url: https://www.japantimes.co.jp/business/2026/07/03/tech/china-ai-catch-up/
+              - heading "A new, inexpensive Chinese AI model is catching up with ..." [level=3] [ref=e258]
+              - generic [ref=e264]:
+                - generic [ref=e266]: The Japan Times
+                - generic [ref=e268]: https://www.japantimes.co.jp › tech › china...
+            - generic [ref=e269]:
+              - generic [ref=e270]: ·
+              - link "翻译此页" [ref=e271] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://www.japantimes.co.jp/business/2026/07/03/tech/china-ai-catch-up/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e274] [cursor=pointer]:
+              - img [ref=e277]
+          - generic [ref=e280]:
+            - generic [ref=e281]:
+              - generic [ref=e282]: 2小时前
+              - text: —
+            - generic [ref=e283]:
+              - text: Launched last month by Beijing-based startup Z.ai,
+              - emphasis [ref=e284]: an artificial intelligence model called GLM-5.2
+              - text: has quickly climbed the usage charts ...
+        - generic [ref=e288]:
+          - generic [ref=e290]:
+            - heading "视频" [level=2] [ref=e291]
+            - button "关于这条结果的详细信息" [ref=e292] [cursor=pointer]:
+              - img [ref=e295]
+          - generic [ref=e298]:
+            - generic [ref=e304]:
+              - generic [ref=e305]:
+                - link "AI's 3 big narrative violations — 7/2/2026 YouTube CNBC Television 7小时前" [ref=e307] [cursor=pointer]:
+                  - /url: https://www.youtube.com/watch?v=yFEOnBT0Hgw
+                  - heading "AI's 3 big narrative violations — 7/2/2026 YouTube CNBC Television 7小时前" [level=3] [ref=e308]:
+                    - generic [ref=e311]: AI's 3 big narrative violations — 7/2/2026
+                    - generic [ref=e313]:
+                      - generic [ref=e314]:
+                        - text: YouTube
+                        - generic [ref=e315]: · CNBC Television
+                      - generic [ref=e316]: 7小时前
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - text: YouTube
+                          - generic: · CNBC Television
+                    - button "关于这条结果的详细信息" [ref=e317] [cursor=pointer]:
+                      - img [ref=e320]
+              - button "AI's 3 big narrative violations — 7/2/2026，由CNBC Television上传到YouTube上. 在 Google 上播放. 53:36" [ref=e322] [cursor=pointer]:
+                - generic [ref=e323]:
+                  - img [ref=e326]
+                  - generic [ref=e329]:
+                    - generic [ref=e330]: 53:36
+                    - img [ref=e333]
+            - generic [ref=e339]:
+              - generic [ref=e340]:
+                - link "AI's three big narrative violations CNBC 6小时前" [ref=e342] [cursor=pointer]:
+                  - /url: https://www.cnbc.com/video/2026/07/02/ais-three-big-narrative-violations.html
+                  - heading "AI's three big narrative violations CNBC 6小时前" [level=3] [ref=e343]:
+                    - generic [ref=e346]: AI's three big narrative violations
+                    - generic [ref=e348]:
+                      - generic [ref=e349]: CNBC
+                      - generic [ref=e350]: 6小时前
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: CNBC
+                    - button "关于这条结果的详细信息" [ref=e351] [cursor=pointer]:
+                      - img [ref=e354]
+              - link "CNBC上的视频《AI's three big narrative violations》. 在CNBC上播放. 52:01" [ref=e356] [cursor=pointer]:
+                - /url: https://www.cnbc.com/video/2026/07/02/ais-three-big-narrative-violations.html
+                - generic [ref=e357]:
+                  - img [ref=e360]
+                  - generic [ref=e364]: 52:01
+          - link "查看所有视频" [ref=e367] [cursor=pointer]:
+            - /url: /search?sca_esv=71de47c470c80ff5&udm=7&q=AI+news+today+2026+July+3&sa=X&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8ccDKAJ6BAgYEAQ
+            - separator [ref=e368]
+            - generic [ref=e369]:
+              - generic [ref=e370]: 查看全部
+              - img [ref=e372]
+        - generic [ref=e376]:
+          - heading "Web results" [level=2] [ref=e377]
+          - generic [ref=e378]:
+            - generic [ref=e381]:
+              - 'link "AI Legislative Update: July 3, 2026 Transparency Coalition https://www.transparencycoalition.ai › news" [ref=e383] [cursor=pointer]':
+                - /url: https://www.transparencycoalition.ai/news/ai-legislative-update-july3-2026
+                - 'heading "AI Legislative Update: July 3, 2026" [level=3] [ref=e384]'
+                - generic [ref=e390]:
+                  - generic [ref=e392]: Transparency Coalition
+                  - generic [ref=e394]: https://www.transparencycoalition.ai › news
+              - generic [ref=e395]:
+                - generic [ref=e396]: ·
+                - link "翻译此页" [ref=e397] [cursor=pointer]:
+                  - /url: https://translate.google.com/translate?u=https://www.transparencycoalition.ai/news/ai-legislative-update-july3-2026&hl=zh-CN&sl=en&tl=zh-CN&client=search
+              - button "关于这条结果的详细信息" [ref=e400] [cursor=pointer]:
+                - img [ref=e403]
+            - generic [ref=e406]:
+              - generic [ref=e407]:
+                - generic [ref=e408]: 3小时前
+                - text: —
+              - generic [ref=e409]:
+                - text: "This week:"
+                - emphasis [ref=e410]: California Gov. Gavin Newsom enacted a new law requiring public school teachers to be human
+                - text: ", while New Jersey legislators passed a Kids Code Act."
+        - generic [ref=e414]:
+          - generic [ref=e417]:
+            - link "Striding AI Announces Development of Next-Generation ... Asia News Network https://asianews.network › striding-ai-anno..." [ref=e419] [cursor=pointer]:
+              - /url: https://asianews.network/striding-ai-announces-development-of-next-generation-robotic-foundation-systems-for-physical-ai-deployment/
+              - heading "Striding AI Announces Development of Next-Generation ..." [level=3] [ref=e420]
+              - generic [ref=e426]:
+                - generic [ref=e428]: Asia News Network
+                - generic [ref=e430]: https://asianews.network › striding-ai-anno...
+            - generic [ref=e431]:
+              - generic [ref=e432]: ·
+              - link "翻译此页" [ref=e433] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://asianews.network/striding-ai-announces-development-of-next-generation-robotic-foundation-systems-for-physical-ai-deployment/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e436] [cursor=pointer]:
+              - img [ref=e439]
+          - generic [ref=e442]:
+            - generic [ref=e443]:
+              - generic [ref=e444]: 1小时前
+              - text: —
+            - generic [ref=e445]:
+              - text: July 3, 2026. BEIJING, CHINA – – 2 July 2026 –
+              - emphasis [ref=e446]: Striding AI today announced that it is developing a new generation of robotic foundation systems
+              - text: designed to ...
+        - generic [ref=e450]:
+          - generic [ref=e453]:
+            - link "AI news for maintenance, reliability & asset management LinkedIn 2个回应 · 9小时前" [ref=e455] [cursor=pointer]:
+              - /url: https://www.linkedin.com/pulse/ai-news-maintenance-reliability-asset-management-reliability-ai-kvmrc
+              - heading "AI news for maintenance, reliability & asset management" [level=3] [ref=e456]
+              - generic [ref=e462]:
+                - generic [ref=e464]: LinkedIn
+                - generic [ref=e466]: 2个回应 · 9小时前
+            - button "关于这条结果的详细信息" [ref=e469] [cursor=pointer]:
+              - img [ref=e472]
+          - generic [ref=e476]:
+            - emphasis [ref=e477]: July 3
+            - text: ","
+            - emphasis [ref=e478]: "2026"
+            - text: The strongest signal
+            - emphasis [ref=e479]: today
+            - text: ": the"
+            - emphasis [ref=e480]: AI
+            - text: race is shifting from prediction to work execution and data integrity. The new battleground is not “Can
+            - emphasis [ref=e481]: AI
+            - text: ...
+        - generic [ref=e485]:
+          - generic [ref=e488]:
+            - link "2026年7月3日 今日のAIニュース｜宮野宏樹 note · 宮野宏樹 被赞过 1 次 · 2小时前" [ref=e490] [cursor=pointer]:
+              - /url: https://note.com/hirokimiyano/n/n85fd50d1620e
+              - heading "2026年7月3日 今日のAIニュース｜宮野宏樹" [level=3] [ref=e491]
+              - generic [ref=e497]:
+                - generic [ref=e499]: note · 宮野宏樹
+                - generic [ref=e501]: 被赞过 1 次 · 2小时前
+            - button "关于这条结果的详细信息" [ref=e504] [cursor=pointer]:
+              - img [ref=e507]
+          - generic [ref=e510]: みっつめは「計算資源」です。Metaが余剰GPUを外販する「Meta Compute」を打ち出し、株価が急伸しました。AWSは10億ドル規模のエンジニア部隊を新設し、NVIDIAは推論を高速 ...
+        - generic [ref=e514]:
+          - generic [ref=e517]:
+            - link "Nine and Microsoft announce Australian-first AI agreement ... Microsoft Source https://news.microsoft.com › Home › View All" [ref=e519] [cursor=pointer]:
+              - /url: https://news.microsoft.com/source/asia/2026/07/03/nine-microsoft-copilot-agreement/
+              - heading "Nine and Microsoft announce Australian-first AI agreement ..." [level=3] [ref=e520]
+              - generic [ref=e526]:
+                - generic [ref=e528]: Microsoft Source
+                - generic [ref=e530]: https://news.microsoft.com › Home › View All
+            - generic [ref=e531]:
+              - generic [ref=e532]: ·
+              - link "翻译此页" [ref=e533] [cursor=pointer]:
+                - /url: https://translate.google.com/translate?u=https://news.microsoft.com/source/asia/2026/07/03/nine-microsoft-copilot-agreement/&hl=zh-CN&sl=en&tl=zh-CN&client=search
+            - button "关于这条结果的详细信息" [ref=e536] [cursor=pointer]:
+              - img [ref=e539]
+          - generic [ref=e542]:
+            - generic [ref=e543]:
+              - generic [ref=e544]: 7小时前
+              - text: —
+            - generic [ref=e545]:
+              - emphasis [ref=e546]: Nine Entertainment Co (Nine) and Microsoft today announced an agreement
+              - text: to allow Nine's professional, high-value journalism to play a crucial role in AI ...
+      - navigation [ref=e549]:
+        - heading "网页导航" [level=1] [ref=e550]
+        - text: "1"
+        - link "Page 2" [ref=e553] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=10&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAE
+          - text: "2"
+        - link "Page 3" [ref=e555] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=20&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAG
+          - text: "3"
+        - link "Page 4" [ref=e557] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=30&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAI
+          - text: "4"
+        - link "Page 5" [ref=e559] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=40&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAK
+          - text: "5"
+        - link "Page 6" [ref=e561] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=50&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAM
+          - text: "6"
+        - link "Page 7" [ref=e563] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=60&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAO
+          - text: "7"
+        - link "Page 8" [ref=e565] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=70&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAQ
+          - text: "8"
+        - link "Page 9" [ref=e567] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=80&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAS
+          - text: "9"
+        - link "Page 10" [ref=e569] [cursor=pointer]:
+          - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=90&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8tMDegQINhAU
+          - text: "10"
+        - heading "下一页" [level=2] [ref=e571]:
+          - link "下一页" [ref=e572] [cursor=pointer]:
+            - /url: /search?q=AI+news+today+2026+July+3&sca_esv=71de47c470c80ff5&tbs=qdr:d&ei=MR9HapC7MtrxwPAP3vLBiQM&start=10&sa=N&sstk=AU9db-BWKjBj_XrubIPwp74TKe2KELGCGe9BMnYalTtmVqGednV_r-I7rVuIJP2E9El4z4c67g_gVhX7H_TGCtL4YDLRzzM17FV2Cg&ved=2ahUKEwjQl_jdu7WVAxXaOBAIHV55MDEQ8NMDegQINhAW
+            - generic [ref=e574]: 下一页
+      - navigation
+    - contentinfo [ref=e575]:
+      - heading "页脚链接" [level=1] [ref=e576]
+      - generic [ref=e580]:
+        - generic [ref=e582]:
+          - text: 日本
+          - generic [ref=e584]:
+            - button "江东区 - 是根据您的 IP 地址推断出来的" [ref=e586] [cursor=pointer]:
+              - generic [ref=e587]: 江东区
+              - generic [ref=e589]:
+                - text: "-"
+                - generic [ref=e590]: 是根据您的 IP 地址推断出来的
+            - text: "-"
+            - button "更新位置信息" [ref=e592] [cursor=pointer]: 更新位置信息
+        - generic [ref=e595]:
+          - link "帮助" [ref=e596] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=zh-CN&fg=1
+          - link "发送反馈" [ref=e597] [cursor=pointer]:
+            - /url: "#"
+          - link "隐私权" [ref=e598] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=zh-CN&fg=1
+          - link "条款" [ref=e599] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=zh-CN&fg=1

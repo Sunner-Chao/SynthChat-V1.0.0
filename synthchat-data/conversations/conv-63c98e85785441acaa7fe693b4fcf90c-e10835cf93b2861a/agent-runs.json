@@ -1,0 +1,3092 @@
+[
+  {
+    "runId": "run-32240645d79d48b48998382c0b24f437",
+    "conversationId": "conv-63c98e85785441acaa7fe693b4fcf90c",
+    "personaId": "default",
+    "agentId": "agent-1782466838742",
+    "parentRunId": null,
+    "subagentIndex": null,
+    "subagentDepth": null,
+    "subagentCanDelegate": null,
+    "subagentRole": null,
+    "subagentTask": null,
+    "subagentToolsets": [],
+    "subagentMaxIterations": null,
+    "userRequest": "生成一张风景图片",
+    "queueItemId": null,
+    "state": "completed",
+    "startedAt": "2026-07-06T04:53:29.197675300+00:00",
+    "updatedAt": "2026-07-06T04:55:30.916898200+00:00",
+    "lastActivityAt": "2026-07-06T04:55:30.916898200+00:00",
+    "lastActivityDesc": "phase: memory_turn_synced",
+    "completedAt": "2026-07-06T04:55:29.618173400+00:00",
+    "error": null,
+    "toolEvents": [
+      {
+        "callId": "functions.image_generate:0",
+        "checkpointId": null,
+        "elapsedMs": 0,
+        "error": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+        "eventType": "internal_tool",
+        "exists": null,
+        "kind": "execute",
+        "mimeType": "text/plain",
+        "ok": false,
+        "path": null,
+        "raw": {
+          "error": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+          "payload": {
+            "__agentProviderToolCall": {
+              "id": "functions.image_generate:0"
+            },
+            "n": 1,
+            "prompt": "一道壮阔的自然风景，远处有连绵的青山，山脚下是一片宁静的湖水，湖边点缀着绿树和小花，天空飘着几朵白云，阳光明媚温暖",
+            "size": "1024x1024"
+          }
+        },
+        "referenceId": null,
+        "runId": "run-32240645d79d48b48998382c0b24f437",
+        "serverId": "__internal",
+        "status": "failed",
+        "summary": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+        "text": null,
+        "timedOut": false,
+        "title": "internal · image_generate",
+        "toolName": "image_generate"
+      },
+      {
+        "callId": "functions.image_generate:0",
+        "checkpointId": null,
+        "elapsedMs": 0,
+        "error": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+        "eventType": "internal_tool",
+        "exists": null,
+        "kind": "execute",
+        "mimeType": "text/plain",
+        "ok": false,
+        "path": null,
+        "raw": {
+          "error": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+          "payload": {
+            "__agentProviderToolCall": {
+              "id": "functions.image_generate:0"
+            },
+            "n": 1,
+            "prompt": "a beautiful landscape with mountains, a serene lake, and a sunset sky",
+            "size": "1024x1024"
+          }
+        },
+        "referenceId": null,
+        "runId": "run-32240645d79d48b48998382c0b24f437",
+        "serverId": "__internal",
+        "status": "failed",
+        "summary": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+        "text": null,
+        "timedOut": false,
+        "title": "internal · image_generate",
+        "toolName": "image_generate"
+      }
+    ],
+    "phaseEvents": [
+      {
+        "phase": "workflow_graph_initialized",
+        "detail": {
+          "currentNode": "planner",
+          "currentStatus": "pending",
+          "current_node": "planner",
+          "current_status": "pending",
+          "lastEventSequence": 0,
+          "last_event_sequence": 0,
+          "mode": "chat_turn",
+          "nodes": [
+            {
+              "detail": {
+                "admission": "direct_turn",
+                "mode": "chat_turn",
+                "queueLifecycle": "not_applicable",
+                "queueStatus": "not_queued",
+                "reason": "direct_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "queue",
+              "role": "queue admission",
+              "status": "skipped",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "mode": "chat_turn",
+                "reason": "no_group_room_context",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "group_room",
+              "role": "group context",
+              "status": "skipped",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "mode": "chat_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "planner",
+              "role": "decision planning",
+              "status": "pending",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "mode": "chat_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "executor",
+              "role": "tool execution",
+              "status": "pending",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "mode": "chat_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "approval",
+              "role": "human gate",
+              "status": "pending",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "mode": "chat_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "checkpoint",
+              "role": "state checkpoint",
+              "status": "pending",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "mode": "chat_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "node": "reviewer",
+              "role": "final review",
+              "status": "pending",
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            }
+          ],
+          "requestSource": "desktop",
+          "request_source": "desktop",
+          "schema": "synthgraph_workflow_v1",
+          "toolContext": "interactive",
+          "tool_context": "interactive",
+          "transitions": [
+            {
+              "detail": {
+                "admission": "direct_turn",
+                "mode": "chat_turn",
+                "queueLifecycle": "not_applicable",
+                "queueStatus": "not_queued",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "from": "queue",
+              "reason": "direct_turn",
+              "to": "group_room",
+              "topologyEdgeKnown": true,
+              "topologyEdgeLabel": "queue -> group_room (direct_turn)",
+              "topologyEdgeSource": "bootstrap",
+              "topologyReasonKnown": true,
+              "topology_edge_known": true,
+              "topology_edge_label": "queue -> group_room (direct_turn)",
+              "topology_edge_source": "bootstrap",
+              "topology_reason_known": true,
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            },
+            {
+              "detail": {
+                "groupRoom": "not_applicable",
+                "mode": "chat_turn",
+                "requestSource": "desktop",
+                "request_source": "desktop",
+                "toolContext": "interactive",
+                "tool_context": "interactive"
+              },
+              "eventSequence": 0,
+              "event_sequence": 0,
+              "from": "group_room",
+              "reason": "no_group_room_context",
+              "to": "planner",
+              "topologyEdgeKnown": true,
+              "topologyEdgeLabel": "group_room -> planner (no_group_room_context)",
+              "topologyEdgeSource": "bootstrap",
+              "topologyReasonKnown": true,
+              "topology_edge_known": true,
+              "topology_edge_label": "group_room -> planner (no_group_room_context)",
+              "topology_edge_source": "bootstrap",
+              "topology_reason_known": true,
+              "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+              "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+            }
+          ],
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        "updatedAt": "2026-07-06T04:53:29.197708200+00:00"
+      },
+      {
+        "phase": "memory_turn_started",
+        "detail": {
+          "conversationId": "conv-63c98e85785441acaa7fe693b4fcf90c",
+          "personaId": "default",
+          "prefetched": 0,
+          "provider": "builtin",
+          "toolCount": 158,
+          "userChars": 8
+        },
+        "updatedAt": "2026-07-06T04:53:30.266766200+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 1,
+          "event_sequence": 1,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:30.798367400+00:00"
+      },
+      {
+        "phase": "llm_attempt",
+        "detail": {
+          "attempt": 1,
+          "baseUrl": "https://synthapi.asia",
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "completionTokens": 63,
+          "elapsedMs": 6007,
+          "finishReason": "tool_calls",
+          "maxRetries": 2,
+          "model": "kimi-k2.6",
+          "outcome": "success",
+          "promptTokens": 30393,
+          "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+          "providerType": "anthropic",
+          "reasoningTokens": 0,
+          "runnerDiagnostics": {
+            "bytes": 0,
+            "chunks": 0,
+            "elapsedMs": 4538,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "httpStatus": 200,
+            "mode": "non_stream",
+            "outcome": "success",
+            "responseBytes": 329,
+            "staleTimeoutSeconds": 60,
+            "streaming": false,
+            "transport": "anthropic_messages",
+            "ttfbMs": null
+          },
+          "transportDiagnostics": {
+            "capturedAt": "2026-07-06T04:53:43.285866800+00:00",
+            "elapsedMs": 4538,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "method": "POST",
+            "status": 200,
+            "timeoutPolicy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "timeout_policy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "transport": "anthropic_messages"
+          }
+        },
+        "updatedAt": "2026-07-06T04:53:43.286351800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "action": "tool",
+            "iteration": 1,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 2,
+          "event_sequence": 2,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:53:45.630758200+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 3,
+          "event_sequence": 3,
+          "from": "planner",
+          "reason": "tool_calls",
+          "schema": "synthgraph_workflow_v1",
+          "to": "executor",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> executor (tool_calls)",
+          "topologyEdgeSource": "planner route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> executor (tool_calls)",
+          "topology_edge_source": "planner route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:53:46.189875800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 4,
+          "event_sequence": 4,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:46.770095300+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "available": true,
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "resolution": "internal",
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 5,
+          "event_sequence": 5,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:47.318576800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "base_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 6,
+          "event_sequence": 6,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:47.817968800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "scheduled_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 7,
+          "event_sequence": 7,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:48.271628300+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "smart_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 8,
+          "event_sequence": 8,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:48.982193600+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "subagent_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 9,
+          "event_sequence": 9,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:49.504881100+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "approval_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 10,
+          "event_sequence": 10,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:50.055436500+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "tool_started",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 11,
+          "event_sequence": 11,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:53:50.712568400+00:00"
+      },
+      {
+        "phase": "tool_started",
+        "detail": {
+          "callId": "functions.image_generate:0",
+          "iteration": 1,
+          "payloadPreview": "{\"__agentProviderToolCall\":{\"id\":\"functions.image_generate:0\"},\"n\":1,\"prompt\":\"一道壮阔的自然风景，远处有连绵的青山，山脚下是一片宁静的湖水，湖边点缀着绿树和小花，天空飘着几朵白云，阳光明媚温暖\",\"size\":\"1024x1024\"}",
+          "serverId": "__internal",
+          "toolName": "image_generate"
+        },
+        "updatedAt": "2026-07-06T04:53:52.610026900+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "error": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+            "iteration": 1,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 12,
+          "event_sequence": 12,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:53:53.592793500+00:00"
+      },
+      {
+        "phase": "tool_message_recorded",
+        "detail": {
+          "messageId": "msg-7e80746fa59445e9b471bcf83ad53079",
+          "ok": true,
+          "serverId": "__internal",
+          "status": "running",
+          "toolName": "image_generate"
+        },
+        "updatedAt": "2026-07-06T04:53:55.443948+00:00"
+      },
+      {
+        "phase": "tool_message_recorded",
+        "detail": {
+          "messageId": "msg-7e80746fa59445e9b471bcf83ad53079",
+          "ok": false,
+          "serverId": "__internal",
+          "status": "failed",
+          "toolName": "image_generate"
+        },
+        "updatedAt": "2026-07-06T04:53:56.583064700+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 13,
+          "event_sequence": 13,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:53:57.284024400+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 14,
+          "event_sequence": 14,
+          "from": "executor",
+          "reason": "tool_observations_recorded",
+          "schema": "synthgraph_workflow_v1",
+          "to": "planner",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "executor -> planner (tool_observations_recorded)",
+          "topologyEdgeSource": "executor route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "executor -> planner (tool_observations_recorded)",
+          "topology_edge_source": "executor route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:53:57.810792+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 2,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 15,
+          "event_sequence": 15,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:03.026340400+00:00"
+      },
+      {
+        "phase": "llm_attempt",
+        "detail": {
+          "attempt": 1,
+          "baseUrl": "https://synthapi.asia",
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "completionTokens": 103,
+          "elapsedMs": 12824,
+          "finishReason": "repetition",
+          "maxRetries": 2,
+          "model": "kimi-k2.6",
+          "outcome": "success",
+          "promptTokens": 30443,
+          "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+          "providerType": "anthropic",
+          "reasoningTokens": 0,
+          "runnerDiagnostics": {
+            "bytes": 0,
+            "chunks": 0,
+            "elapsedMs": 4705,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "httpStatus": 200,
+            "mode": "non_stream",
+            "outcome": "success",
+            "responseBytes": 268,
+            "staleTimeoutSeconds": 60,
+            "streaming": false,
+            "transport": "anthropic_messages",
+            "ttfbMs": null
+          },
+          "transportDiagnostics": {
+            "capturedAt": "2026-07-06T04:54:18.795281100+00:00",
+            "elapsedMs": 4705,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "method": "POST",
+            "status": 200,
+            "timeoutPolicy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "timeout_policy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "transport": "anthropic_messages"
+          }
+        },
+        "updatedAt": "2026-07-06T04:54:18.796230100+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 2,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 16,
+          "event_sequence": 16,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "schema": "synthgraph_workflow_v1",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:54:21.871451500+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "rejected",
+            "iteration": 2,
+            "mode": "chat_turn",
+            "reason": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+          },
+          "eventSequence": 17,
+          "event_sequence": 17,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:22.340455500+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "rejected",
+            "iteration": 2,
+            "mode": "chat_turn",
+            "reason": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+          },
+          "eventSequence": 18,
+          "event_sequence": 18,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:54:22.786784+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "error": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced.",
+            "errorKind": "completion_gate",
+            "iteration": 2,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 19,
+          "event_sequence": 19,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:54:23.538477300+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 20,
+          "event_sequence": 20,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:24.119624500+00:00"
+      },
+      {
+        "phase": "llm_attempt",
+        "detail": {
+          "attempt": 1,
+          "baseUrl": "https://synthapi.asia",
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "completionTokens": 46,
+          "elapsedMs": 6106,
+          "finishReason": "tool_calls",
+          "maxRetries": 2,
+          "model": "kimi-k2.6",
+          "outcome": "success",
+          "promptTokens": 30500,
+          "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+          "providerType": "anthropic",
+          "reasoningTokens": 0,
+          "runnerDiagnostics": {
+            "bytes": 0,
+            "chunks": 0,
+            "elapsedMs": 4335,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "httpStatus": 200,
+            "mode": "non_stream",
+            "outcome": "success",
+            "responseBytes": 227,
+            "staleTimeoutSeconds": 60,
+            "streaming": false,
+            "transport": "anthropic_messages",
+            "ttfbMs": null
+          },
+          "transportDiagnostics": {
+            "capturedAt": "2026-07-06T04:54:30.704460200+00:00",
+            "elapsedMs": 4335,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "method": "POST",
+            "status": 200,
+            "timeoutPolicy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "timeout_policy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "transport": "anthropic_messages"
+          }
+        },
+        "updatedAt": "2026-07-06T04:54:30.705014700+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "action": "tool",
+            "iteration": 3,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 21,
+          "event_sequence": 21,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:54:33.382600+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 22,
+          "event_sequence": 22,
+          "from": "planner",
+          "reason": "tool_calls",
+          "schema": "synthgraph_workflow_v1",
+          "to": "executor",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> executor (tool_calls)",
+          "topologyEdgeSource": "planner route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> executor (tool_calls)",
+          "topology_edge_source": "planner route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:54:33.784918+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 23,
+          "event_sequence": 23,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:34.342847800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "available": true,
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "resolution": "internal",
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 24,
+          "event_sequence": 24,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:34.915947700+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "base_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 25,
+          "event_sequence": 25,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:35.478448200+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "scheduled_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 26,
+          "event_sequence": 26,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:36.420146+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "smart_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 27,
+          "event_sequence": 27,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:37.772494100+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "subagent_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 28,
+          "event_sequence": 28,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:38.206201300+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "requiresApproval": false,
+            "requires_approval": false,
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "approval_policy",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 29,
+          "event_sequence": 29,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:38.735984+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "sourceLabel": "image_generate",
+            "source_label": "image_generate",
+            "stage": "tool_started",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 30,
+          "event_sequence": 30,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:39.239236+00:00"
+      },
+      {
+        "phase": "tool_started",
+        "detail": {
+          "callId": "functions.image_generate:0",
+          "iteration": 3,
+          "payloadPreview": "{\"__agentProviderToolCall\":{\"id\":\"functions.image_generate:0\"},\"n\":1,\"prompt\":\"a beautiful landscape with mountains, a serene lake, and a sunset sky\",\"size\":\"1024x1024\"}",
+          "serverId": "__internal",
+          "toolName": "image_generate"
+        },
+        "updatedAt": "2026-07-06T04:54:40.356769+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "error": "bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+            "iteration": 3,
+            "mode": "chat_turn",
+            "requestedName": "image_generate",
+            "requested_name": "image_generate",
+            "serverId": "__internal",
+            "server_id": "__internal",
+            "toolKind": "internal",
+            "toolName": "image_generate",
+            "tool_kind": "internal",
+            "tool_name": "image_generate"
+          },
+          "eventSequence": 31,
+          "event_sequence": 31,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:54:41.516762200+00:00"
+      },
+      {
+        "phase": "tool_message_recorded",
+        "detail": {
+          "messageId": "msg-5926d3f42006426c9cdac5e70b776cfb",
+          "ok": true,
+          "serverId": "__internal",
+          "status": "running",
+          "toolName": "image_generate"
+        },
+        "updatedAt": "2026-07-06T04:54:43.493956500+00:00"
+      },
+      {
+        "phase": "tool_message_recorded",
+        "detail": {
+          "messageId": "msg-5926d3f42006426c9cdac5e70b776cfb",
+          "ok": false,
+          "serverId": "__internal",
+          "status": "failed",
+          "toolName": "image_generate"
+        },
+        "updatedAt": "2026-07-06T04:54:44.524470200+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 32,
+          "event_sequence": 32,
+          "node": "executor",
+          "role": "tool execution",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:54:45.021673+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 33,
+          "event_sequence": 33,
+          "from": "executor",
+          "reason": "tool_observations_recorded",
+          "schema": "synthgraph_workflow_v1",
+          "to": "planner",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "executor -> planner (tool_observations_recorded)",
+          "topologyEdgeSource": "executor route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "executor -> planner (tool_observations_recorded)",
+          "topology_edge_source": "executor route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:54:45.512155700+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 4,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 34,
+          "event_sequence": 34,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:45.965432400+00:00"
+      },
+      {
+        "phase": "llm_attempt",
+        "detail": {
+          "attempt": 1,
+          "baseUrl": "https://synthapi.asia",
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "completionTokens": 9,
+          "elapsedMs": 2586,
+          "finishReason": "end_turn",
+          "maxRetries": 2,
+          "model": "kimi-k2.6",
+          "outcome": "success",
+          "promptTokens": 30557,
+          "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+          "providerType": "anthropic",
+          "reasoningTokens": 0,
+          "runnerDiagnostics": {
+            "bytes": 0,
+            "chunks": 0,
+            "elapsedMs": 2578,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "httpStatus": 200,
+            "mode": "non_stream",
+            "outcome": "success",
+            "responseBytes": 36,
+            "staleTimeoutSeconds": 60,
+            "streaming": false,
+            "transport": "anthropic_messages",
+            "ttfbMs": null
+          },
+          "transportDiagnostics": {
+            "capturedAt": "2026-07-06T04:54:50.087218300+00:00",
+            "elapsedMs": 2578,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "method": "POST",
+            "status": 200,
+            "timeoutPolicy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "timeout_policy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "transport": "anthropic_messages"
+          }
+        },
+        "updatedAt": "2026-07-06T04:54:50.088174400+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 4,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 35,
+          "event_sequence": 35,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "schema": "synthgraph_workflow_v1",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:54:53.667705300+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "rejected",
+            "iteration": 4,
+            "mode": "chat_turn",
+            "reason": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+          },
+          "eventSequence": 36,
+          "event_sequence": 36,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:54.643482200+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "rejected",
+            "iteration": 4,
+            "mode": "chat_turn",
+            "reason": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+          },
+          "eventSequence": 37,
+          "event_sequence": 37,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:54:56.233228900+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "error": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced.",
+            "errorKind": "completion_gate",
+            "iteration": 4,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 38,
+          "event_sequence": 38,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:54:56.934070100+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 5,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 39,
+          "event_sequence": 39,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:54:57.662855800+00:00"
+      },
+      {
+        "phase": "llm_attempt",
+        "detail": {
+          "attempt": 1,
+          "baseUrl": "https://synthapi.asia",
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "completionTokens": 48,
+          "elapsedMs": 8371,
+          "finishReason": "tool_calls",
+          "maxRetries": 2,
+          "model": "kimi-k2.6",
+          "outcome": "success",
+          "promptTokens": 30614,
+          "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+          "providerType": "anthropic",
+          "reasoningTokens": 0,
+          "runnerDiagnostics": {
+            "bytes": 0,
+            "chunks": 0,
+            "elapsedMs": 7464,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "httpStatus": 200,
+            "mode": "non_stream",
+            "outcome": "success",
+            "responseBytes": 257,
+            "staleTimeoutSeconds": 60,
+            "streaming": false,
+            "transport": "anthropic_messages",
+            "ttfbMs": null
+          },
+          "transportDiagnostics": {
+            "capturedAt": "2026-07-06T04:55:06.654630500+00:00",
+            "elapsedMs": 7464,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "method": "POST",
+            "status": 200,
+            "timeoutPolicy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "timeout_policy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "transport": "anthropic_messages"
+          }
+        },
+        "updatedAt": "2026-07-06T04:55:06.655770+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 5,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 40,
+          "event_sequence": 40,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "schema": "synthgraph_workflow_v1",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:55:09.826280800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "rejected",
+            "iteration": 5,
+            "mode": "chat_turn",
+            "reason": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+          },
+          "eventSequence": 41,
+          "event_sequence": 41,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:55:10.744840100+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": false,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "rejected",
+            "iteration": 5,
+            "mode": "chat_turn",
+            "reason": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
+          },
+          "eventSequence": 42,
+          "event_sequence": 42,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:55:11.375574900+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "error": "completion gate rejected final answer because required evidence is missing: image_artifact (generated image artifact). Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced.",
+            "errorKind": "completion_gate",
+            "iteration": 5,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 43,
+          "event_sequence": 43,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "failed"
+        },
+        "updatedAt": "2026-07-06T04:55:12.672725+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 44,
+          "event_sequence": 44,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:55:13.387074600+00:00"
+      },
+      {
+        "phase": "llm_attempt",
+        "detail": {
+          "attempt": 1,
+          "baseUrl": "https://synthapi.asia",
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "completionTokens": 92,
+          "elapsedMs": 5966,
+          "finishReason": "end_turn",
+          "maxRetries": 2,
+          "model": "kimi-k2.6",
+          "outcome": "success",
+          "promptTokens": 30671,
+          "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693",
+          "providerType": "anthropic",
+          "reasoningTokens": 0,
+          "runnerDiagnostics": {
+            "bytes": 0,
+            "chunks": 0,
+            "elapsedMs": 4902,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "httpStatus": 200,
+            "mode": "non_stream",
+            "outcome": "success",
+            "responseBytes": 278,
+            "staleTimeoutSeconds": 60,
+            "streaming": false,
+            "transport": "anthropic_messages",
+            "ttfbMs": null
+          },
+          "transportDiagnostics": {
+            "capturedAt": "2026-07-06T04:55:20.166645200+00:00",
+            "elapsedMs": 4902,
+            "endpoint": "https://synthapi.asia/v1/messages",
+            "headers": {},
+            "method": "POST",
+            "status": 200,
+            "timeoutPolicy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "timeout_policy": {
+              "requestTimeoutSeconds": 60.0,
+              "request_timeout_seconds": 60.0,
+              "schema": "hermes_provider_timeout_policy_desktop_v1",
+              "source": "legacy_timeout_seconds",
+              "staleSource": "unset",
+              "staleTimeoutSeconds": null,
+              "stale_source": "unset",
+              "stale_timeout_seconds": null
+            },
+            "transport": "anthropic_messages"
+          }
+        },
+        "updatedAt": "2026-07-06T04:55:20.167516500+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "action": "final",
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 45,
+          "event_sequence": 45,
+          "node": "planner",
+          "role": "decision planning",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:55:23.565648200+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 46,
+          "event_sequence": 46,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "schema": "synthgraph_workflow_v1",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:55:25.752865100+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": true,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": true,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "accepted",
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 47,
+          "event_sequence": 47,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:55:26.285078100+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": true,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": true,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "accepted",
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 48,
+          "event_sequence": 48,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:55:27.054452100+00:00"
+      },
+      {
+        "phase": "workflow_transition",
+        "detail": {
+          "detail": {
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 49,
+          "event_sequence": 49,
+          "from": "completion_gate",
+          "reason": "completion_gate_passed",
+          "schema": "synthgraph_workflow_v1",
+          "to": "reviewer",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "completion_gate -> reviewer (completion_gate_passed)",
+          "topologyEdgeSource": "completion gate",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "completion_gate -> reviewer (completion_gate_passed)",
+          "topology_edge_source": "completion gate",
+          "topology_reason_known": true
+        },
+        "updatedAt": "2026-07-06T04:55:27.524266400+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 50,
+          "event_sequence": 50,
+          "node": "reviewer",
+          "role": "final review",
+          "schema": "synthgraph_workflow_v1",
+          "status": "running"
+        },
+        "updatedAt": "2026-07-06T04:55:28.056178800+00:00"
+      },
+      {
+        "phase": "workflow_node",
+        "detail": {
+          "detail": {
+            "messageId": "msg-5f2a7311dbde4f64813ec923c9103e0b",
+            "mode": "chat_turn",
+            "model": "kimi-k2.6",
+            "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693"
+          },
+          "eventSequence": 51,
+          "event_sequence": 51,
+          "node": "reviewer",
+          "role": "final review",
+          "schema": "synthgraph_workflow_v1",
+          "status": "completed"
+        },
+        "updatedAt": "2026-07-06T04:55:30.262315400+00:00"
+      },
+      {
+        "phase": "memory_turn_synced",
+        "detail": {
+          "assistantChars": 93,
+          "conversationId": "conv-63c98e85785441acaa7fe693b4fcf90c",
+          "personaId": "default",
+          "provider": "builtin",
+          "userChars": 8
+        },
+        "updatedAt": "2026-07-06T04:55:30.916879300+00:00"
+      }
+    ],
+    "workflowGraph": {
+      "currentNode": "reviewer",
+      "currentStatus": "completed",
+      "current_node": "reviewer",
+      "current_status": "completed",
+      "lastEventSequence": 51,
+      "last_event_sequence": 51,
+      "mode": "chat_turn",
+      "nodes": [
+        {
+          "detail": {
+            "admission": "direct_turn",
+            "mode": "chat_turn",
+            "queueLifecycle": "not_applicable",
+            "queueStatus": "not_queued",
+            "reason": "direct_turn",
+            "requestSource": "desktop",
+            "request_source": "desktop",
+            "toolContext": "interactive",
+            "tool_context": "interactive"
+          },
+          "eventSequence": 0,
+          "event_sequence": 0,
+          "node": "queue",
+          "role": "queue admission",
+          "status": "skipped",
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        {
+          "detail": {
+            "mode": "chat_turn",
+            "reason": "no_group_room_context",
+            "requestSource": "desktop",
+            "request_source": "desktop",
+            "toolContext": "interactive",
+            "tool_context": "interactive"
+          },
+          "eventSequence": 0,
+          "event_sequence": 0,
+          "node": "group_room",
+          "role": "group context",
+          "status": "skipped",
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        {
+          "detail": {
+            "action": "final",
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 45,
+          "event_sequence": 45,
+          "node": "planner",
+          "role": "decision planning",
+          "status": "completed",
+          "updatedAt": "2026-07-06T04:55:23.565648200+00:00",
+          "updated_at": "2026-07-06T04:55:23.565648200+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 32,
+          "event_sequence": 32,
+          "node": "executor",
+          "role": "tool execution",
+          "status": "completed",
+          "updatedAt": "2026-07-06T04:54:45.021673+00:00",
+          "updated_at": "2026-07-06T04:54:45.021673+00:00"
+        },
+        {
+          "detail": {
+            "mode": "chat_turn",
+            "requestSource": "desktop",
+            "request_source": "desktop",
+            "toolContext": "interactive",
+            "tool_context": "interactive"
+          },
+          "eventSequence": 0,
+          "event_sequence": 0,
+          "node": "approval",
+          "role": "human gate",
+          "status": "pending",
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        {
+          "detail": {
+            "mode": "chat_turn",
+            "requestSource": "desktop",
+            "request_source": "desktop",
+            "toolContext": "interactive",
+            "tool_context": "interactive"
+          },
+          "eventSequence": 0,
+          "event_sequence": 0,
+          "node": "checkpoint",
+          "role": "state checkpoint",
+          "status": "pending",
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        {
+          "detail": {
+            "messageId": "msg-5f2a7311dbde4f64813ec923c9103e0b",
+            "mode": "chat_turn",
+            "model": "kimi-k2.6",
+            "providerId": "provider-b6823ecf-6f82-4761-b536-45a0d40b3693"
+          },
+          "eventSequence": 51,
+          "event_sequence": 51,
+          "node": "reviewer",
+          "role": "final review",
+          "status": "completed",
+          "updatedAt": "2026-07-06T04:55:30.262315400+00:00",
+          "updated_at": "2026-07-06T04:55:30.262315400+00:00"
+        },
+        {
+          "detail": {
+            "completionGate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": true,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "completion_gate": {
+              "contract": {
+                "descriptions": [
+                  "generated image artifact"
+                ],
+                "requirements": [
+                  "image_artifact"
+                ]
+              },
+              "evidence": {
+                "artifactReady": false,
+                "failedTools": [
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+                  "image_generate: bad request: bad request: persona image provider not found: image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d"
+                ],
+                "fileCreated": false,
+                "imageGenerated": false,
+                "messageSent": false,
+                "runningTools": [],
+                "webResult": false,
+                "wechatDelivered": false
+              },
+              "hasBlocker": true,
+              "looksIntermediate": false,
+              "looksToolOrTransportLeak": false,
+              "schema": "synthchat_completion_gate_v1",
+              "unsatisfied": [
+                "image_artifact"
+              ]
+            },
+            "decision": "accepted",
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 48,
+          "event_sequence": 48,
+          "node": "completion_gate",
+          "role": "completion gate",
+          "status": "completed",
+          "updatedAt": "2026-07-06T04:55:27.054452100+00:00",
+          "updated_at": "2026-07-06T04:55:27.054452100+00:00"
+        }
+      ],
+      "requestSource": "desktop",
+      "request_source": "desktop",
+      "schema": "synthgraph_workflow_v1",
+      "toolContext": "interactive",
+      "tool_context": "interactive",
+      "transitions": [
+        {
+          "detail": {
+            "admission": "direct_turn",
+            "mode": "chat_turn",
+            "queueLifecycle": "not_applicable",
+            "queueStatus": "not_queued",
+            "requestSource": "desktop",
+            "request_source": "desktop",
+            "toolContext": "interactive",
+            "tool_context": "interactive"
+          },
+          "eventSequence": 0,
+          "event_sequence": 0,
+          "from": "queue",
+          "reason": "direct_turn",
+          "to": "group_room",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "queue -> group_room (direct_turn)",
+          "topologyEdgeSource": "bootstrap",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "queue -> group_room (direct_turn)",
+          "topology_edge_source": "bootstrap",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        {
+          "detail": {
+            "groupRoom": "not_applicable",
+            "mode": "chat_turn",
+            "requestSource": "desktop",
+            "request_source": "desktop",
+            "toolContext": "interactive",
+            "tool_context": "interactive"
+          },
+          "eventSequence": 0,
+          "event_sequence": 0,
+          "from": "group_room",
+          "reason": "no_group_room_context",
+          "to": "planner",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "group_room -> planner (no_group_room_context)",
+          "topologyEdgeSource": "bootstrap",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "group_room -> planner (no_group_room_context)",
+          "topology_edge_source": "bootstrap",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:53:29.197708200+00:00",
+          "updated_at": "2026-07-06T04:53:29.197708200+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 3,
+          "event_sequence": 3,
+          "from": "planner",
+          "reason": "tool_calls",
+          "to": "executor",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> executor (tool_calls)",
+          "topologyEdgeSource": "planner route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> executor (tool_calls)",
+          "topology_edge_source": "planner route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:53:46.189875800+00:00",
+          "updated_at": "2026-07-06T04:53:46.189875800+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 1,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 14,
+          "event_sequence": 14,
+          "from": "executor",
+          "reason": "tool_observations_recorded",
+          "to": "planner",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "executor -> planner (tool_observations_recorded)",
+          "topologyEdgeSource": "executor route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "executor -> planner (tool_observations_recorded)",
+          "topology_edge_source": "executor route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:53:57.810792+00:00",
+          "updated_at": "2026-07-06T04:53:57.810792+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 2,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 16,
+          "event_sequence": 16,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:54:21.871451500+00:00",
+          "updated_at": "2026-07-06T04:54:21.871451500+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "toolCallIds": [
+              "functions.image_generate:0"
+            ],
+            "toolCalls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "toolCount": 1,
+            "toolOrigins": [
+              "provider_native"
+            ],
+            "toolProtocol": "canonical_tool_call_v1",
+            "tool_call_ids": [
+              "functions.image_generate:0"
+            ],
+            "tool_calls": [
+              {
+                "id": "functions.image_generate:0",
+                "name": "image_generate",
+                "origin": "provider_native",
+                "providerNative": true,
+                "provider_native": true
+              }
+            ],
+            "tool_origins": [
+              "provider_native"
+            ],
+            "tool_protocol": "canonical_tool_call_v1",
+            "tools": [
+              "image_generate"
+            ]
+          },
+          "eventSequence": 22,
+          "event_sequence": 22,
+          "from": "planner",
+          "reason": "tool_calls",
+          "to": "executor",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> executor (tool_calls)",
+          "topologyEdgeSource": "planner route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> executor (tool_calls)",
+          "topology_edge_source": "planner route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:54:33.784918+00:00",
+          "updated_at": "2026-07-06T04:54:33.784918+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 3,
+            "mode": "chat_turn",
+            "parallel": false,
+            "toolCount": 1
+          },
+          "eventSequence": 33,
+          "event_sequence": 33,
+          "from": "executor",
+          "reason": "tool_observations_recorded",
+          "to": "planner",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "executor -> planner (tool_observations_recorded)",
+          "topologyEdgeSource": "executor route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "executor -> planner (tool_observations_recorded)",
+          "topology_edge_source": "executor route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:54:45.512155700+00:00",
+          "updated_at": "2026-07-06T04:54:45.512155700+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 4,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 35,
+          "event_sequence": 35,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:54:53.667705300+00:00",
+          "updated_at": "2026-07-06T04:54:53.667705300+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 5,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 40,
+          "event_sequence": 40,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:55:09.826280800+00:00",
+          "updated_at": "2026-07-06T04:55:09.826280800+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 46,
+          "event_sequence": 46,
+          "from": "planner",
+          "reason": "final_answer_candidate",
+          "to": "completion_gate",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "planner -> completion_gate (final_answer_candidate)",
+          "topologyEdgeSource": "completion gate route",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "planner -> completion_gate (final_answer_candidate)",
+          "topology_edge_source": "completion gate route",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:55:25.752865100+00:00",
+          "updated_at": "2026-07-06T04:55:25.752865100+00:00"
+        },
+        {
+          "detail": {
+            "iteration": 6,
+            "mode": "chat_turn"
+          },
+          "eventSequence": 49,
+          "event_sequence": 49,
+          "from": "completion_gate",
+          "reason": "completion_gate_passed",
+          "to": "reviewer",
+          "topologyEdgeKnown": true,
+          "topologyEdgeLabel": "completion_gate -> reviewer (completion_gate_passed)",
+          "topologyEdgeSource": "completion gate",
+          "topologyReasonKnown": true,
+          "topology_edge_known": true,
+          "topology_edge_label": "completion_gate -> reviewer (completion_gate_passed)",
+          "topology_edge_source": "completion gate",
+          "topology_reason_known": true,
+          "updatedAt": "2026-07-06T04:55:27.524266400+00:00",
+          "updated_at": "2026-07-06T04:55:27.524266400+00:00"
+        }
+      ],
+      "updatedAt": "2026-07-06T04:55:30.262315400+00:00",
+      "updated_at": "2026-07-06T04:55:30.262315400+00:00"
+    },
+    "checkpoints": [],
+    "pendingSteers": []
+  }
+]

@@ -26,6 +26,7 @@ import {
   workflowNodeRoleLabel,
   workflowStatusDisplayLabel,
   toolCallProtocolContractValue,
+  workflowHumanGateValue,
   workflowTransitionSequenceValue,
   workflowTransitionUpdatedAtValue,
   workflowTransitionReasonLabel
@@ -602,7 +603,7 @@ function runStatusClass(state: string) {
 }
 
 function isActiveRunState(state: string) {
-  return ["started", "running", "pendingApproval"].includes(state);
+  return ["started", "running", "pendingApproval", "needsClarification"].includes(state);
 }
 
 function compactDetail(value: unknown, maxLength = 220) {
@@ -675,6 +676,29 @@ function workflowDetailCountField(detail: Record<string, unknown>, ...keys: stri
   return "";
 }
 
+function workflowHumanGateSummary(value: unknown) {
+  const gate = workflowHumanGateValue(value);
+  const detail = objectDetail(gate);
+  if (!detail) return "";
+  const kind = workflowDetailField(detail, "kind") || "human_gate";
+  const status = workflowDetailField(detail, "status");
+  const target = [
+    workflowDetailField(detail, "serverId", "server_id"),
+    workflowDetailField(detail, "toolName", "tool_name")
+  ].filter(Boolean).join(".");
+  const checkpoint = workflowDetailField(detail, "checkpointId", "checkpoint_id");
+  const approval = workflowDetailField(detail, "approvalId", "approval_id");
+  const question = workflowDetailField(detail, "question");
+  return [
+    kind,
+    status,
+    target,
+    approval ? `approval ${approval}` : "",
+    checkpoint ? `checkpoint ${checkpoint}` : "",
+    question
+  ].filter(Boolean).join(" · ");
+}
+
 function workflowDetailSummary(value: unknown, maxLength = 220) {
   const detail = objectDetail(value);
   if (!detail) return compactDetail(value, maxLength);
@@ -683,6 +707,7 @@ function workflowDetailSummary(value: unknown, maxLength = 220) {
   const callIds = compactStringList(detail.toolCallIds ?? detail.tool_call_ids);
   const toolCalls = workflowToolCallSummary(detail.toolCalls ?? detail.tool_calls);
   const protocol = workflowDetailField(detail, "toolProtocol", "tool_protocol");
+  const humanGate = workflowHumanGateSummary(detail);
   const scalarPart = (label: string, ...keys: string[]) => {
     const text = workflowDetailField(detail, ...keys);
     return text ? `${label}=${text}` : "";
@@ -708,6 +733,7 @@ function workflowDetailSummary(value: unknown, maxLength = 220) {
     scalarPart("requestSource", "requestSource", "request_source"),
     scalarPart("toolContext", "toolContext", "tool_context"),
     scalarPart("queueItemId", "queueItemId", "queue_item_id"),
+    humanGate ? `humanGate=${humanGate}` : "",
     scalarPart("approvalId", "approvalId", "approval_id"),
     scalarPart("status", "status"),
     scalarPart("serverId", "serverId", "server_id"),
@@ -910,7 +936,9 @@ function workflowGraphSummary(graph?: WorkflowGraph | null) {
   const sourceText = requestSource ? ` · source ${requestSource}` : "";
   const contextText = toolContext ? ` · context ${toolContext}` : "";
   const originsText = toolOrigins ? ` · origins ${toolOrigins}` : "";
-  return `current ${currentText}${statusText}${sequenceText}${sourceText}${contextText}${originsText}`;
+  const gateText = workflowHumanGateSummary(current?.detail);
+  const humanGateText = gateText ? ` · human ${gateText}` : "";
+  return `current ${currentText}${statusText}${sequenceText}${sourceText}${contextText}${humanGateText}${originsText}`;
 }
 
 function recentWorkflowTransitions(graph?: WorkflowGraph | null, limit = 4): WorkflowGraphTransition[] {
@@ -1185,7 +1213,7 @@ export function McpPanel() {
   }, [childAgentRuns, topLevelAgentRuns]);
   const resumableRuns = agentRuns
     .filter((run) => !run.parentRunId)
-    .filter((run) => !["completed", "running", "started", "aborted"].includes(run.state))
+    .filter((run) => !["completed", "running", "started", "aborted", "needsClarification"].includes(run.state))
     .filter((run) => !pendingApprovalRunIds.has(run.runId))
     .slice(0, 6);
   const rerunnableRuns = topLevelAgentRuns
@@ -1196,6 +1224,9 @@ export function McpPanel() {
     .slice(0, 6);
   const approvalBlockedRuns = topLevelAgentRuns
     .filter((run) => pendingApprovalRunIds.has(run.runId))
+    .slice(0, 4);
+  const clarificationBlockedRuns = topLevelAgentRuns
+    .filter((run) => run.state === "needsClarification")
     .slice(0, 4);
   const visibleQueue = agentQueue
     .filter((item) => ["pending", "running", "failed", "canceled"].includes(item.status))
@@ -2815,10 +2846,48 @@ export function McpPanel() {
             )}
           </div>
           <div className="card" style={{ margin: "0 16px 12px" }}>
-            <div className="card-header">待审批工具调用</div>
-            {pendingApprovals.length === 0 ? (
-              <p className="form-hint">暂无待审批调用</p>
-            ) : (
+            <div className="card-header">等待用户处理</div>
+            {pendingApprovals.length === 0 && clarificationBlockedRuns.length === 0 ? (
+              <p className="form-hint">暂无等待处理的人工门控</p>
+            ) : null}
+            {clarificationBlockedRuns.length > 0 ? (
+              <div className="adapter-list">
+                {clarificationBlockedRuns.map((run) => {
+                  const latestCheckpoint = run.checkpoints?.[run.checkpoints.length - 1];
+                  const workflowGraph = agentRunWorkflowGraph(run);
+                  const currentNode = workflowCurrentNode(workflowGraph);
+                  const humanGate = workflowHumanGateSummary(currentNode?.detail) || workflowHumanGateSummary(latestCheckpoint ? {
+                    humanGate: {
+                      kind: "clarification",
+                      status: "waiting",
+                      runId: run.runId,
+                      checkpointId: latestCheckpoint.checkpointId,
+                      question: latestCheckpoint.summary
+                    }
+                  } : null);
+                  return (
+                    <div className="adapter-row trace-row" key={`clarification-${run.runId}`}>
+                      <span className="status-badge warning">需要澄清</span>
+                      <div className="adapter-info">
+                        <strong>{run.agentId} · {run.runId}</strong>
+                        <small>{latestCheckpoint ? latestCheckpoint.summary : "等待用户补充任务信息"}</small>
+                        {humanGate ? <small>Human Gate：{humanGate}</small> : null}
+                        <code>{run.conversationId} · {new Date(run.updatedAt).toLocaleString()}</code>
+                      </div>
+                      <div className="inline-actions">
+                        <button className="btn-secondary" disabled={busy} onClick={() => void exportRunBundle(run.runId)} type="button">
+                          导出
+                        </button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => void diagnoseRun(run.runId)} type="button">
+                          诊断
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {pendingApprovals.length > 0 ? (
               <div className="adapter-list">
                 {pendingApprovals.map((approval) => (
                   <div className="adapter-row trace-row" key={approval.id} style={{ flexDirection: "column", alignItems: "stretch" }}>
@@ -2840,7 +2909,7 @@ export function McpPanel() {
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
             {recentApprovalHistory.length > 0 ? (
               <div className="adapter-list" style={{ marginTop: 12 }}>
                 {recentApprovalHistory.map((approval) => (
@@ -3046,7 +3115,7 @@ export function McpPanel() {
           <div className="card" style={{ margin: "0 16px 12px" }}>
             <div className="card-header">Agent Run 恢复</div>
             {resumableRuns.length === 0 ? (
-              <p className="form-hint">{approvalBlockedRuns.length > 0 ? "有运行正在等待工具审批，请先处理待审批调用" : "暂无可恢复运行"}</p>
+              <p className="form-hint">{approvalBlockedRuns.length > 0 || clarificationBlockedRuns.length > 0 ? "有运行正在等待用户处理，请先处理人工门控" : "暂无可恢复运行"}</p>
             ) : (
               <div className="adapter-list">
                 {resumableRuns.map((run) => {
