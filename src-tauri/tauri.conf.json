@@ -25,15 +25,21 @@
                                 }
                             ],
                 "security":  {
-                                 "csp":  null,
+                                 "csp":  "default-src 'self' asset: https: blob:; script-src 'self' 'unsafe-inline' asset: blob:; style-src 'self' 'unsafe-inline' asset:; img-src 'self' data: blob: asset: https:; font-src 'self' data: asset:; connect-src 'self' https: wss: asset:; media-src 'self' blob: asset: https:; frame-src 'none'; object-src 'none'; base-uri 'self'",
                                  "assetProtocol":  {
                                                        "enable":  true,
                                                        "scope":  {
                                                                      "allow":  [
-                                                                                   "**"
+                                                                                   "$APPDATA/**",
+                                                                                   "$APPCONFIG/**",
+                                                                                   "$RESOURCE/**",
+                                                                                   "$TEMP/**"
                                                                                ],
                                                                      "deny":  [
-
+                                                                                   "$HOME/.ssh/**",
+                                                                                   "$HOME/.gnupg/**",
+                                                                                   "$HOME/.aws/**",
+                                                                                   "$HOME/.config/gcloud/**"
                                                                               ]
                                                                 }
                                                    }

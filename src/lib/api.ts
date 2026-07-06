@@ -610,6 +610,9 @@ export async function installChatttsDeps(modelDir?: string): Promise<ActionResul
 const empty = async <T,>(): Promise<T[]> => [];
 const pass = async <T,>(value: T): Promise<T> => value;
 
+// TODO: Replace `Record<string, any>` with a proper typed interface.
+// Removing the annotation reveals ~20 pre-existing type errors in store.ts and
+// panels that were previously suppressed. Track as a dedicated type-hardening task.
 export const api: Record<string, any> = {
   getAppBuildInfo,
   checkAppUpdate,

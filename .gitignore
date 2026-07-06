@@ -30,3 +30,20 @@ videos/
 debug/
 target-codex-check/
 release-dist/
+
+# Runtime user data — must never be committed (contains DB, attachments, personal files)
+synthchat-data/
+src-tauri/synthchat-data/
+
+# Package manager lock-file consistency: this project uses npm (tauri.conf.json
+# references "npm run dev/build"). pnpm-lock.yaml should not be committed.
+pnpm-lock.yaml
+
+# Temporary / backup files left over from manual development snapshots
+PetWindow_1500_1738.txt
+PetWindow_backup.tsx
+src/App_part1.txt
+src-tauri/temp_word.docx
+
+# Windows path artifacts that can appear via symlink traversal
+%SystemDrive%/

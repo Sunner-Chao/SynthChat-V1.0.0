@@ -49,7 +49,10 @@ export function speechTextForMessage(content: string) {
   return sanitizeSpeechText(text);
 }
 
-export function sanitizeSpeechText(value: string, limit = 420) {
+/** Maximum character count for TTS speech text before clipping to a sentence boundary. */
+const SPEECH_TEXT_MAX_CHARS = 420;
+
+export function sanitizeSpeechText(value: string, limit = SPEECH_TEXT_MAX_CHARS) {
   const withoutUrls = value.replace(/https?:\/\/\S+/gi, " ");
   const withoutMarkdown = withoutUrls
     .replace(/!\[[^\]]*]\([^)]+\)/g, " ")
@@ -66,7 +69,6 @@ export function sanitizeSpeechText(value: string, limit = 420) {
     })
     .join("");
   const punctuationMap: Record<string, string> = {
-    "，": "，",
     "、": "，",
     "；": "；",
     "：": "："

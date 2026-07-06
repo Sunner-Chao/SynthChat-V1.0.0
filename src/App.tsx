@@ -37,7 +37,14 @@ import {
   X
 } from "lucide-react";
 import { useAppStore } from "./lib/store";
-
+import {
+  maskSecret,
+  formatTime,
+  providerPresetLabel,
+  providerPresetDefaults,
+  imageProviderTypeLabel,
+} from "./lib/formatters";
+import { parseToolEvent } from "./lib/toolEventUtils";
 
 import { api } from "./lib/api";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
@@ -50,6 +57,8 @@ import { McpExtensionPanel } from "./panels/McpExtensionPanel";
 import { SkillsCenterPanel } from "./panels/SkillsCenterPanel";
 import { AgentsManagerPanel } from "./panels/AgentsManagerPanel";
 import { MomentsPanel } from "./panels/MomentsPanel";
+import { ContactsPanel } from "./panels/ContactsPanel";
+import { DiscoverPanel } from "./panels/DiscoverPanel";
 import { PersonaPanel } from "./panels/PersonaPanel";
 import { ChatExperience } from "./panels/ChatExperience";
 import { EnvironmentCheck } from "./panels/EnvironmentCheck";
@@ -109,20 +118,7 @@ const primaryNavItems = navItems.filter((item) =>
   ["chat", "contacts", "discover", "settings"].includes(item.id)
 );
 
-function parseToolEvent(content: string): ToolEvent | null {
-  try {
-    const parsed = JSON.parse(content) as Partial<ToolEventEnvelope>;
-    if (parsed?.type === "toolEvent" && parsed.event) return parsed.event;
-  } catch {
-    return null;
-  }
-  return null;
-}
 
-function formatTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
 
 function isVisibleChatEventMessage(message: ChatMessage) {
   if (message.source === "desktop-agent-error") return false;
@@ -145,50 +141,10 @@ function isMemoryWriteToolEvent(event?: ToolEvent | null) {
   return ["remember_fact", "fact_store", "manage_memory", "memory"].includes(toolName);
 }
 
-function maskSecret(value?: string | null) {
-  const text = value?.trim() ?? "";
-  if (!text) return "未记录";
-  if (text.length <= 10) return `${text.slice(0, 2)}***`;
-  return `${text.slice(0, 6)}...${text.slice(-4)}`;
-}
-
-function providerPresetLabel(id: string) {
-  const labels: Record<string, string> = {
-    openai: "OpenAI (GPT)",
-    openaiResponses: "OpenAI Responses",
-    anthropic: "Anthropic (Claude)",
-    google: "Google (Gemini)",
-    deepseek: "DeepSeek",
-    siliconflow: "硅基流动",
-    custom: "自定义"
-  };
-  return labels[id] ?? id;
-}
-
-function providerPresetDefaults(id: string) {
-  const defaults: Record<string, { providerType: string; baseUrl: string; appendChatPath: boolean }> = {
-    openai: { providerType: "openai_compatible", baseUrl: "https://api.openai.com/v1", appendChatPath: true },
-    openaiResponses: { providerType: "openai_responses", baseUrl: "https://api.openai.com/v1", appendChatPath: true },
-    anthropic: { providerType: "anthropic", baseUrl: "https://api.anthropic.com/v1", appendChatPath: true },
-    google: { providerType: "gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta", appendChatPath: true },
-    deepseek: { providerType: "openai_compatible", baseUrl: "https://api.deepseek.com", appendChatPath: true },
-    siliconflow: { providerType: "openai_compatible", baseUrl: "https://api.siliconflow.cn/v1", appendChatPath: true },
-    custom: { providerType: "openai_compatible", baseUrl: "", appendChatPath: true }
-  };
-  return defaults[id] ?? defaults.custom;
-}
 
 const WECHAT_THINKING_MIN_VISIBLE_MS = 900;
 const WECHAT_REPLY_INSERT_DEFER_MS = 750;
 
-function imageProviderTypeLabel(id: string) {
-  const labels: Record<string, string> = {
-    openai_image: "OpenAI Image",
-    gemini_image: "Gemini Image",
-    novelai: "NovelAI"
-  };
-  return labels[id] ?? id;
-}
 
 export function App() {
   const [envCheckDone, setEnvCheckDone] = useState(false);
@@ -801,271 +757,3 @@ function ActivePanel({ section }: { section: AppSection }) {
   return null;
 }
 
-function ContactsPanel() {
-  const {
-    personas,
-    accounts,
-    config,
-    memories,
-    setSection,
-    saveConfig,
-    savePersona,
-    refreshMemories,
-    deleteMemory,
-    openPersonaConversation,
-    linkWechatAccount,
-    unlinkWechatAccount,
-    refreshAccounts
-  } = useAppStore();
-  const agents = useAppStore((state) => state.agents);
-  const llmProviders = useAppStore((state) => state.llmProviders);
-  const [query, setQuery] = useState("");
-  const [selectedPersonaId, setSelectedPersonaId] = useState(personas[0]?.id ?? "");
-  const [detailView, setDetailView] = useState<"profile" | "memory">("profile");
-  const [showWechatSheet, setShowWechatSheet] = useState(false);
-  const [pollStatus, setPollStatus] = useState("");
-  const personaBindings = useMemo(
-    () => new Map(personas.map((persona) => [persona.id, resolvePersonaAgentBinding(persona, agents, llmProviders)])),
-    [agents, llmProviders, personas]
-  );
-  const visiblePersonas = personas;
-  useEffect(() => {
-    if (visiblePersonas.some((persona) => persona.id === selectedPersonaId)) return;
-    setSelectedPersonaId(visiblePersonas[0]?.id ?? "");
-  }, [selectedPersonaId, visiblePersonas]);
-  const filtered = visiblePersonas.filter((persona) =>
-    (personaBindings.get(persona.id)?.searchText ?? `${persona.name} ${persona.id}`.toLowerCase()).includes(query.toLowerCase())
-  );
-  const selectedPersona = visiblePersonas.find((p) => p.id === selectedPersonaId) ?? visiblePersonas[0] ?? null;
-  const linkedAccount = selectedPersona ? accounts.find((account) => account.linkedPersona === selectedPersona.id) : null;
-  const selectedBinding = selectedPersona ? personaBindings.get(selectedPersona.id) : null;
-  const selectedMemories = selectedPersona ? memories.filter((memory) => memory.personaId === selectedPersona.id) : [];
-  const persistentMemories = selectedMemories.filter((memory) => (memory.target ?? "memory") !== "session");
-  const sessionMemories = selectedMemories.filter((memory) => (memory.target ?? "memory") === "session");
-  const saveChatConfig = async (patch: Partial<NonNullable<typeof config>["chat"]>) => {
-    if (!config) return;
-    await saveConfig({ ...config, chat: { ...config.chat, ...patch } });
-  };
-  const updatePersonaMemory = async (memory: NonNullable<Persona["memory"]>) => {
-    if (!selectedPersona) return;
-    await savePersona({ ...selectedPersona, memory });
-  };
-  const removeMemoryEntry = async (memoryId: string) => {
-    await deleteMemory(memoryId);
-    if (selectedPersona) await refreshMemories(selectedPersona.id);
-  };
-  useEffect(() => {
-    if (!selectedPersona) return;
-    void refreshMemories(selectedPersona.id);
-  }, [refreshMemories, selectedPersona?.id]);
-  useEffect(() => {
-    setDetailView("profile");
-  }, [selectedPersonaId]);
-  const syncLinkedWechat = async () => {
-    if (!linkedAccount) return;
-    setPollStatus("正在同步微信消息...");
-    try {
-      const result = await api.wechatPollOnce(linkedAccount.id);
-      await refreshAccounts();
-      const conversationId = result.processed.find((item) => item.conversationId)?.conversationId;
-      if (conversationId) {
-        const store = useAppStore.getState();
-        store.setSection("chat");
-        store.setConversationProcessing(conversationId, true);
-        void store.refreshChatData(conversationId, selectedPersona?.id ?? null).then(() => {
-          store.setConversationProcessing(conversationId, true);
-          window.setTimeout(() => {
-            useAppStore.getState().setConversationProcessing(conversationId, false);
-          }, WECHAT_THINKING_MIN_VISIBLE_MS);
-        });
-      }
-      setPollStatus(result.receivedCount
-        ? `收到 ${result.receivedCount} 条，已处理 ${result.processed.length} 条，跳过 ${result.skippedCount} 条`
-        : "没有新的微信消息");
-    } catch (error) {
-      setPollStatus(String(error));
-    }
-  };
-  return (
-    <section className="tab-split">
-      <aside className="side-panel tab-list-panel">
-        <div className="side-title">
-          <h3>通讯录</h3>
-          <div className="title-actions">
-            <button title="导入角色" type="button"><Upload size={16} /></button>
-            <button onClick={() => setSection("personas")} title="新建角色" type="button"><Plus size={16} /></button>
-          </div>
-        </div>
-        <div className="search-bar">
-          <Search size={17} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索" />
-        </div>
-        <div className="card-list">
-          {filtered.map((persona) => {
-            const binding = personaBindings.get(persona.id);
-            return (
-              <button
-                className={persona.id === selectedPersonaId ? "contact-row active" : "contact-row"}
-                key={persona.id}
-                onClick={() => setSelectedPersonaId(persona.id)}
-                type="button"
-              >
-                <Avatar name={persona.name} src={persona.avatarPath ? api.assetUrl(persona.avatarPath) : ""} />
-                <span>
-                  <strong>{persona.name}</strong>
-                  <small>{binding?.infoText ?? "未配置服务商"}</small>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-      <article className="primary-panel">
-        <div className="panel-title">
-          <span>Contacts</span>
-          <strong>{selectedPersona?.name ?? "角色详情"}</strong>
-        </div>
-        {selectedPersona ? (
-          detailView === "memory" ? (
-            <div className="contact-memory-detail">
-              <div className="panel-title action-title contact-memory-title">
-                <button className="icon-only-btn" onClick={() => setDetailView("profile")} title="返回资料" type="button">
-                  <ChevronRight size={19} style={{ transform: "rotate(180deg)" }} />
-                </button>
-                <div className="panel-title-text"><span>{selectedPersona.name}</span><strong>记忆管理</strong></div>
-              </div>
-              <PersonaMemoryManager
-                bindingModel={selectedBinding?.model ?? ""}
-                bindingProviderName={selectedBinding?.providerName ?? ""}
-                chatConfig={config?.chat ?? null}
-                onDeleteMemory={removeMemoryEntry}
-                onRefresh={() => void refreshMemories(selectedPersona.id)}
-                onSaveChatConfig={saveChatConfig}
-                onUpdateMemory={updatePersonaMemory}
-                onViewAll={() => setSection("memory")}
-                persistentMemories={persistentMemories}
-                personaMemory={selectedPersona.memory}
-                sessionMemories={sessionMemories}
-              />
-            </div>
-          ) : (
-            <div className="profile-detail">
-              <Avatar name={selectedPersona.name} src={selectedPersona.avatarPath ? api.assetUrl(selectedPersona.avatarPath) : ""} size="large" />
-              <h2>{selectedPersona.name}</h2>
-              <p className="persona-id-text">{selectedPersona.id}</p>
-              <div className="menu-card">
-                <MenuRow
-                  icon={MessageSquareText}
-                  label="发消息"
-                  value="进入会话"
-                  onClick={() => {
-                    void openPersonaConversation(selectedPersona.id).then(() => setSection("chat"));
-                  }}
-                />
-                <MenuRow
-                  icon={Smartphone}
-                  label="链接微信"
-                  value={linkedAccount ? (linkedAccount.note || "已链接") : "未链接"}
-                  onClick={() => setShowWechatSheet(true)}
-                  iconColor="green"
-                />
-                <MenuRow icon={Brain} label="记忆管理" value="长期与会话" onClick={() => setDetailView("memory")} />
-                <MenuRow icon={BookOpen} label="世界书" value="绑定与查看" onClick={() => setSection("worldbooks")} />
-                <MenuRow icon={Edit3} label="编辑角色" value="人设与模型" onClick={() => setSection("personas")} />
-              </div>
-            {pollStatus ? <p className="form-hint">{pollStatus}</p> : null}
-            {showWechatSheet ? (
-              <div className="sheet-backdrop" onClick={() => setShowWechatSheet(false)}>
-                <div className="action-sheet" onClick={(event) => event.stopPropagation()}>
-                  <div className="sheet-title">链接微信账号</div>
-                  {accounts.length === 0 ? (
-                    <p className="form-hint">暂无已登录微信账号，请先到设置 &gt; 微信账号扫码登录。</p>
-                  ) : (
-                    accounts.map((account) => {
-                      const occupied = account.linkedPersona && account.linkedPersona !== selectedPersona.id;
-                      const occupiedPersona = personas.find((persona) => persona.id === account.linkedPersona);
-                      const isDisabled = Boolean(occupied) || !account.online;
-                      return (
-                        <button
-                          className="sheet-item"
-                          disabled={isDisabled}
-                          key={account.id}
-                          onClick={() => {
-                            void linkWechatAccount(selectedPersona.id, account.id).then(() => setShowWechatSheet(false));
-                          }}
-                          type="button"
-                        >
-                          <span>{account.note || account.id}</span>
-                          <small className={occupied ? "status-text-muted" : account.online ? "status-text-online" : "status-text-muted"}>
-                            {occupied ? `已链接到 ${occupiedPersona?.name ?? account.linkedPersona}` : account.online ? "在线" : "离线"}
-                          </small>
-                        </button>
-                      );
-                    })
-                  )}
-                  <div style={{ display: "flex", gap: "12px", padding: "8px 0" }}>
-                    {linkedAccount ? (
-                      <button
-                        className="sheet-cancel btn-danger-text"
-                        onClick={() => {
-                          void unlinkWechatAccount(selectedPersona.id).then(() => setShowWechatSheet(false));
-                        }}
-                        type="button"
-                        style={{ flex: 1 }}
-                      >
-                        断开
-                      </button>
-                    ) : null}
-                    <button className="sheet-cancel" onClick={() => setShowWechatSheet(false)} type="button" style={{ flex: 1 }}>取消</button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-            </div>
-          )
-        ) : (
-          <div className="empty-state">
-            <Users size={36} />
-            <h2>还没有角色</h2>
-            <button onClick={() => setSection("personas")} type="button">新建角色</button>
-          </div>
-        )}
-      </article>
-    </section>
-  );
-}
-
-function DiscoverPanel() {
-  const { moments, worldbooks, setSection } = useAppStore();
-  const entries: Array<{ id: AppSection; title: string; meta: string; icon: typeof Newspaper }> = [
-    { id: "moments", title: "朋友圈", meta: `${moments.length} 条动态`, icon: Camera },
-    { id: "worldbooks", title: "世界书", meta: `${worldbooks.length} 本世界书`, icon: BookOpen }
-  ];
-  return (
-    <section className="primary-panel embedded-panel">
-      <div className="panel-title action-title">
-        <div className="panel-title-text"><span>Discover</span><strong>发现</strong></div>
-      </div>
-      <div className="menu-card" style={{ margin: "0 16px" }}>
-        {entries.map((entry) => {
-          const Icon = entry.icon;
-          return (
-            <MenuRow key={entry.id} icon={Icon} label={entry.title} value={entry.meta} onClick={() => setSection(entry.id)} />
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function PlaceholderPanel({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <section className="primary-panel">
-      <div className="empty-state">
-        <PlugZap size={36} />
-        <h2>{title}</h2>
-        <p>{subtitle}</p>
-      </div>
-    </section>
-  );
-}
