@@ -273,7 +273,7 @@ export function SettingsPanel() {
   return (
     <section className="simple-page">
       <button className="status-card clickable-card" onClick={() => setView("profile")} type="button">
-        <Avatar name={profile.name} src={profile.avatarPath ? api.assetUrl(profile.avatarPath) : ""} />
+        <Avatar name={profile.name} src={profile.avatarPath || ""} />
         <div className="info">
           <div className="app-name">{profile.name}</div>
           <div className="version">SynthChat {menuAppVersion}</div>

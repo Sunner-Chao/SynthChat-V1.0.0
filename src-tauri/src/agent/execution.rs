@@ -5423,12 +5423,13 @@ fn persist_managed_process_event(
         return;
     };
     if let Some(app) = app {
+        let event_message = crate::preview_message_for_ui(message.clone(), None);
         let _ = app.emit(
             "synthchat-chat-event",
             serde_json::json!({
                 "type": "tool_message",
                 "conversationId": conversation_id,
-                "message": message,
+                "message": event_message,
             }),
         );
     }

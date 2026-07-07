@@ -142,6 +142,14 @@ const CHATTTS_SAMPLER_PRESETS: Array<{ value: string; label: string; patch: Part
   { value: "creative", label: "变化感 · temperature 0.60", patch: { temperature: 0.6, topP: 0.9, topK: 40, refineTemperature: 0.9 } }
 ];
 
+function avatarErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message);
+  }
+  return String(error || "头像上传失败");
+}
+
 export function PersonaPanel() {
   const {
     personas,
@@ -163,6 +171,8 @@ export function PersonaPanel() {
   const [tab, setTab] = useState<"detail" | "persona" | "behavior" | "image" | "tools">("detail");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
   const [catalogModels, setCatalogModels] = useState<ModelCatalogEntry[]>([]);
   const [remoteVoiceReplyEnabled, setRemoteVoiceReplyEnabled] = useState<boolean | null>(null);
   const selectedIdRef = useRef(selectedId);
@@ -471,21 +481,43 @@ export function PersonaPanel() {
     const file = event.target.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
-    const draftSnapshot = currentDraftSnapshot();
-    let targetId = draftSnapshot.id;
-    if (draftSnapshot.id.startsWith("persona-")) {
-      const savedPersona = await savePersona(draftSnapshot);
-      setSelectedId(savedPersona.id);
-      draftRef.current = savedPersona;
-      setDraft(savedPersona);
-      targetId = savedPersona.id;
+    setAvatarUploading(true);
+    setAvatarError("");
+    try {
+      const draftSnapshot = currentDraftSnapshot();
+      let targetId = draftSnapshot.id;
+      if (draftSnapshot.id.startsWith("persona-")) {
+        const savedPersona = await savePersona(draftSnapshot);
+        setSelectedId(savedPersona.id);
+        draftRef.current = savedPersona;
+        setDraft(savedPersona);
+        targetId = savedPersona.id;
+      }
+      const saved = await uploadPersonaAvatar(targetId, file);
+      draftRef.current = saved;
+      setDraft(saved);
+    } catch (error) {
+      setAvatarError(avatarErrorMessage(error));
+    } finally {
+      setAvatarUploading(false);
     }
-    const saved = await uploadPersonaAvatar(targetId, file);
-    draftRef.current = saved;
-    setDraft(saved);
   };
 
-  const avatarSrc = draft.avatarPath ? api.assetUrl(draft.avatarPath) : "";
+  const removeAvatar = async () => {
+    setAvatarUploading(true);
+    setAvatarError("");
+    try {
+      const saved = await clearPersonaAvatar(draft.id);
+      draftRef.current = saved;
+      setDraft(saved);
+    } catch (error) {
+      setAvatarError(avatarErrorMessage(error));
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const avatarSrc = draft.avatarPath || "";
   const personaBindings = useMemo(
     () => new Map(personas.map((persona) => [persona.id, resolvePersonaAgentBinding(persona, agents, llmProviders)])),
     [agents, llmProviders, personas]
@@ -513,7 +545,7 @@ export function PersonaPanel() {
                 }}
                 type="button"
               >
-                <Avatar name={persona.name} src={persona.avatarPath ? api.assetUrl(persona.avatarPath) : ""} />
+                <Avatar name={persona.name} src={persona.avatarPath || ""} />
                 <span>
                   <strong>{persona.name}</strong>
                   <small>{binding?.infoText ?? "未配置服务商"}</small>
@@ -546,8 +578,10 @@ export function PersonaPanel() {
               placeholder="输入角色名称"
             />
             <p>{draft.id}</p>
+            {avatarUploading ? <p>头像处理中...</p> : null}
+            {avatarError ? <p className="error-text">{avatarError}</p> : null}
             {draft.avatarPath ? (
-              <button onClick={() => void clearPersonaAvatar(draft.id).then(setDraft)} type="button">移除头像</button>
+              <button disabled={avatarUploading} onClick={() => void removeAvatar()} type="button">移除头像</button>
             ) : null}
           </div>
         </div>

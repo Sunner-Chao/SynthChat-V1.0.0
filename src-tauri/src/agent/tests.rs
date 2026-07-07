@@ -38,9 +38,9 @@ use super::workflow_graph::{
     WORKFLOW_RUNTIME_KIND_SNAPSHOT, WORKFLOW_RUNTIME_KIND_TRANSITION,
     WORKFLOW_NODE_ORDER, WORKFLOW_RUNTIME_NODE_KIND_PREFIX, WORKFLOW_RUNTIME_SOURCE,
     WORKFLOW_REASON_APPROVAL_REQUIRED, WORKFLOW_REASON_APPROVAL_RESUMED,
-    WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT, WORKFLOW_REASON_DELEGATE_TASK_STARTED,
-    WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE, WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT,
-    WORKFLOW_REASON_GROUP_CONTEXT_READY,
+    WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT, WORKFLOW_REASON_COMPLETION_GATE_PASSED,
+    WORKFLOW_REASON_DELEGATE_TASK_STARTED, WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE,
+    WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT, WORKFLOW_REASON_GROUP_CONTEXT_READY,
     WORKFLOW_REASON_ORDER, WORKFLOW_REASON_QUEUED_TURN,
     WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED, WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED,
     WORKFLOW_REASON_TOOL_CALLS, WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED,
@@ -9310,6 +9310,56 @@ fn busy_input_queue_preserves_request_source_and_provider_data() {
 }
 
 #[test]
+fn busy_input_steer_preserves_request_provider_data() {
+    let dir = std::env::temp_dir().join(format!("synthchat-busy-steer-origin-{}", new_id("test")));
+    fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::new(dir.join("state.json")).unwrap();
+    let persona = store.persona(None).unwrap();
+    let conversation = store
+        .create_conversation(Some("Busy Steer Origin".into()), Some(persona.id.clone()))
+        .unwrap();
+    let mut config = store.config().unwrap();
+    config.chat.busy_input_mode = "steer".into();
+    store.set_config(config).unwrap();
+    let mut run = AgentRunRecord::new(
+        conversation.id.clone(),
+        persona.id.clone(),
+        conversation.agent_id.clone(),
+    );
+    run.run_id = "run_busy_steer_origin".into();
+    run.state = "running".into();
+    store.save_agent_run(run).unwrap();
+
+    let request = SendChatRequest {
+        conversation_id: Some(conversation.id.clone()),
+        persona_id: Some(persona.id.clone()),
+        agent_id: None,
+        content: "steer this turn".into(),
+        provider_data: Some(json!({
+            "source": "desktop",
+            "clientMessageId": "local-client-1"
+        })),
+        queue_item_id: None,
+    };
+    let messages = handle_busy_conversation_input_for_request(
+        &store,
+        &conversation,
+        &persona,
+        &request,
+        None,
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(messages.len(), 2);
+    assert_eq!(
+        messages[0].provider_data.as_ref().unwrap()["clientMessageId"],
+        "local-client-1"
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
 fn proactive_status_marks_busy_conversation_as_blocked() {
     let dir = std::env::temp_dir().join(format!(
         "synthchat-proactive-busy-{}",
@@ -9820,8 +9870,13 @@ async fn synthchat_tools_mcp_call_records_workflow_run_and_tool_event() {
     }));
     assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
         transition["from"] == "planner"
-            && transition["to"] == "reviewer"
+            && transition["to"] == "completion_gate"
             && transition["reason"] == WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+    }));
+    assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
+        transition["from"] == "completion_gate"
+            && transition["to"] == "reviewer"
+            && transition["reason"] == WORKFLOW_REASON_COMPLETION_GATE_PASSED
     }));
 
     let _ = fs::remove_dir_all(dir);
@@ -10784,10 +10839,15 @@ fn chat_turn_freezes_after_summary_abort_when_configured() {
     let mut config = store.config().unwrap();
     config.chat.short_context_abort_on_summary_failure = true;
     store.set_config(config).unwrap();
+    store.set_providers(vec![LlmProvider::default()]).unwrap();
     let persona = store.persona(None).unwrap();
     let conversation = store
         .create_conversation(Some("Compression Freeze".into()), Some(persona.id.clone()))
         .unwrap();
+    let mut agent = store.agent(Some(&conversation.agent_id)).unwrap();
+    agent.llm_provider = "local-echo".into();
+    agent.llm_model = "echo".into();
+    store.save_agent(agent).unwrap();
     let mut state = store.short_context(&conversation.id).unwrap();
     context_compression::record_summary_abort(&mut state, "summary model timeout", 4);
     store.save_short_context(state).unwrap();
@@ -62565,7 +62625,25 @@ fn workflow_planner_route_driver_returns_final_route_and_reviewer_snapshot() {
     let graph = saved.workflow_graph.as_ref().unwrap();
     assert_eq!(graph["currentNode"], "reviewer");
     assert_eq!(graph["transitions"][0]["from"], "planner");
-    assert_eq!(graph["transitions"][0]["to"], "reviewer");
+    assert_eq!(graph["transitions"][0]["to"], "completion_gate");
+    assert_eq!(
+        graph["transitions"][0]["reason"],
+        WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+    );
+    assert_eq!(graph["transitions"][1]["from"], "completion_gate");
+    assert_eq!(graph["transitions"][1]["to"], "reviewer");
+    assert_eq!(
+        graph["transitions"][1]["reason"],
+        WORKFLOW_REASON_COMPLETION_GATE_PASSED
+    );
+    let completion_gate = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == "completion_gate")
+        .unwrap();
+    assert_eq!(completion_gate["status"], "completed");
+    assert_eq!(completion_gate["detail"]["decision"], "accepted");
 
     let _ = fs::remove_dir_all(dir);
 }
@@ -62771,8 +62849,13 @@ fn workflow_success_graph_survives_completed_run_save() {
     assert_eq!(reviewer["status"], "completed");
     assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
         transition["from"] == "planner"
-            && transition["to"] == "reviewer"
+            && transition["to"] == "completion_gate"
             && transition["reason"] == WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE
+    }));
+    assert!(graph["transitions"].as_array().unwrap().iter().any(|transition| {
+        transition["from"] == "completion_gate"
+            && transition["to"] == "reviewer"
+            && transition["reason"] == WORKFLOW_REASON_COMPLETION_GATE_PASSED
     }));
 
     let _ = fs::remove_dir_all(dir);
@@ -63517,6 +63600,7 @@ fn workflow_planner_fallback_failure_overrides_stale_final_candidate() {
         .contains("empty_response_after_tools"));
     assert_eq!(reviewer["status"], "skipped");
     assert_eq!(reviewer["detail"]["reason"], "no_final_answer");
+    assert_eq!(reviewer["detail"]["preserveCurrent"], true);
 
     let _ = fs::remove_dir_all(dir);
 }

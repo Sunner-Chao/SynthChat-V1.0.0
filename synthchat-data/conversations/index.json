@@ -14,7 +14,7 @@
       "personaId": "default",
       "title": "Subagent 1 · coder",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -29,7 +29,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -44,7 +44,7 @@
       "personaId": "default",
       "title": "Subagent 2 · planner",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -59,7 +59,7 @@
       "personaId": "default",
       "title": "Subagent 3 · coder",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -74,7 +74,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -89,7 +89,7 @@
       "personaId": "default",
       "title": "Subagent 1 · subagent",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -104,7 +104,7 @@
       "personaId": "default",
       "title": "Subagent 1 · subagent",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-06T07:40:40.089150800+00:00"
+      "updatedAt": "2026-07-07T09:10:11.796776800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -119,24 +119,24 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-04T10:11:57.924650200+00:00"
+      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
-      "agentRunCount": 5,
+      "agentRunCount": 4,
       "agentTodoCount": 0,
-      "createdAt": "2026-07-06T04:57:16.301639600+00:00",
-      "folder": "conv-c43b92a48cab432f95d7bb652b1f7a3c-c81cc9af8b250309",
+      "createdAt": "2026-07-07T06:42:43.976737500+00:00",
+      "folder": "conv-03544475aa754aa58cfc924d4d7f1f1b-9d6d99de4155eec6",
       "hasShortContext": true,
-      "id": "conv-c43b92a48cab432f95d7bb652b1f7a3c",
-      "lastMessage": "说对了一半～我**能处理文字，也能看图**，但不是啥图都能立刻识别。你刚才发的那张图片，我这边的工具报了个读取错误，可能是路径或者格式的问题。\n\n不过没关系，你可以**直接描述图片内容**，我只要理解就行；或者**把图片内容简单说下**，我",
-      "messageCount": 12,
+      "id": "conv-03544475aa754aa58cfc924d4d7f1f1b",
+      "lastMessage": "小孙，热点新闻汇总整理好啦～\n\n📋 今日热点 TOP 5：\n1. 🔥 LV不能挪用中式纹样反向起诉中企\n2. 🌀 台风\n3. 🏞️ 万千气象看陇原\n4. 💼 七八九月千万不要离职\n5. 🤖 Claude被封 天才程序员陨落\n\n总共整理了30",
+      "messageCount": 19,
       "personaId": "default",
-      "title": "生成一张风景图片",
+      "title": "现在就发",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-06T06:39:06.963290400+00:00"
+      "updatedAt": "2026-07-07T09:45:20.055582500+00:00"
     }
   ],
-  "generatedAt": "2026-07-06T09:55:55.033787500+00:00",
+  "generatedAt": "2026-07-07T09:45:57.862149900+00:00",
   "schema": "synthchat_portable_projection_v1"
 }

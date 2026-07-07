@@ -2,7 +2,6 @@ use std::{
     fs,
     io::Cursor,
     path::{Path, PathBuf},
-    sync::mpsc,
     thread,
     time::Duration,
 };
@@ -3505,7 +3504,7 @@ async fn run_wechat_chat_turn(
 ) -> AppResult<Vec<ChatMessage>> {
     let store = store.clone();
     let app = app.clone();
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = tokio::sync::oneshot::channel();
     thread::Builder::new()
         .name("synthchat-wechat-chat-turn".to_string())
         .stack_size(wechat_chat_thread_stack_size())
@@ -3524,7 +3523,7 @@ async fn run_wechat_chat_turn(
         .map_err(|error| {
             AppError::BadRequest(format!("failed to spawn wechat chat thread: {error}"))
         })?;
-    rx.recv()
+    rx.await
         .map_err(|error| AppError::BadRequest(format!("wechat chat thread failed: {error}")))?
 }
 
@@ -4546,6 +4545,7 @@ fn emit_wechat_assistant_message(
     persona_id: &str,
     message: &ChatMessage,
 ) {
+    let event_message = crate::preview_message_for_ui(message.clone(), None);
     let _ = app.emit(
         "synthchat-chat-event",
         json!({
@@ -4553,10 +4553,11 @@ fn emit_wechat_assistant_message(
             "source": "wechat",
             "personaId": persona_id,
             "conversationId": conversation_id,
-            "message": message,
+            "message": event_message,
             "isLast": true,
         }),
     );
+    let pet_message = crate::preview_message_for_ui(message.clone(), None);
     emit_wechat_pet_event(
         app,
         json!({
@@ -4564,7 +4565,7 @@ fn emit_wechat_assistant_message(
             "source": "wechat",
             "personaId": persona_id,
             "conversationId": conversation_id,
-            "message": message,
+            "message": pet_message,
         }),
     );
 }
@@ -4575,6 +4576,7 @@ fn emit_wechat_user_message(
     persona_id: &str,
     message: &ChatMessage,
 ) {
+    let event_message = crate::preview_message_for_ui(message.clone(), None);
     let _ = app.emit(
         "synthchat-chat-event",
         json!({
@@ -4582,7 +4584,7 @@ fn emit_wechat_user_message(
             "source": "wechat",
             "personaId": persona_id,
             "conversationId": conversation_id,
-            "message": message,
+            "message": event_message,
             "isLast": false,
         }),
     );

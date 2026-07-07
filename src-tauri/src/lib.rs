@@ -36,7 +36,7 @@ use models::{
 };
 use process_utils::CommandWindowExt;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use store::AppStore;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -51,6 +51,7 @@ use tokio::io::AsyncWriteExt;
 const REMOTE_SKILL_FETCH_TIMEOUT_SECS: u64 = 20;
 const MAX_CHAT_ATTACHMENT_BYTES: usize = 50 * 1024 * 1024;
 const MAX_AVATAR_BYTES: usize = 10 * 1024 * 1024;
+const MAX_LOCAL_ASSET_DATA_URL_BYTES: u64 = 50 * 1024 * 1024;
 const DEFAULT_SYNTHCHAT_TOKIO_WORKER_STACK_SIZE: usize = 64 * 1024 * 1024;
 const MIN_SYNTHCHAT_TOKIO_WORKER_STACK_SIZE: usize = 16 * 1024 * 1024;
 const MAX_SYNTHCHAT_TOKIO_WORKER_STACK_SIZE: usize = 256 * 1024 * 1024;
@@ -78,6 +79,14 @@ const APP_UPDATE_USER_AGENT: &str = "SynthChat-Update-Checker";
 const DEFAULT_APP_UPDATE_MANIFEST_URL: Option<&str> = option_env!("SYNTHCHAT_UPDATE_MANIFEST_URL");
 const SYNTHCHAT_DATA_DIR_ENV: &str = "SYNTHCHAT_DATA_DIR";
 const SYNTHCHAT_DATA_DIR_NAME: &str = "synthchat-data";
+const DEFAULT_UI_MESSAGE_PREVIEW_CHARS: usize = 12_000;
+const MIN_UI_MESSAGE_PREVIEW_CHARS: usize = 2_000;
+const MAX_UI_MESSAGE_PREVIEW_CHARS: usize = 100_000;
+const MAX_TOOL_EVENT_UI_PREVIEW_CHARS: usize = 6_000;
+const MAX_TOOL_EVENT_RAW_UI_PREVIEW_CHARS: usize = 2_000;
+const MAX_TOOL_EVENT_UI_JSON_DEPTH: usize = 8;
+const MAX_TOOL_EVENT_UI_ARRAY_ITEMS: usize = 40;
+const MAX_THINKING_CARD_UI_SUMMARY_CHARS: usize = 6_000;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1475,7 +1484,19 @@ fn pet_vision_active(app: Option<&AppHandle>) -> bool {
 
 #[tauri::command(rename_all = "camelCase")]
 fn get_profile(store: State<'_, AppStore>) -> AppResult<ProfileConfig> {
-    store.profile()
+    let mut profile = store.profile()?;
+    if profile
+        .avatar_path
+        .as_deref()
+        .map(local_avatar_path_is_invalid)
+        .unwrap_or(false)
+    {
+        if let Some(path) = profile.avatar_path.take() {
+            remove_file_if_local(&path);
+        }
+        return store.set_profile(profile);
+    }
+    Ok(profile)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1531,20 +1552,34 @@ async fn pick_path(
 fn upload_profile_avatar(
     store: State<'_, AppStore>,
     file_name: String,
-    bytes: Vec<u8>,
+    bytes: Option<Vec<u8>>,
+    data: Option<String>,
 ) -> AppResult<ProfileConfig> {
+    let _ = file_name;
+    let bytes = avatar_upload_bytes(bytes, data)?;
     validate_avatar_bytes(&bytes)?;
-    let ext = image_ext_from_bytes(&bytes).unwrap_or(normalized_image_ext(&file_name)?);
+    let ext = avatar_image_ext_from_bytes(&bytes)?;
     let mut profile = store.profile()?;
-    if let Some(path) = &profile.avatar_path {
-        remove_file_if_local(path);
-    }
+    let old_avatar_path = profile.avatar_path.clone();
     let dir = store.data_dir().join("profile");
-    fs::create_dir_all(&dir)?;
     let path = dir.join(format!("avatar-{}.{}", new_id("profile"), ext));
-    fs::write(&path, bytes)?;
-    profile.avatar_path = Some(path.to_string_lossy().to_string());
-    store.set_profile(profile)
+    write_verified_image_file(&path, &bytes)?;
+    let path_string = path.to_string_lossy().to_string();
+    profile.avatar_path = Some(path_string.clone());
+    match store.set_profile(profile) {
+        Ok(saved) => {
+            if let Some(old_path) = old_avatar_path.as_deref() {
+                if Some(old_path) != saved.avatar_path.as_deref() {
+                    remove_file_if_local(old_path);
+                }
+            }
+            Ok(saved)
+        }
+        Err(error) => {
+            remove_file_if_local(&path_string);
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1679,20 +1714,34 @@ fn upload_persona_avatar(
     store: State<'_, AppStore>,
     persona_id: String,
     file_name: String,
-    bytes: Vec<u8>,
+    bytes: Option<Vec<u8>>,
+    data: Option<String>,
 ) -> AppResult<Persona> {
+    let _ = file_name;
+    let bytes = avatar_upload_bytes(bytes, data)?;
     validate_avatar_bytes(&bytes)?;
-    let ext = image_ext_from_bytes(&bytes).unwrap_or(normalized_image_ext(&file_name)?);
+    let ext = avatar_image_ext_from_bytes(&bytes)?;
     let mut persona = store.persona(Some(&persona_id))?;
-    if let Some(path) = &persona.avatar_path {
-        remove_file_if_local(path);
-    }
+    let old_avatar_path = persona.avatar_path.clone();
     let dir = store.data_dir().join("personas").join(&persona_id);
-    fs::create_dir_all(&dir)?;
     let path = dir.join(format!("avatar-{}.{}", new_id("persona"), ext));
-    fs::write(&path, bytes)?;
-    persona.avatar_path = Some(path.to_string_lossy().to_string());
-    store.save_persona(persona)
+    write_verified_image_file(&path, &bytes)?;
+    let path_string = path.to_string_lossy().to_string();
+    persona.avatar_path = Some(path_string.clone());
+    match store.save_persona(persona) {
+        Ok(saved) => {
+            if let Some(old_path) = old_avatar_path.as_deref() {
+                if Some(old_path) != saved.avatar_path.as_deref() {
+                    remove_file_if_local(old_path);
+                }
+            }
+            Ok(saved)
+        }
+        Err(error) => {
+            remove_file_if_local(&path_string);
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2098,15 +2147,299 @@ fn set_conversation_agent(
     store.set_conversation_agent(&id, agent_id)
 }
 
+fn ui_message_preview_char_limit(preview_chars: Option<usize>) -> usize {
+    let configured = preview_chars.unwrap_or(DEFAULT_UI_MESSAGE_PREVIEW_CHARS);
+    std::cmp::min(
+        MAX_UI_MESSAGE_PREVIEW_CHARS,
+        std::cmp::max(MIN_UI_MESSAGE_PREVIEW_CHARS, configured),
+    )
+}
+
+fn tool_event_ui_preview_char_limit(preview_chars: Option<usize>) -> usize {
+    std::cmp::min(
+        MAX_TOOL_EVENT_UI_PREVIEW_CHARS,
+        ui_message_preview_char_limit(preview_chars),
+    )
+}
+
+fn truncate_chars_for_ui(text: &str, max_chars: usize) -> Option<String> {
+    let mut boundary = None;
+    for (count, (index, _)) in text.char_indices().enumerate() {
+        if count >= max_chars {
+            boundary = Some(index);
+            break;
+        }
+    }
+    let boundary = boundary?;
+    let preview = &text[..boundary];
+    Some(format!(
+        "{preview}\n\n[内容过长，界面仅预览前 {max_chars} 个字符；完整内容仍保存在本地数据文件或工具产物中。]"
+    ))
+}
+
+fn truncate_object_string_for_ui(
+    object: &mut Map<String, Value>,
+    key: &str,
+    max_chars: usize,
+) -> bool {
+    match object.get_mut(key) {
+        Some(Value::String(text)) => {
+            if let Some(preview) = truncate_chars_for_ui(text, max_chars) {
+                *text = preview;
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
+fn truncate_json_strings_for_ui(value: &mut Value, max_chars: usize, depth: usize) -> bool {
+    if depth > MAX_TOOL_EVENT_UI_JSON_DEPTH {
+        return false;
+    }
+    match value {
+        Value::String(text) => {
+            if let Some(preview) = truncate_chars_for_ui(text, max_chars) {
+                *text = preview;
+                true
+            } else {
+                false
+            }
+        }
+        Value::Array(items) => {
+            let mut changed = false;
+            if items.len() > MAX_TOOL_EVENT_UI_ARRAY_ITEMS {
+                let omitted = items.len() - MAX_TOOL_EVENT_UI_ARRAY_ITEMS;
+                items.truncate(MAX_TOOL_EVENT_UI_ARRAY_ITEMS);
+                items.push(json!(format!(
+                    "[UI preview truncated: omitted {omitted} array item(s)]"
+                )));
+                changed = true;
+            }
+            for item in items {
+                changed |= truncate_json_strings_for_ui(item, max_chars, depth + 1);
+            }
+            changed
+        }
+        Value::Object(object) => {
+            if depth == MAX_TOOL_EVENT_UI_JSON_DEPTH {
+                if object.is_empty() {
+                    return false;
+                }
+                let omitted = object.len();
+                object.clear();
+                object.insert(
+                    "uiPreviewTruncated".into(),
+                    json!(format!("depth limit reached; omitted {omitted} field(s)")),
+                );
+                return true;
+            }
+            let mut changed = false;
+            for item in object.values_mut() {
+                changed |= truncate_json_strings_for_ui(item, max_chars, depth + 1);
+            }
+            changed
+        }
+        _ => false,
+    }
+}
+
+fn omit_tool_event_raw_for_ui(value: &mut Value) -> bool {
+    if value.get("type").and_then(Value::as_str) != Some("toolEvent") {
+        return false;
+    }
+    let Some(event) = value.get_mut("event").and_then(Value::as_object_mut) else {
+        return false;
+    };
+    if !event.contains_key("raw") {
+        return false;
+    }
+    event.insert(
+        "raw".into(),
+        json!({
+            "uiPreviewTruncated": true,
+            "reason": "raw payload omitted from chat UI preview"
+        }),
+    );
+    true
+}
+
+fn truncate_json_message_content_for_ui(
+    content: &str,
+    preview_chars: Option<usize>,
+) -> Option<String> {
+    let mut parsed = serde_json::from_str::<Value>(content).ok()?;
+    let is_tool_event = parsed.get("type").and_then(Value::as_str) == Some("toolEvent");
+    let tool_limit = tool_event_ui_preview_char_limit(preview_chars);
+    let raw_limit = std::cmp::min(MAX_TOOL_EVENT_RAW_UI_PREVIEW_CHARS, tool_limit);
+    let mut changed = if is_tool_event {
+        let mut changed = false;
+        if let Some(object) = parsed.as_object_mut() {
+            changed |= truncate_object_string_for_ui(object, "modelSummary", tool_limit);
+            if let Some(event) = object.get_mut("event").and_then(Value::as_object_mut) {
+                changed |= truncate_object_string_for_ui(event, "summary", tool_limit);
+                changed |= truncate_object_string_for_ui(event, "text", tool_limit);
+                changed |= truncate_object_string_for_ui(event, "error", tool_limit);
+                if let Some(raw) = event.get_mut("raw") {
+                    changed |= truncate_json_strings_for_ui(raw, raw_limit, 0);
+                }
+            }
+        }
+        changed
+    } else {
+        truncate_json_strings_for_ui(&mut parsed, raw_limit, 0)
+    };
+    let hard_json_limit = tool_limit.saturating_mul(3);
+    if content.chars().count() > hard_json_limit {
+        changed |= omit_tool_event_raw_for_ui(&mut parsed);
+    }
+    if !changed {
+        return None;
+    }
+    let mut rendered = serde_json::to_string(&parsed).ok()?;
+    if is_tool_event && rendered.chars().count() > hard_json_limit {
+        if omit_tool_event_raw_for_ui(&mut parsed) {
+            rendered = serde_json::to_string(&parsed).ok()?;
+        }
+    }
+    Some(rendered)
+}
+
+fn mark_message_ui_preview(
+    message: &mut models::ChatMessage,
+    original_chars: usize,
+    preview_chars: usize,
+) {
+    let meta = json!({
+        "truncated": true,
+        "originalChars": original_chars,
+        "previewChars": preview_chars,
+    });
+    match message.provider_data.take() {
+        Some(Value::Object(mut object)) => {
+            object.insert("uiPreview".into(), meta);
+            message.provider_data = Some(Value::Object(object));
+        }
+        Some(other) => {
+            message.provider_data = Some(json!({
+                "uiPreview": meta,
+                "originalProviderData": other,
+            }));
+        }
+        None => {
+            message.provider_data = Some(json!({ "uiPreview": meta }));
+        }
+    }
+}
+
+fn truncate_thinking_card_array_for_ui(value: Option<&mut Value>, max_chars: usize) -> bool {
+    let Some(cards) = value.and_then(Value::as_array_mut) else {
+        return false;
+    };
+    let mut changed = false;
+    for card in cards {
+        let Some(card) = card.as_object_mut() else {
+            continue;
+        };
+        if truncate_object_string_for_ui(card, "summary", max_chars) {
+            card.insert("uiPreviewTruncated".into(), json!(true));
+            changed = true;
+        }
+    }
+    changed
+}
+
+fn truncate_provider_data_for_ui(
+    provider_data: &mut Option<Value>,
+    preview_chars: Option<usize>,
+) -> bool {
+    let Some(root) = provider_data.as_mut() else {
+        return false;
+    };
+    let max_chars = std::cmp::min(
+        MAX_THINKING_CARD_UI_SUMMARY_CHARS,
+        ui_message_preview_char_limit(preview_chars),
+    );
+    let mut changed = truncate_thinking_card_array_for_ui(root.get_mut("thinkingCards"), max_chars);
+    if let Some(responses) = root.get_mut("responses").and_then(Value::as_object_mut) {
+        changed |= truncate_thinking_card_array_for_ui(responses.get_mut("thinkingCards"), max_chars);
+    }
+    if let Some(anthropic) = root.get_mut("anthropic").and_then(Value::as_object_mut) {
+        changed |= truncate_thinking_card_array_for_ui(anthropic.get_mut("thinkingCards"), max_chars);
+    }
+    changed
+}
+
+pub(crate) fn preview_message_for_ui(
+    mut message: models::ChatMessage,
+    preview_chars: Option<usize>,
+) -> models::ChatMessage {
+    let original_chars = message.content.chars().count();
+    let preview = if message.role == "tool" {
+        truncate_json_message_content_for_ui(&message.content, preview_chars)
+            .or_else(|| {
+                truncate_chars_for_ui(
+                    &message.content,
+                    tool_event_ui_preview_char_limit(preview_chars),
+                )
+            })
+    } else {
+        truncate_chars_for_ui(
+            &message.content,
+            ui_message_preview_char_limit(preview_chars),
+        )
+    };
+    let provider_data_changed = truncate_provider_data_for_ui(&mut message.provider_data, preview_chars);
+    if let Some(content) = preview {
+        let preview_chars = content.chars().count();
+        message.content = content;
+        mark_message_ui_preview(&mut message, original_chars, preview_chars);
+    } else if provider_data_changed {
+        let preview_chars = message.content.chars().count();
+        mark_message_ui_preview(&mut message, original_chars, preview_chars);
+    }
+    message
+}
+
+fn preview_messages_for_ui(
+    messages: Vec<models::ChatMessage>,
+    preview_chars: Option<usize>,
+) -> Vec<models::ChatMessage> {
+    messages
+        .into_iter()
+        .map(|message| preview_message_for_ui(message, preview_chars))
+        .collect()
+}
+
 #[tauri::command(rename_all = "camelCase")]
 fn list_messages(
     store: State<'_, AppStore>,
     conversation_id: String,
     limit: Option<usize>,
-    _preview_chars: Option<usize>,
+    preview_chars: Option<usize>,
 ) -> AppResult<Vec<models::ChatMessage>> {
     store.reload_from_disk()?;
-    store.messages(&conversation_id, limit)
+    Ok(preview_messages_for_ui(
+        store.messages(&conversation_id, limit)?,
+        preview_chars,
+    ))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_message_content(
+    store: State<'_, AppStore>,
+    conversation_id: String,
+    message_id: String,
+) -> AppResult<String> {
+    store.reload_from_disk()?;
+    store
+        .messages(&conversation_id, None)?
+        .into_iter()
+        .find(|message| message.id == message_id)
+        .map(|message| message.content)
+        .ok_or_else(|| AppError::NotFound(format!("message {message_id}")))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2114,6 +2447,7 @@ async fn send_chat_message(
     app: AppHandle,
     store: State<'_, AppStore>,
     request: SendChatRequest,
+    preview_chars: Option<usize>,
 ) -> AppResult<Vec<models::ChatMessage>> {
     let mut messages = agent::run_chat_turn(&store, request, Some(&app)).await?;
     let assistant_index = messages
@@ -2144,7 +2478,7 @@ async fn send_chat_message(
             );
         }
     }
-    Ok(messages)
+    Ok(preview_messages_for_ui(messages, preview_chars))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -4884,6 +5218,62 @@ fn validate_avatar_bytes(bytes: &[u8]) -> AppResult<()> {
     Ok(())
 }
 
+fn avatar_upload_bytes(bytes: Option<Vec<u8>>, data: Option<String>) -> AppResult<Vec<u8>> {
+    if let Some(data) = data {
+        let trimmed = data.trim();
+        let payload = trimmed
+            .split_once(',')
+            .filter(|(prefix, _)| prefix.to_ascii_lowercase().starts_with("data:image/"))
+            .map(|(_, payload)| payload)
+            .unwrap_or(trimmed);
+        use base64::Engine as _;
+        return base64::engine::general_purpose::STANDARD
+            .decode(payload)
+            .map_err(|error| AppError::BadRequest(format!("avatar image data is not valid base64: {error}")));
+    }
+    bytes.ok_or_else(|| AppError::BadRequest("avatar image data is missing".into()))
+}
+
+fn avatar_image_ext_from_bytes(bytes: &[u8]) -> AppResult<&'static str> {
+    image_ext_from_bytes(bytes).ok_or_else(|| {
+        AppError::BadRequest(
+            "avatar image is not a valid png, jpg, jpeg, webp, gif, or bmp file".into(),
+        )
+    })
+}
+
+fn write_verified_image_file(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    let Some(parent) = path.parent() else {
+        return Err(AppError::BadRequest("avatar image path has no parent directory".into()));
+    };
+    fs::create_dir_all(parent)?;
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("avatar");
+    let tmp_path = parent.join(format!(".{file_name}.{}.tmp", new_id("avatar-write")));
+    fs::write(&tmp_path, bytes)?;
+    let metadata = fs::metadata(&tmp_path)?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() != bytes.len() as u64 {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(AppError::BadRequest(
+            "avatar image write verification failed".into(),
+        ));
+    }
+    let written = fs::read(&tmp_path)?;
+    if image_ext_from_bytes(&written).is_none() {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(AppError::BadRequest(
+            "avatar image write verification failed".into(),
+        ));
+    }
+    if let Err(error) = fs::rename(&tmp_path, path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(error.into());
+    }
+    Ok(())
+}
+
 fn normalized_image_ext(file_name: &str) -> AppResult<&'static str> {
     let ext = PathBuf::from(file_name)
         .extension()
@@ -4918,6 +5308,206 @@ fn image_ext_from_bytes(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
+#[tauri::command(rename_all = "camelCase")]
+fn local_asset_data_url(
+    app: AppHandle,
+    store: State<'_, AppStore>,
+    path: String,
+) -> AppResult<String> {
+    let trimmed = path.trim().trim_matches(['"', '\'', '`']).trim();
+    if trimmed.is_empty() {
+        return Err(AppError::BadRequest("local asset path is empty".into()));
+    }
+    if trimmed.starts_with("data:") {
+        return Ok(trimmed.to_string());
+    }
+    if trimmed.starts_with("http://")
+        || trimmed.starts_with("https://")
+        || trimmed.starts_with("blob:")
+    {
+        return Err(AppError::BadRequest(
+            "remote URLs are not local assets".into(),
+        ));
+    }
+    let asset_path = asset_url_to_path(trimmed).unwrap_or_else(|| trimmed.to_string());
+    let path = resolve_local_asset_path(&app, &store, &asset_path)?;
+    let metadata = fs::metadata(&path)?;
+    if !metadata.is_file() {
+        return Err(AppError::BadRequest(format!(
+            "local asset is not a file: {}",
+            path.to_string_lossy()
+        )));
+    }
+    if metadata.len() == 0 {
+        return Err(AppError::BadRequest(format!(
+            "local asset is empty: {}",
+            path.to_string_lossy()
+        )));
+    }
+    if metadata.len() > MAX_LOCAL_ASSET_DATA_URL_BYTES {
+        return Err(AppError::BadRequest(format!(
+            "local asset is too large to inline: {} bytes",
+            metadata.len()
+        )));
+    }
+    let mime = local_image_mime_from_path(&path)?;
+    let bytes = fs::read(&path)?;
+    use base64::Engine as _;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(format!("data:{mime};base64,{encoded}"))
+}
+
+fn local_image_mime_from_path(path: &Path) -> AppResult<&'static str> {
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => Ok("image/png"),
+        "jpg" | "jpeg" => Ok("image/jpeg"),
+        "gif" => Ok("image/gif"),
+        "webp" => Ok("image/webp"),
+        "bmp" => Ok("image/bmp"),
+        "svg" => Ok("image/svg+xml"),
+        other => Err(AppError::BadRequest(format!(
+            "local asset is not a supported image type: {other}"
+        ))),
+    }
+}
+
+fn resolve_local_asset_path(
+    app: &AppHandle,
+    store: &AppStore,
+    raw_path: &str,
+) -> AppResult<PathBuf> {
+    let data_dir = store.data_dir();
+    let mut candidates = Vec::new();
+    let normalized_raw = raw_path.replace('/', std::path::MAIN_SEPARATOR_STR);
+    if let Some(file_path) = file_url_to_path(raw_path) {
+        candidates.push(file_path);
+    }
+    let direct = PathBuf::from(&normalized_raw);
+    if direct.is_absolute() {
+        candidates.push(direct);
+    } else {
+        let portable_name = data_dir
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or(SYNTHCHAT_DATA_DIR_NAME);
+        let raw_without_portable_root = direct
+            .strip_prefix(portable_name)
+            .ok()
+            .map(Path::to_path_buf)
+            .or_else(|| {
+                direct
+                    .strip_prefix(SYNTHCHAT_DATA_DIR_NAME)
+                    .ok()
+                    .map(Path::to_path_buf)
+            });
+        if let Some(relative) = raw_without_portable_root {
+            candidates.push(data_dir.join(relative));
+        }
+        candidates.push(data_dir.join(&direct));
+        if let Some(parent) = data_dir.parent() {
+            candidates.push(parent.join(&direct));
+        }
+    }
+    let Some(path) = candidates.into_iter().find(|candidate| candidate.is_file()) else {
+        return Err(AppError::BadRequest(format!(
+            "local asset does not exist: {raw_path}"
+        )));
+    };
+    let canonical = path.canonicalize()?;
+    let allowed_roots = local_asset_allowed_roots(app, store);
+    if allowed_roots
+        .iter()
+        .filter_map(|root| root.canonicalize().ok())
+        .any(|root| canonical.starts_with(root))
+    {
+        Ok(canonical)
+    } else {
+        Err(AppError::BadRequest(format!(
+            "local asset is outside allowed app data directories: {}",
+            canonical.to_string_lossy()
+        )))
+    }
+}
+
+fn local_asset_allowed_roots(app: &AppHandle, store: &AppStore) -> Vec<PathBuf> {
+    let mut roots = vec![store.data_dir(), std::env::temp_dir()];
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        roots.push(resource_dir);
+    }
+    if let Ok(app_data_dir) = app.path().app_data_dir() {
+        roots.push(app_data_dir);
+    }
+    if let Ok(app_config_dir) = app.path().app_config_dir() {
+        roots.push(app_config_dir);
+    }
+    roots
+}
+
+fn file_url_to_path(value: &str) -> Option<PathBuf> {
+    let trimmed = value.trim();
+    let without_scheme = trimmed
+        .strip_prefix("file:///")
+        .or_else(|| trimmed.strip_prefix("file://"))?;
+    let decoded = percent_decode_lossy(without_scheme);
+    let path = if cfg!(windows) {
+        decoded.trim_start_matches('/').to_string()
+    } else {
+        format!("/{}", decoded.trim_start_matches('/'))
+    };
+    Some(PathBuf::from(path))
+}
+
+fn asset_url_to_path(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    let without_scheme = trimmed
+        .strip_prefix("asset://localhost/")
+        .or_else(|| trimmed.strip_prefix("asset://"))?;
+    let without_query = without_scheme.split_once('?').map(|(path, _)| path).unwrap_or(without_scheme);
+    let decoded = percent_decode_lossy(without_query);
+    Some(strip_windows_drive_url_prefix(&decoded).to_string())
+}
+
+fn strip_windows_drive_url_prefix(value: &str) -> &str {
+    if cfg!(windows) {
+        let bytes = value.as_bytes();
+        if bytes.len() >= 4
+            && bytes[0] == b'/'
+            && bytes[1].is_ascii_alphabetic()
+            && bytes[2] == b':'
+            && (bytes[3] == b'/' || bytes[3] == b'\\')
+        {
+            return &value[1..];
+        }
+    }
+    value
+}
+
+fn percent_decode_lossy(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            let hex = &value[index + 1..index + 3];
+            if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                output.push(byte);
+                index += 3;
+                continue;
+            }
+        }
+        output.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&output).into_owned()
+}
+
 fn remove_file_if_local(path: &str) {
     let trimmed = path.trim();
     if trimmed.is_empty() || trimmed.starts_with("http://") || trimmed.starts_with("https://") {
@@ -4927,6 +5517,28 @@ fn remove_file_if_local(path: &str) {
     if path.is_file() {
         let _ = fs::remove_file(path);
     }
+}
+
+fn local_avatar_path_is_invalid(path: &str) -> bool {
+    let trimmed = path.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with("http://")
+        || trimmed.starts_with("https://")
+        || trimmed.starts_with("data:")
+        || trimmed.starts_with("blob:")
+    {
+        return false;
+    }
+    let path = PathBuf::from(trimmed);
+    let Ok(metadata) = fs::metadata(&path) else {
+        return true;
+    };
+    if !metadata.is_file() || metadata.len() == 0 {
+        return true;
+    }
+    fs::read(path)
+        .map(|bytes| image_ext_from_bytes(&bytes).is_none())
+        .unwrap_or(true)
 }
 
 fn normalize_persona_number(value: &mut Value, key: &str, min: f64, max: f64) {
@@ -7157,6 +7769,7 @@ pub fn run() {
             restore_workspace_snapshot,
             get_storage_layout,
             cleanup_historical_resources,
+            local_asset_data_url,
             capture_screen_base64,
             set_pet_vision_active,
             pick_path,
@@ -7198,6 +7811,7 @@ pub fn run() {
             rename_conversation,
             set_conversation_agent,
             list_messages,
+            get_message_content,
             send_chat_message,
             delete_message,
             list_proactive_statuses,
@@ -7381,6 +7995,103 @@ mod tests {
             "bad_name.png"
         );
         assert_eq!(sanitize_attachment_file_name("..."), "attachment");
+    }
+
+    #[test]
+    fn ui_preview_truncates_tool_event_without_breaking_envelope() {
+        let large_text = "tool-output\n".repeat(2_000);
+        let message = ChatMessage::new(
+            "conv-test".into(),
+            "tool",
+            json!({
+                "type": "toolEvent",
+                "event": {
+                    "eventType": "execute",
+                    "serverId": "__internal",
+                    "toolName": "terminal",
+                    "ok": true,
+                    "timedOut": false,
+                    "elapsedMs": 12,
+                    "title": "terminal",
+                    "summary": large_text,
+                    "text": large_text,
+                    "raw": {
+                        "payload": {
+                            "stdout": large_text,
+                            "items": (0..80).map(|idx| json!({"idx": idx, "text": large_text})).collect::<Vec<_>>()
+                        }
+                    }
+                }
+            })
+            .to_string(),
+            "desktop-agent-tool",
+        );
+
+        let preview = preview_message_for_ui(message, Some(2_000));
+        let envelope: Value = serde_json::from_str(&preview.content).unwrap();
+        assert_eq!(envelope["type"], json!("toolEvent"));
+        assert_eq!(envelope["event"]["toolName"], json!("terminal"));
+        assert_eq!(
+            envelope["event"]["raw"]["uiPreviewTruncated"],
+            json!(true)
+        );
+        assert!(envelope["event"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("界面仅预览前"));
+        assert_eq!(
+            preview.provider_data.unwrap()["uiPreview"]["truncated"],
+            json!(true)
+        );
+    }
+
+    #[test]
+    fn ui_preview_truncates_plain_message_content() {
+        let message = ChatMessage::new(
+            "conv-test".into(),
+            "assistant",
+            "hello".repeat(1_000),
+            "desktop",
+        );
+        let preview = preview_message_for_ui(message, Some(2_000));
+        assert!(preview.content.chars().count() < 2_200);
+        assert!(preview.content.contains("界面仅预览前"));
+        assert_eq!(
+            preview.provider_data.unwrap()["uiPreview"]["truncated"],
+            json!(true)
+        );
+    }
+
+    #[test]
+    fn ui_preview_truncates_thinking_card_provider_data() {
+        let mut message = ChatMessage::new(
+            "conv-test".into(),
+            "assistant",
+            "".into(),
+            "desktop-stream",
+        );
+        message.provider_data = Some(json!({
+            "thinkingCards": [{
+                "provider": "llm",
+                "kind": "thinking",
+                "title": "模型思考",
+                "summary": "thinking ".repeat(1_000),
+                "streaming": true
+            }]
+        }));
+
+        let preview = preview_message_for_ui(message, Some(2_000));
+        let provider_data = preview.provider_data.unwrap();
+        let summary = provider_data["thinkingCards"][0]["summary"]
+            .as_str()
+            .unwrap();
+        assert!(summary.chars().count() < 2_200);
+        assert!(summary.contains("界面仅预览前"));
+        assert_eq!(
+            provider_data["thinkingCards"][0]["uiPreviewTruncated"],
+            json!(true)
+        );
+        assert_eq!(provider_data["uiPreview"]["truncated"], json!(true));
     }
 
     #[test]

@@ -29,6 +29,8 @@ use super::workflow_graph::{
 };
 
 const PET_WINDOW_LABEL: &str = "pet";
+const DESKTOP_STREAM_EVENT_MIN_INTERVAL: Duration = Duration::from_millis(80);
+const DESKTOP_STREAM_EVENT_MIN_BYTES: usize = 96;
 
 static CHAT_TURN_LOCKS: OnceLock<std::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
     OnceLock::new();
@@ -46,7 +48,9 @@ fn emit_assistant_stream_event(
     message: &ChatMessage,
     delta: &str,
     is_final: bool,
+    preview_chars: Option<usize>,
 ) {
+    let event_message = crate::preview_message_for_ui(message.clone(), preview_chars);
     let _ = app.emit(
         "synthchat-chat-event",
         json!({
@@ -54,11 +58,12 @@ fn emit_assistant_stream_event(
             "source": source,
             "personaId": persona_id,
             "conversationId": conversation_id,
-            "message": message,
+            "message": event_message,
             "delta": delta,
             "isLast": is_final,
         }),
     );
+    let pet_message = crate::preview_message_for_ui(message.clone(), preview_chars);
     emit_pet_event(
         app,
         json!({
@@ -66,7 +71,7 @@ fn emit_assistant_stream_event(
             "source": source,
             "personaId": persona_id,
             "conversationId": conversation_id,
-            "message": message,
+            "message": pet_message,
             "delta": delta,
             "isLast": is_final,
         }),
@@ -140,6 +145,7 @@ fn emit_streaming_thinking_finished(
     source: &str,
     persona_id: &str,
     conversation_id: &str,
+    preview_chars: Option<usize>,
 ) {
     let message = {
         let mut message = message
@@ -150,6 +156,7 @@ fn emit_streaming_thinking_finished(
         }
         message.clone()
     };
+    let message = crate::preview_message_for_ui(message, preview_chars);
     let _ = app.emit(
         "synthchat-chat-event",
         json!({
@@ -164,19 +171,59 @@ fn emit_streaming_thinking_finished(
     );
 }
 
+fn append_pending_stream_delta(buffer: &Arc<Mutex<String>>, delta: &str) -> usize {
+    let mut buffer = buffer
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    buffer.push_str(delta);
+    buffer.len()
+}
+
+fn take_pending_stream_delta(buffer: &Arc<Mutex<String>>) -> String {
+    let mut buffer = buffer
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    std::mem::take(&mut *buffer)
+}
+
+fn should_emit_desktop_stream_update(
+    first_delta: bool,
+    last_emit_at: &Arc<Mutex<Option<Instant>>>,
+    pending_bytes: usize,
+) -> bool {
+    let now = Instant::now();
+    let mut last_emit_at = last_emit_at
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let due = last_emit_at
+        .map(|last| now.duration_since(last) >= DESKTOP_STREAM_EVENT_MIN_INTERVAL)
+        .unwrap_or(true);
+    if first_delta || pending_bytes >= DESKTOP_STREAM_EVENT_MIN_BYTES || due {
+        *last_emit_at = Some(now);
+        true
+    } else {
+        false
+    }
+}
+
 #[derive(Clone)]
 struct DesktopVisibleStreamState {
     message: Arc<Mutex<ChatMessage>>,
     parser: Arc<Mutex<PlannerVisibleContentStream>>,
     thinking_buffer: Arc<Mutex<String>>,
+    pending_thinking_delta: Arc<Mutex<String>>,
+    pending_answer_delta: Arc<Mutex<String>>,
+    last_thinking_emit_at: Arc<Mutex<Option<Instant>>>,
+    last_answer_emit_at: Arc<Mutex<Option<Instant>>>,
     emitted_any_delta: Arc<AtomicBool>,
     emitted_answer_text: Arc<AtomicBool>,
     conversation_id: String,
     source: String,
+    preview_chars: Option<usize>,
 }
 
 impl DesktopVisibleStreamState {
-    fn new(conversation_id: &str, source: &str) -> Self {
+    fn new(conversation_id: &str, source: &str, preview_chars: Option<usize>) -> Self {
         Self {
             message: Arc::new(Mutex::new(ChatMessage::new(
                 conversation_id.to_string(),
@@ -186,10 +233,15 @@ impl DesktopVisibleStreamState {
             ))),
             parser: Arc::new(Mutex::new(PlannerVisibleContentStream::default())),
             thinking_buffer: Arc::new(Mutex::new(String::new())),
+            pending_thinking_delta: Arc::new(Mutex::new(String::new())),
+            pending_answer_delta: Arc::new(Mutex::new(String::new())),
+            last_thinking_emit_at: Arc::new(Mutex::new(None)),
+            last_answer_emit_at: Arc::new(Mutex::new(None)),
             emitted_any_delta: Arc::new(AtomicBool::new(false)),
             emitted_answer_text: Arc::new(AtomicBool::new(false)),
             conversation_id: conversation_id.to_string(),
             source: source.to_string(),
+            preview_chars,
         }
     }
 
@@ -211,6 +263,18 @@ impl DesktopVisibleStreamState {
         }
         if let Ok(mut buffer) = self.thinking_buffer.lock() {
             buffer.clear();
+        }
+        if let Ok(mut buffer) = self.pending_thinking_delta.lock() {
+            buffer.clear();
+        }
+        if let Ok(mut buffer) = self.pending_answer_delta.lock() {
+            buffer.clear();
+        }
+        if let Ok(mut timestamp) = self.last_thinking_emit_at.lock() {
+            *timestamp = None;
+        }
+        if let Ok(mut timestamp) = self.last_answer_emit_at.lock() {
+            *timestamp = None;
         }
     }
 
@@ -238,6 +302,7 @@ impl DesktopVisibleStreamState {
             message.provider_data = provider_data.clone();
             message.clone()
         };
+        let message = crate::preview_message_for_ui(message, self.preview_chars);
         let _ = app.emit(
             "synthchat-chat-event",
             json!({
@@ -262,6 +327,7 @@ impl DesktopVisibleStreamState {
             &self.source,
             persona_id,
             &self.conversation_id,
+            self.preview_chars,
         );
     }
 }
@@ -273,11 +339,12 @@ fn desktop_visible_stream_callback(
     persona_id: &str,
     source: &str,
     emit_pet_events: bool,
+    preview_chars: Option<usize>,
 ) -> (
     Option<crate::llm::LlmDeltaCallback>,
     DesktopVisibleStreamState,
 ) {
-    let stream_state = DesktopVisibleStreamState::new(conversation_id, source);
+    let stream_state = DesktopVisibleStreamState::new(conversation_id, source, preview_chars);
     let Some(app) = app.cloned() else {
         return (existing, stream_state);
     };
@@ -287,6 +354,10 @@ fn desktop_visible_stream_callback(
     let callback_existing = existing.clone();
     let callback_parser = Arc::clone(&stream_state.parser);
     let callback_thinking_buffer = Arc::clone(&stream_state.thinking_buffer);
+    let callback_pending_thinking_delta = Arc::clone(&stream_state.pending_thinking_delta);
+    let callback_pending_answer_delta = Arc::clone(&stream_state.pending_answer_delta);
+    let callback_last_thinking_emit_at = Arc::clone(&stream_state.last_thinking_emit_at);
+    let callback_last_answer_emit_at = Arc::clone(&stream_state.last_answer_emit_at);
     let conversation_id = conversation_id.to_string();
     let persona_id = persona_id.to_string();
     let source = source.to_string();
@@ -316,6 +387,16 @@ fn desktop_visible_stream_callback(
                 message.provider_data = Some(stream_thinking_provider_data(&summary, true));
                 message.clone()
             };
+            let pending_bytes = append_pending_stream_delta(&callback_pending_thinking_delta, delta);
+            if !should_emit_desktop_stream_update(
+                is_first_visible_delta,
+                &callback_last_thinking_emit_at,
+                pending_bytes,
+            ) {
+                return Ok(());
+            }
+            let event_delta = take_pending_stream_delta(&callback_pending_thinking_delta);
+            let message = crate::preview_message_for_ui(message, preview_chars);
             let _ = app.emit(
                 "synthchat-chat-event",
                 json!({
@@ -324,7 +405,7 @@ fn desktop_visible_stream_callback(
                     "personaId": persona_id,
                     "conversationId": conversation_id,
                     "message": message,
-                    "delta": delta,
+                    "delta": event_delta,
                     "isLast": false,
                 }),
             );
@@ -336,6 +417,7 @@ fn desktop_visible_stream_callback(
             &source,
             &persona_id,
             &conversation_id,
+            preview_chars,
         );
         let visible_delta = callback_parser
             .lock()
@@ -356,6 +438,17 @@ fn desktop_visible_stream_callback(
             message.content.push_str(&visible_delta);
             message.clone()
         };
+        let pending_bytes = append_pending_stream_delta(&callback_pending_answer_delta, &visible_delta);
+        if !should_emit_desktop_stream_update(
+            is_first_visible_delta,
+            &callback_last_answer_emit_at,
+            pending_bytes,
+        ) {
+            return Ok(());
+        }
+        let event_delta = take_pending_stream_delta(&callback_pending_answer_delta);
+        let event_message = crate::preview_message_for_ui(message.clone(), preview_chars);
+        let pet_delta = event_delta.clone();
         let _ = app.emit(
             "synthchat-chat-event",
             json!({
@@ -363,12 +456,13 @@ fn desktop_visible_stream_callback(
                 "source": source,
                 "personaId": persona_id,
                 "conversationId": conversation_id,
-                "message": message,
-                "delta": visible_delta,
+                "message": event_message,
+                "delta": event_delta,
                 "isLast": false,
             }),
         );
         if emit_pet_events {
+            let pet_message = crate::preview_message_for_ui(message, preview_chars);
             emit_pet_event(
                 &app,
                 json!({
@@ -376,8 +470,8 @@ fn desktop_visible_stream_callback(
                     "source": source,
                     "personaId": persona_id,
                     "conversationId": conversation_id,
-                    "message": message,
-                    "delta": visible_delta,
+                    "message": pet_message,
+                    "delta": pet_delta,
                     "isLast": false,
                 }),
             );
@@ -625,6 +719,24 @@ fn pre_persisted_user_message(
                 && message.role == "user"
                 && message.content.trim() == content
         }))
+}
+
+fn ensure_turn_user_message_persisted(
+    store: &AppStore,
+    conversation_id: &str,
+    user: &ChatMessage,
+) -> AppResult<()> {
+    if user.role != "user" || user.source == "proactive-internal" {
+        return Ok(());
+    }
+    let exists = store
+        .messages(conversation_id, None)?
+        .iter()
+        .any(|message| message.id == user.id);
+    if !exists {
+        store.merge_conversation_messages_by_id(conversation_id, &[user.clone()])?;
+    }
+    Ok(())
 }
 
 fn request_provider_data_bool(request: &SendChatRequest, key: &str) -> bool {
@@ -1111,6 +1223,12 @@ pub async fn run_chat_turn(
                 .find(|message| message.role == "assistant")
                 .cloned()
         });
+        let event_preview_chars = store
+            .config()
+            .ok()
+            .map(|config| config.chat.ui_message_preview_chars);
+        let assistant_message =
+            assistant_message.map(|message| crate::preview_message_for_ui(message, event_preview_chars));
         if let Some(resolved_conversation_id) = resolved_conversation_id {
             let _ = app.emit(
                 "synthchat-chat-event",
@@ -1220,6 +1338,8 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         _ => store.create_conversation(None, request.persona_id.clone())?,
     };
     let (mut persona, mut agent) = resolve_chat_turn_persona_and_agent(store, &conversation, &request)?;
+    let chat_config = store.config()?.chat;
+    let event_preview_chars = Some(chat_config.ui_message_preview_chars);
     let request_source = turn_source_label(&request);
     let assistant_stream_source = if silent_pet_vision {
         "pet-vision"
@@ -1235,6 +1355,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             &persona.id,
             assistant_stream_source,
             emit_pet_stream_events,
+            event_preview_chars,
         );
     apply_persona_tool_policy_to_agent(&persona, &mut agent);
     apply_acp_session_mcp_scope(store, &conversation, &mut agent)?;
@@ -1291,7 +1412,6 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     {
         return Ok(messages);
     }
-    let chat_config = store.config()?.chat;
     let enriched_user_content = expand_context_references(
         &agent,
         &effective_request_content,
@@ -1328,6 +1448,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     };
     let silent_user_message = user.source == "proactive-internal" || silent_pet_vision;
     if let Some(app) = desktop_app.filter(|_| !silent_user_message && !user_was_pre_persisted) {
+        let event_user = crate::preview_message_for_ui(user.clone(), event_preview_chars);
         let _ = app.emit(
             "synthchat-chat-event",
             json!({
@@ -1335,7 +1456,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 "source": user.source,
                 "personaId": persona.id,
                 "conversationId": conversation.id,
-                "message": user,
+                "message": event_user,
                 "isLast": false,
             }),
         );
@@ -1485,6 +1606,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             assistant_message.source = "pet-vision".into();
             mark_message_visible_for_pet_vision(&mut assistant_message);
         }
+        ensure_turn_user_message_persisted(store, &conversation.id, &user)?;
         let assistant = store.append_message(assistant_message)?;
         emit_agent_run_record(desktop_app, &saved_blocked_run, Some(&assistant));
         return Ok(vec![user, assistant]);
@@ -1574,6 +1696,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             assistant_message.source = "pet-vision".into();
             mark_message_visible_for_pet_vision(&mut assistant_message);
         }
+        ensure_turn_user_message_persisted(store, &conversation.id, &user)?;
         let assistant = store.append_message(assistant_message)?;
         emit_agent_run_record(desktop_app, &saved_failed_run, Some(&assistant));
         return Ok(vec![user, assistant]);
@@ -1724,6 +1847,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                     assistant_message.source = "pet-vision".into();
                     mark_message_visible_for_pet_vision(&mut assistant_message);
                 }
+                ensure_turn_user_message_persisted(store, &conversation.id, &user)?;
                 let assistant = store.append_message(assistant_message)?;
                 if let Ok(saved_failed_run) = store.agent_run(&saved_run.run_id) {
                     emit_agent_run_record(desktop_app, &saved_failed_run, Some(&assistant));
@@ -2813,6 +2937,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         assistant_message.source = "pet-vision".into();
         mark_message_visible_for_pet_vision(&mut assistant_message);
     }
+    ensure_turn_user_message_persisted(store, &conversation.id, &user)?;
     let assistant = store.append_message(assistant_message)?;
 
     let mut final_run = store.agent_run(&saved_run.run_id)?;
@@ -2941,6 +3066,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         .unwrap_or("desktop");
     let assistant_desktop_app = if silent_pet_vision { app } else { desktop_app };
     if let Some(app) = assistant_desktop_app {
+        let event_assistant = crate::preview_message_for_ui(assistant.clone(), event_preview_chars);
         let _ = app.emit(
             "synthchat-chat-event",
             json!({
@@ -2948,7 +3074,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 "source": assistant.source,
                 "personaId": persona.id,
                 "conversationId": conversation.id,
-                "message": assistant,
+                "message": event_assistant,
                 "isLast": true,
             }),
         );
@@ -2966,6 +3092,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 &assistant,
                 "",
                 true,
+                event_preview_chars,
             );
         }
         emit_pet_assistant_event(
@@ -3834,12 +3961,14 @@ fn handle_busy_conversation_input_with_origin(
             let user = if let Some(user) = pre_persisted_user {
                 user
             } else {
-                store.append_message(ChatMessage::new(
+                let mut user_message = ChatMessage::new(
                     conversation.id.clone(),
                     "user",
                     content.to_string(),
                     "desktop-steer",
-                ))?
+                );
+                user_message.provider_data = provider_data.clone();
+                store.append_message(user_message)?
             };
             store.append_agent_run_steer(&active.run_id, content.to_string())?;
             let assistant = store.append_message(control_message(

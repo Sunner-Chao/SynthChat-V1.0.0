@@ -1,7 +1,7 @@
 {
   "logLevel": "info",
   "chat": {
-    "skipEnvCheck": true,
+    "skipEnvCheck": false,
     "agentEngine": "rust_synthgraph",
     "maxContextRounds": 10,
     "shortContextMode": "tokens",

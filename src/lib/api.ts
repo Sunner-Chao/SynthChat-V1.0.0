@@ -257,6 +257,10 @@ async function call<T>(cmd: string, args: Record<string, unknown> = {}, fallback
   return fallback();
 }
 
+function desktopOnly(action: string): never {
+  throw new Error(`${action}需要在桌面端运行`);
+}
+
 function dialogSelectionToPath(selection: unknown): string | null {
   if (typeof selection === "string") return selection;
   if (Array.isArray(selection)) return dialogSelectionToPath(selection[0]);
@@ -313,8 +317,69 @@ export async function openAppUpdateUrl(url: string): Promise<void> {
 }
 
 export function convertFileSrc(path: string): string {
-  if (!path) return "";
-  return isTauri() ? tauriConvertFileSrc(path) : path;
+  const normalized = normalizeAssetPath(path);
+  if (!normalized) return "";
+  if (/^(data:|blob:|https?:|asset:)/i.test(normalized)) return normalized;
+  return isTauri() ? tauriConvertFileSrc(normalized) : normalized;
+}
+
+function normalizeAssetPath(path: string): string {
+  const trimmed = String(path ?? "").trim().replace(/^["'`]+|["'`]+$/g, "");
+  if (!trimmed) return "";
+  if (/^(data:|blob:|https?:|asset:)/i.test(trimmed)) return trimmed;
+  if (/^file:\/\//i.test(trimmed)) return normalizeFileUrlPath(trimmed);
+  return trimmed;
+}
+
+function normalizeFileUrlPath(value: string): string {
+  try {
+    const decoded = decodeURIComponent(new URL(value).pathname);
+    return decoded.replace(/^\/([A-Za-z]:[\\/])/, "$1");
+  } catch {
+    const decoded = decodeURI(value.replace(/^file:\/\//i, ""));
+    return decoded.replace(/^\/([A-Za-z]:[\\/])/, "$1");
+  }
+}
+
+export async function localAssetDataUrl(path: string): Promise<string> {
+  return call("local_asset_data_url", { path }, () => "");
+}
+
+function dataUrlBytes(dataUrl: string): number[] {
+  const payload = dataUrl.includes(",") ? dataUrl.split(",").pop() ?? "" : dataUrl;
+  if (!payload) return [];
+  const binary = atob(payload);
+  const bytes = new Array<number>(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function shouldRetryAvatarBytesUpload(error: unknown): boolean {
+  const message = String(error instanceof Error ? error.message : error ?? "").toLowerCase();
+  return (
+    message.includes("bytes") ||
+    message.includes("missing") ||
+    message.includes("invalid args") ||
+    message.includes("invalid arguments") ||
+    message.includes("deserialize") ||
+    message.includes("deserializ")
+  );
+}
+
+async function uploadAvatarCompat<T>(
+  command: "upload_profile_avatar" | "upload_persona_avatar",
+  args: Record<string, unknown>,
+  data: string,
+  action: string
+): Promise<T> {
+  try {
+    return await call<T>(command, { ...args, data }, () => desktopOnly(action));
+  } catch (error) {
+    if (!shouldRetryAvatarBytesUpload(error)) throw error;
+    return call<T>(command, { ...args, bytes: dataUrlBytes(data) }, () => desktopOnly(action));
+  }
 }
 
 export async function getConfig(): Promise<AppConfig> {
@@ -481,8 +546,12 @@ export async function listMessages(conversationId: string, limit?: number, previ
   return call("list_messages", { conversationId, limit, previewChars }, () => []);
 }
 
-export async function sendChatMessage(request: SendChatRequest): Promise<ChatMessage[]> {
-  return call("send_chat_message", { request }, () => {
+export async function getMessageContent(conversationId: string, messageId: string): Promise<string> {
+  return call("get_message_content", { conversationId, messageId }, () => "");
+}
+
+export async function sendChatMessage(request: SendChatRequest, previewChars?: number): Promise<ChatMessage[]> {
+  return call("send_chat_message", { request, previewChars }, () => {
     const conversationId = request.conversationId || `conv-${Date.now()}`;
     const now = new Date().toISOString();
     return [
@@ -641,6 +710,7 @@ export const api: Record<string, any> = {
   renameConversation,
   setConversationAgent,
   listMessages,
+  getMessageContent,
   sendChatMessage,
   deleteMessage: (messageId: string) => call("delete_message", { messageId }, () => undefined),
   listLlmProviders,
@@ -910,9 +980,9 @@ export const api: Record<string, any> = {
     call("play_chat_audio", { path }, () => ({ action: "voice_playback", status: "unavailable", path })),
   stopChatAudio: (): Promise<Record<string, unknown>> =>
     call("stop_chat_audio", {}, () => ({ action: "voice_playback", status: "stopped", stopped: false })),
-  getMessageContent: async (messageId: string) => messageId,
   assetUrl: convertFileSrc,
   convertFileSrc,
+  localAssetDataUrl,
   openLocalFile: (path: string) => call("open_local_file", { path }, () => undefined),
   revealLocalFile: (path: string) => call("reveal_local_file", { path }, () => undefined),
   openPetWindow: () => call("open_pet_window", {}, () => undefined),
@@ -1079,13 +1149,13 @@ export const api: Record<string, any> = {
   denyToolCall: (approvalId: string, reason?: string) => call("deny_tool_call", { approvalId, reason }, () => null),
   refreshToolRegistry: () => call("refresh_tool_registry", {}, () => []),
   saveProfileAvatar: async () => fallbackProfile,
-  uploadProfileAvatar: (fileName: string, bytes: number[]) =>
-    call<ProfileConfig>("upload_profile_avatar", { fileName, bytes }, () => fallbackProfile),
-  clearProfileAvatar: () => call<ProfileConfig>("clear_profile_avatar", {}, () => fallbackProfile),
-  uploadPersonaAvatar: (personaId: string, fileName: string, bytes: number[]) =>
-    call<Persona>("upload_persona_avatar", { personaId, fileName, bytes }, () => ({ ...defaultPersona, id: personaId })),
+  uploadProfileAvatar: (fileName: string, data: string) =>
+    uploadAvatarCompat<ProfileConfig>("upload_profile_avatar", { fileName }, data, "上传头像"),
+  clearProfileAvatar: () => call<ProfileConfig>("clear_profile_avatar", {}, () => desktopOnly("清除头像")),
+  uploadPersonaAvatar: (personaId: string, fileName: string, data: string) =>
+    uploadAvatarCompat<Persona>("upload_persona_avatar", { personaId, fileName }, data, "上传角色头像"),
   clearPersonaAvatar: (personaId: string) =>
-    call<Persona>("clear_persona_avatar", { personaId }, () => ({ ...defaultPersona, id: personaId, avatarPath: "" })),
+    call<Persona>("clear_persona_avatar", { personaId }, () => desktopOnly("清除角色头像")),
   importThemeCss: async () => [],
   exportThemesCss: async () => "",
   pickFile: async (title?: string, filterName?: string, extensions?: string[]) => {

@@ -1,7 +1,6 @@
 import { memo, useState, useEffect } from "react";
-import { api } from "../../lib/api";
+import { LocalAssetImage } from "../../components/common";
 import { fileNameFromPath } from "../../lib/emojiUtils";
-import type { EmojiGroup } from "../../lib/types";
 
 export const STANDARD_EMOJIS = [
   "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇",
@@ -81,7 +80,7 @@ export const EmojiPicker = memo(function EmojiPicker({
               <div className="claw-emoji-grid">
                 {images.map((path) => (
                   <button key={path} onClick={() => onPick(path)} type="button" title={fileNameFromPath(path)}>
-                    <img src={api.assetUrl(path)} alt={fileNameFromPath(path)} />
+                    <LocalAssetImage src={path} alt={fileNameFromPath(path)} />
                   </button>
                 ))}
               </div>

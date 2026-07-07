@@ -2019,6 +2019,56 @@ mod tests {
     }
 
     #[test]
+    fn message_storage_pruning_keeps_recent_user_request_over_tool_noise() {
+        let dir =
+            std::env::temp_dir().join(format!("synthchat-message-prune-user-{}", new_id("state")));
+        let path = dir.join("state.json");
+        let store = AppStore::new(path).unwrap();
+        let mut config = store.config().unwrap();
+        config.chat.max_stored_messages_per_conversation = 3;
+        store.set_config(config).unwrap();
+        let conversation = store
+            .create_conversation(Some("message prune".into()), Some("default".into()))
+            .unwrap();
+
+        let mut user = ChatMessage::new(
+            conversation.id.clone(),
+            "user",
+            "generate a report on today's news".into(),
+            "desktop",
+        );
+        user.created_at = "2026-07-07T00:00:00Z".into();
+        let user = store.append_message(user).unwrap();
+
+        let mut first_tool =
+            ChatMessage::new(conversation.id.clone(), "tool", "web search started".into(), "tool");
+        first_tool.created_at = "2026-07-07T00:00:01Z".into();
+        store.append_message(first_tool).unwrap();
+
+        let mut second_tool =
+            ChatMessage::new(conversation.id.clone(), "tool", "web extract started".into(), "tool");
+        second_tool.created_at = "2026-07-07T00:00:02Z".into();
+        store.append_message(second_tool).unwrap();
+
+        let mut assistant = ChatMessage::new(
+            conversation.id.clone(),
+            "assistant",
+            "Here is the finished report.".into(),
+            "desktop-agent",
+        );
+        assistant.created_at = "2026-07-07T00:00:03Z".into();
+        let assistant = store.append_message(assistant).unwrap();
+
+        let messages = store.messages(&conversation.id, None).unwrap();
+        assert_eq!(messages.len(), 3);
+        assert!(messages.iter().any(|message| message.id == user.id));
+        assert!(messages.iter().any(|message| message.id == assistant.id));
+        assert!(messages.iter().filter(|message| message.role == "tool").count() <= 1);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn finalize_proactive_messages_keeps_concurrent_wechat_append() {
         let dir = std::env::temp_dir().join(format!(
             "synthchat-proactive-finalize-race-{}",
@@ -6218,6 +6268,47 @@ fn merge_messages_by_id(target: &mut Vec<ChatMessage>, source: &[ChatMessage]) {
     });
 }
 
+fn prune_conversation_messages_for_storage(messages: &mut Vec<ChatMessage>, max: usize) {
+    if messages.len() <= max {
+        return;
+    }
+    if max == 0 {
+        messages.clear();
+        return;
+    }
+    let extra = messages.len() - max;
+    let protected_user = messages
+        .iter()
+        .take(extra)
+        .rev()
+        .find(|message| {
+            message.role == "user"
+                && message.source != "proactive-internal"
+                && !message.content.trim().is_empty()
+        })
+        .cloned();
+    messages.drain(0..extra);
+    let Some(protected_user) = protected_user else {
+        return;
+    };
+    if messages.iter().any(|message| message.id == protected_user.id) {
+        return;
+    }
+    if messages.len() >= max {
+        let remove_index = messages
+            .iter()
+            .position(|message| message.role == "tool")
+            .unwrap_or(0);
+        messages.remove(remove_index);
+    }
+    messages.push(protected_user);
+    messages.sort_by(|left, right| {
+        left.created_at
+            .cmp(&right.created_at)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+}
+
 fn merge_runtime_state_for_reload(state: &mut PersistedState, current: &PersistedState) {
     let mut protected_run_ids = HashSet::new();
     let mut protected_conversation_ids = HashSet::new();
@@ -10158,10 +10249,7 @@ impl AppStore {
             }
             let max = s.config.chat.max_stored_messages_per_conversation;
             if let Some(messages) = s.messages.get_mut(&message.conversation_id) {
-                if messages.len() > max {
-                    let extra = messages.len() - max;
-                    messages.drain(0..extra);
-                }
+                prune_conversation_messages_for_storage(messages, max);
             }
             self.persist(s)?;
             Ok(saved_message)

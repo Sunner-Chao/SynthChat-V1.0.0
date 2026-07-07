@@ -1690,5 +1690,74 @@
     ],
     "trust": 0.5,
     "updatedAt": "2026-07-06T04:22:02.210663200+00:00"
+  },
+  {
+    "category": "general",
+    "content": "User asked to generate a landscape image; assistant generated a lakeside scenery image.",
+    "createdAt": "2026-07-07T03:47:04.123005+00:00",
+    "entities": [
+      "User",
+      "image"
+    ],
+    "id": "fact-dafa4248318c446fa477298b8b0544f4",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-ea16f28b2c8942ffa6a1d7273f0bcbe8",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-07T03:47:04.123005+00:00"
+  },
+  {
+    "category": "general",
+    "content": "User asked for desktop screenshot; assistant captured and sent it.",
+    "createdAt": "2026-07-07T03:47:06.052070300+00:00",
+    "entities": [
+      "User",
+      "it"
+    ],
+    "id": "fact-648883f4d9014eaab743d3a236539282",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-bd407c37e9914424bae162755a604e6c",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-07T03:47:06.052070300+00:00"
+  },
+  {
+    "category": "general",
+    "content": "User shared an cute golden retriever puppy image as assistant's avatar; assistant confirmed seeing it.",
+    "createdAt": "2026-07-07T03:47:09.496651400+00:00",
+    "entities": [
+      "User",
+      "it"
+    ],
+    "id": "fact-db773b84d6dc45c6ab5803266c2e78ec",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-e006772b30f94494a40405205ee243c3",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-07T03:47:09.496651400+00:00"
+  },
+  {
+    "category": "general",
+    "content": "User asked assistant to check today's hot news, summarize, and send as Word document to desktop.",
+    "createdAt": "2026-07-07T03:47:10.045059900+00:00",
+    "entities": [
+      "User",
+      "Word",
+      "desktop"
+    ],
+    "id": "fact-249c52066037435b98a6ae905ab5f324",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-3f0eefc7e1aa42d18a9a57e656c69118",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-07T03:47:10.045059900+00:00"
   }
 ]

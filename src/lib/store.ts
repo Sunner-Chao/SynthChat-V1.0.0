@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { emit, emitTo } from "@tauri-apps/api/event";
 import { api } from "./api";
+import { forgetLocalImagePreview, rememberLocalImagePreview } from "./localImagePreview";
 import {
   WORKFLOW_GRAPH_SCHEMA,
   WORKFLOW_PHASE_INITIALIZED,
@@ -55,12 +56,19 @@ const DEFAULT_UI_MESSAGE_LIMIT = 180;
 const MIN_UI_MESSAGE_LIMIT = 40;
 const MAX_UI_MESSAGE_LIMIT = 1000;
 const DEFAULT_UI_MESSAGE_PREVIEW_CHARS = 12_000;
+const MAX_TOOL_EVENT_UI_PREVIEW_CHARS = 6_000;
+const MAX_TOOL_EVENT_RAW_UI_PREVIEW_CHARS = 2_000;
+const MAX_TOOL_EVENT_UI_JSON_DEPTH = 8;
+const MAX_TOOL_EVENT_UI_ARRAY_ITEMS = 40;
+const MAX_THINKING_CARD_UI_SUMMARY_CHARS = 6_000;
 const BOOTSTRAP_CACHE_STORAGE_KEY = "synthchat.bootstrap.cache.v1";
 const TERMINAL_AGENT_STATES = new Set(["completed", "failed", "aborted"]);
 const ACTIVE_QUEUE_STATES = new Set(["pending", "running"]);
 
 // Module-level ref for pending settings view (not in React state to avoid batching delays)
 let pendingSettingsViewRef: string | null = null;
+let profileMutationVersion = 0;
+let personaMutationVersion = 0;
 
 // Grace window guarding against a refresh clearing a "processing" flag that was
 // just set (e.g. WeChat/pet emits a processing event before the user message is
@@ -68,6 +76,37 @@ let pendingSettingsViewRef: string | null = null;
 const PROCESSING_MARK_GRACE_MS = 1500;
 const processingMarkedAtCache = new Map<string, number>();
 const processingClearTimerCache = new Map<string, number>();
+const pendingIncomingMessagesByConversation = new Map<string, ChatMessage[]>();
+const refreshChatDataInFlight = new Map<string, Promise<void>>();
+
+function scheduleBackgroundStoreRefresh(
+  label: string,
+  task: () => Promise<unknown>,
+  delayMs = 180
+) {
+  const run = () => {
+    void Promise.resolve()
+      .then(task)
+      .catch((error) => {
+        console.warn(`${label} failed`, error);
+      });
+  };
+  if (typeof window === "undefined") {
+    run();
+    return;
+  }
+  window.setTimeout(run, Math.max(0, delayMs));
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error ?? new Error("读取图片文件失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function withinProcessingGrace(conversationId: string | null): boolean {
   if (!conversationId) return false;
   const markedAt = processingMarkedAtCache.get(conversationId);
@@ -180,7 +219,27 @@ function uiMessagePreviewChars(config: AppConfig | null) {
 }
 
 function limitMessages(messages: ChatMessage[], limit: number) {
-  return messages.length > limit ? messages.slice(-limit) : messages;
+  if (messages.length <= limit) return messages;
+  if (limit <= 0) return [];
+  const extra = messages.length - limit;
+  const protectedUser = [...messages.slice(0, extra)].reverse().find((message) =>
+    message.role === "user"
+    && message.source !== "proactive-internal"
+    && message.content.trim().length > 0
+  );
+  const visible = messages.slice(extra);
+  if (!protectedUser || visible.some((message) => message.id === protectedUser.id)) {
+    return visible;
+  }
+  if (visible.length >= limit) {
+    const removeIndex = visible.findIndex((message) => message.role === "tool");
+    visible.splice(removeIndex >= 0 ? removeIndex : 0, 1);
+  }
+  return sortMessagesForDisplay([...visible, protectedUser]);
+}
+
+function refreshChatDataKey(preferredConversationId?: string | null, preferredPersonaId?: string | null) {
+  return `${preferredConversationId ?? ""}\u0000${preferredPersonaId ?? ""}`;
 }
 
 function messageDisplayRoleRank(message: ChatMessage) {
@@ -219,6 +278,186 @@ function providerDataRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function truncateTextForUi(text: string, maxChars: number) {
+  if (text.length <= maxChars) return null;
+  return `${text.slice(0, maxChars)}\n\n[内容过长，界面仅预览前 ${maxChars} 个字符；完整内容仍保存在本地数据中。]`;
+}
+
+function truncateObjectStringForUi(object: Record<string, unknown>, key: string, maxChars: number) {
+  const value = object[key];
+  if (typeof value !== "string") return false;
+  const preview = truncateTextForUi(value, maxChars);
+  if (!preview) return false;
+  object[key] = preview;
+  return true;
+}
+
+function truncateJsonStringsForUi(value: unknown, maxChars: number, depth = 0): boolean {
+  if (depth > MAX_TOOL_EVENT_UI_JSON_DEPTH) return false;
+  if (typeof value === "string") return false;
+  if (Array.isArray(value)) {
+    let changed = false;
+    if (value.length > MAX_TOOL_EVENT_UI_ARRAY_ITEMS) {
+      const omitted = value.length - MAX_TOOL_EVENT_UI_ARRAY_ITEMS;
+      value.splice(MAX_TOOL_EVENT_UI_ARRAY_ITEMS);
+      value.push(`[UI preview truncated: omitted ${omitted} array item(s)]`);
+      changed = true;
+    }
+    for (let i = 0; i < value.length; i++) {
+      const item = value[i];
+      if (typeof item === "string") {
+        const preview = truncateTextForUi(item, maxChars);
+        if (preview) {
+          value[i] = preview;
+          changed = true;
+        }
+      } else {
+        changed = truncateJsonStringsForUi(item, maxChars, depth + 1) || changed;
+      }
+    }
+    return changed;
+  }
+  const object = providerDataRecord(value);
+  if (!object) return false;
+  if (depth === MAX_TOOL_EVENT_UI_JSON_DEPTH) {
+    const omitted = Object.keys(object).length;
+    if (omitted === 0) return false;
+    for (const key of Object.keys(object)) delete object[key];
+    object.uiPreviewTruncated = `depth limit reached; omitted ${omitted} field(s)`;
+    return true;
+  }
+  let changed = false;
+  for (const [key, item] of Object.entries(object)) {
+    if (typeof item === "string") {
+      const preview = truncateTextForUi(item, maxChars);
+      if (preview) {
+        object[key] = preview;
+        changed = true;
+      }
+    } else {
+      changed = truncateJsonStringsForUi(item, maxChars, depth + 1) || changed;
+    }
+  }
+  return changed;
+}
+
+function omitToolEventRawForUi(value: unknown) {
+  const root = providerDataRecord(value);
+  if (root?.type !== "toolEvent") return false;
+  const event = providerDataRecord(root.event);
+  if (!event || !("raw" in event)) return false;
+  event.raw = {
+    uiPreviewTruncated: true,
+    reason: "raw payload omitted from chat UI preview"
+  };
+  return true;
+}
+
+function truncateJsonMessageContentForUi(content: string, previewChars: number) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  const root = providerDataRecord(parsed);
+  const isToolEvent = root?.type === "toolEvent";
+  const toolLimit = Math.min(MAX_TOOL_EVENT_UI_PREVIEW_CHARS, previewChars);
+  const rawLimit = Math.min(MAX_TOOL_EVENT_RAW_UI_PREVIEW_CHARS, toolLimit);
+  let changed = false;
+  if (isToolEvent) {
+    changed = truncateObjectStringForUi(root!, "modelSummary", toolLimit) || changed;
+    const event = providerDataRecord(root!.event);
+    if (event) {
+      changed = truncateObjectStringForUi(event, "summary", toolLimit) || changed;
+      changed = truncateObjectStringForUi(event, "text", toolLimit) || changed;
+      changed = truncateObjectStringForUi(event, "error", toolLimit) || changed;
+      if ("raw" in event) {
+        changed = truncateJsonStringsForUi(event.raw, rawLimit) || changed;
+      }
+    }
+  } else {
+    changed = truncateJsonStringsForUi(parsed, rawLimit);
+  }
+  const hardJsonLimit = toolLimit * 3;
+  if (content.length > hardJsonLimit) {
+    changed = omitToolEventRawForUi(parsed) || changed;
+  }
+  if (!changed) return null;
+  let rendered = JSON.stringify(parsed);
+  if (isToolEvent && rendered.length > hardJsonLimit && omitToolEventRawForUi(parsed)) {
+    rendered = JSON.stringify(parsed);
+  }
+  return rendered;
+}
+
+function markMessageUiPreview(message: ChatMessage, originalChars: number, previewChars: number): ChatMessage {
+  const providerData = providerDataRecord(message.providerData);
+  return {
+    ...message,
+    providerData: {
+      ...(providerData ?? {}),
+      uiPreview: {
+        truncated: true,
+        originalChars,
+        previewChars
+      }
+    }
+  };
+}
+
+function cloneJsonValue<T>(value: T): T | null {
+  if (value === undefined || value === null) return null;
+  try {
+    return JSON.parse(JSON.stringify(value)) as T;
+  } catch {
+    return null;
+  }
+}
+
+function truncateThinkingCardArrayForUi(value: unknown, maxChars: number) {
+  if (!Array.isArray(value)) return false;
+  let changed = false;
+  for (const item of value) {
+    const card = providerDataRecord(item);
+    if (!card) continue;
+    if (truncateObjectStringForUi(card, "summary", maxChars)) {
+      card.uiPreviewTruncated = true;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function truncateProviderDataForUi(providerData: unknown, previewChars: number) {
+  const root = providerDataRecord(providerData);
+  if (!root) return null;
+  const cloned = cloneJsonValue(root);
+  const clonedRoot = providerDataRecord(cloned);
+  if (!clonedRoot) return null;
+  const maxChars = Math.min(MAX_THINKING_CARD_UI_SUMMARY_CHARS, previewChars);
+  let changed = truncateThinkingCardArrayForUi(clonedRoot.thinkingCards, maxChars);
+  changed = truncateThinkingCardArrayForUi(providerDataRecord(clonedRoot.responses)?.thinkingCards, maxChars) || changed;
+  changed = truncateThinkingCardArrayForUi(providerDataRecord(clonedRoot.anthropic)?.thinkingCards, maxChars) || changed;
+  return changed ? clonedRoot : null;
+}
+
+function previewMessageForUi(message: ChatMessage, previewChars: number): ChatMessage {
+  const originalChars = message.content.length;
+  const content = message.role === "tool"
+    ? truncateJsonMessageContentForUi(message.content, previewChars)
+      ?? truncateTextForUi(message.content, Math.min(MAX_TOOL_EVENT_UI_PREVIEW_CHARS, previewChars))
+    : truncateTextForUi(message.content, previewChars);
+  const providerData = truncateProviderDataForUi(message.providerData, previewChars);
+  if (!content && !providerData) return message;
+  const nextMessage = {
+    ...message,
+    ...(content ? { content } : {}),
+    ...(providerData ? { providerData } : {})
+  };
+  return markMessageUiPreview(nextMessage, originalChars, nextMessage.content.length);
 }
 
 function providerDataArray(value: unknown): unknown[] {
@@ -270,12 +509,49 @@ function isSilentPetOnlyMessage(message: ChatMessage) {
 
 function isVisibleChatMessage(message: ChatMessage) {
   if (isSilentPetOnlyMessage(message)) return false;
-  if (message.source === "desktop-agent-error") return false;
   return !(message.role === "user" && message.source === "proactive-internal");
+}
+
+function isAgentErrorMessage(message: ChatMessage) {
+  return message.source === "desktop-agent-error";
 }
 
 function visibleChatMessages(messages: ChatMessage[]) {
   return sortMessagesForDisplay(messages.filter(isVisibleChatMessage));
+}
+
+function rememberPendingIncomingMessage(message: ChatMessage) {
+  if (!message.conversationId || !isVisibleChatMessage(message)) return;
+  const pending = pendingIncomingMessagesByConversation.get(message.conversationId) ?? [];
+  const next = pending.filter((item) => item.id !== message.id);
+  next.push(message);
+  pendingIncomingMessagesByConversation.set(message.conversationId, next.slice(-80));
+}
+
+function pendingIncomingMessagesForConversation(conversationId: string | null | undefined) {
+  return conversationId ? pendingIncomingMessagesByConversation.get(conversationId) ?? [] : [];
+}
+
+function mergeUniqueMessagesById(messages: ChatMessage[]) {
+  const byId = new Map<string, ChatMessage>();
+  for (const message of messages) byId.set(message.id, message);
+  return Array.from(byId.values());
+}
+
+function prunePendingIncomingMessages(conversationId: string | null | undefined, backendMessages: ChatMessage[]) {
+  if (!conversationId) return;
+  const pending = pendingIncomingMessagesByConversation.get(conversationId);
+  if (!pending || pending.length === 0) return;
+  const backendIds = new Set(backendMessages.map((message) => message.id));
+  const unresolved = pending.filter((message) =>
+    !backendIds.has(message.id)
+    && !backendMessages.some((backend) => matchesPersistedUserMessage(message, backend))
+  );
+  if (unresolved.length > 0) {
+    pendingIncomingMessagesByConversation.set(conversationId, unresolved.slice(-80));
+  } else {
+    pendingIncomingMessagesByConversation.delete(conversationId);
+  }
 }
 
 function isLocalUiMessage(message: ChatMessage) {
@@ -300,9 +576,28 @@ function normalizeMessageContentForMatch(content: string) {
   return content.replace(/\r\n/g, "\n").trim();
 }
 
+function providerDataString(value: unknown, keys: string[]) {
+  const record = providerDataRecord(value);
+  if (!record) return "";
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+  return "";
+}
+
+function messageClientMessageId(message: ChatMessage) {
+  return providerDataString(message.providerData, ["clientMessageId", "client_message_id"]);
+}
+
 function matchesPersistedUserMessage(liveMessage: ChatMessage, backendMessage: ChatMessage) {
   if (liveMessage.role !== "user" || backendMessage.role !== "user") {
     return false;
+  }
+  const liveClientId = messageClientMessageId(liveMessage);
+  const backendClientId = messageClientMessageId(backendMessage);
+  if (liveClientId && backendClientId && liveClientId === backendClientId) {
+    return true;
   }
   const liveContent = normalizeMessageContentForMatch(liveMessage.content);
   if (!liveContent || liveContent !== normalizeMessageContentForMatch(backendMessage.content)) {
@@ -427,6 +722,46 @@ function mergeLocalUiMessages(
     limit
   );
 }
+
+function mergeBackendMessagesWithLiveState(
+  backendMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+  conversationId: string | null,
+  limit: number,
+  streamedAssistantIds: Set<string>
+) {
+  const pending = pendingIncomingMessagesForConversation(conversationId);
+  const liveMessages = pending.length > 0
+    ? mergeUniqueMessagesById([...currentMessages, ...pending])
+    : currentMessages;
+  let messages = mergeLocalUiMessages(
+    backendMessages,
+    liveMessages,
+    conversationId,
+    limit,
+    streamedAssistantIds
+  );
+  if (pending.length > 0) {
+    const messageIds = new Set(messages.map((message) => message.id));
+    const backendIds = new Set(backendMessages.map((message) => message.id));
+    const missingPending = pending.filter((message) =>
+      !messageIds.has(message.id)
+      && !backendIds.has(message.id)
+      && !backendMessages.some((backend) => matchesPersistedUserMessage(message, backend))
+    );
+    if (missingPending.length > 0) {
+      messages = displayMessages([...messages, ...missingPending], limit);
+    }
+  }
+  prunePendingIncomingMessages(conversationId, backendMessages);
+  return messages;
+}
+
+export const __chatStoreTestUtils = {
+  mergeBackendMessagesWithLiveState,
+  rememberPendingIncomingMessage,
+  resetPendingIncomingMessagesForTests: () => pendingIncomingMessagesByConversation.clear()
+};
 
 function hasPendingAgentWork(state: AppState, conversationId: string | null) {
   if (!conversationId) return false;
@@ -1153,6 +1488,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   bootstrap: async () => {
+    const startedProfileMutationVersion = profileMutationVersion;
+    const startedPersonaMutationVersion = personaMutationVersion;
     set({ loading: true });
     const config = await withBootstrapTimeout(
       api.getConfig(),
@@ -1166,7 +1503,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       "profile bootstrap",
       3000
     );
-    set({ config, profile, loading: false });
+    set((state) => ({
+      config,
+      profile: profileMutationVersion === startedProfileMutationVersion ? profile : state.profile,
+      loading: false
+    }));
     await api.cleanupHistoricalResources().catch((error) => {
       console.warn("historical resource cleanup failed", error);
     });
@@ -1232,12 +1573,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       : conversations[0]?.id ?? null;
     const messageLimit = conversationMessageLimit(config, activeConversationId, get().conversationMessageLimits);
     const previewChars = uiMessagePreviewChars(config);
-    const messages = activeConversationId
+    const backendMessages = activeConversationId
       ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars).catch((error) => {
         console.warn("message bootstrap failed", error);
         return [];
       }))
       : [];
+    const messages = mergeBackendMessagesWithLiveState(
+      backendMessages,
+      get().messages,
+      activeConversationId,
+      messageLimit,
+      get().streamedAssistantIds
+    );
     set({
       config,
       conversations,
@@ -1245,14 +1593,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       focusedAgentId: normalizeFocusedAgentId(agents, get().focusedAgentId),
       messages,
       moments,
-      personas,
+      personas: personaMutationVersion === startedPersonaMutationVersion ? personas : get().personas,
       mcpServers,
       capabilityAdapters,
       agentConfig,
       skills: skills as EnhancedSkillSummary[],
       proactiveStatuses,
       llmProviders,
-      profile,
+      profile: profileMutationVersion === startedProfileMutationVersion ? profile : get().profile,
       accounts,
       imageProviders,
       videoProviders,
@@ -1306,7 +1654,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? visibleChatMessages(await api.listMessages(state.activeConversationId, messageLimit, previewChars))
         : [];
       const liveState = get();
-      const nextMessages = mergeLocalUiMessages(
+      const nextMessages = mergeBackendMessagesWithLiveState(
         backendMessages,
         liveState.messages,
         state.activeConversationId,
@@ -1324,6 +1672,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
   refreshChatData: async (preferredConversationId, preferredPersonaId) => {
+    const refreshKey = refreshChatDataKey(preferredConversationId, preferredPersonaId);
+    const existingRefresh = refreshChatDataInFlight.get(refreshKey);
+    if (existingRefresh) return existingRefresh;
+    const refresh = (async () => {
     const [conversations, agentQueue] = await Promise.all([
       api.listConversations(),
       api.listAgentQueue()
@@ -1348,7 +1700,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars))
       : [];
     const liveState = get();
-    const messages = mergeLocalUiMessages(
+    const messages = mergeBackendMessagesWithLiveState(
       backendMessages,
       liveState.messages,
       activeConversationId,
@@ -1382,6 +1734,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? current.processingConversationIds.filter((id) => id !== activeConversationId)
         : current.processingConversationIds
     }));
+    })();
+    refreshChatDataInFlight.set(refreshKey, refresh);
+    try {
+      await refresh;
+    } finally {
+      if (refreshChatDataInFlight.get(refreshKey) === refresh) {
+        refreshChatDataInFlight.delete(refreshKey);
+      }
+    }
   },
   loadOlderMessages: async (conversationId, pageSize) => {
     const state = get();
@@ -1396,7 +1757,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const previewChars = uiMessagePreviewChars(state.config);
     const backendMessages = visibleChatMessages(await api.listMessages(targetConversationId, nextLimit, previewChars));
-    const messages = mergeLocalUiMessages(
+    const messages = mergeBackendMessagesWithLiveState(
       backendMessages,
       state.messages,
       targetConversationId,
@@ -1482,13 +1843,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   upsertIncomingMessage: (message, options) => {
     if (!isVisibleChatMessage(message)) return;
     set((state) => {
+      const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+        rememberPendingIncomingMessage(uiMessage);
         return state;
       }
-      const index = state.messages.findIndex((item) => item.id === message.id);
-      const messageLimit = conversationMessageLimit(state.config, message.conversationId, state.conversationMessageLimits);
+      const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+      const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
       const previousMessage = index >= 0 ? state.messages[index] : null;
-      const incomingMessage = preserveLiveThinkingCardsForFinalMessage(message, previousMessage, options);
+      const incomingMessage = preserveLiveThinkingCardsForFinalMessage(uiMessage, previousMessage, options);
       const shouldKeepStreamingPresentation =
         incomingMessage.role === "assistant"
         && !options?.final
@@ -1528,7 +1891,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const conversations = await api.listConversations();
     const messageLimit = uiMessageLimit(get().config);
     const previewChars = uiMessagePreviewChars(get().config);
-    const messages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+    const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+    const liveState = get();
+    const messages = mergeBackendMessagesWithLiveState(
+      backendMessages,
+      liveState.messages,
+      conversation.id,
+      messageLimit,
+      liveState.streamedAssistantIds
+    );
     set((current) => ({
       conversations,
       activeConversationId: conversation.id,
@@ -1545,7 +1916,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const conversations = await api.listConversations();
     const messageLimit = uiMessageLimit(get().config);
     const previewChars = uiMessagePreviewChars(get().config);
-    const messages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+    const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+    const liveState = get();
+    const messages = mergeBackendMessagesWithLiveState(
+      backendMessages,
+      liveState.messages,
+      conversation.id,
+      messageLimit,
+      liveState.streamedAssistantIds
+    );
     set((current) => ({
       conversations,
       activeConversationId: conversation.id,
@@ -1566,7 +1945,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { [conversationId]: _, ...conversationMessageLimits } = state.conversationMessageLimits;
     const messageLimit = conversationMessageLimit(state.config, activeConversationId, conversationMessageLimits);
     const previewChars = uiMessagePreviewChars(state.config);
-    const messages = activeConversationId ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars)) : [];
+    const backendMessages = activeConversationId ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars)) : [];
+    const messages = mergeBackendMessagesWithLiveState(
+      backendMessages,
+      state.messages,
+      activeConversationId,
+      messageLimit,
+      state.streamedAssistantIds
+    );
     const { [conversationId]: _unread, ...unreadCounts } = state.conversationUnreadCounts;
     set({ conversations, activeConversationId, messages, conversationUnreadCounts: unreadCounts, conversationMessageLimits });
     return settling;
@@ -1585,7 +1971,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get();
     const messageLimit = conversationMessageLimit(state.config, conversationId, state.conversationMessageLimits);
     const previewChars = uiMessagePreviewChars(state.config);
-    const messages = visibleChatMessages(await api.listMessages(conversationId, messageLimit, previewChars));
+    const backendMessages = visibleChatMessages(await api.listMessages(conversationId, messageLimit, previewChars));
+    const liveState = get();
+    const messages = mergeBackendMessagesWithLiveState(
+      backendMessages,
+      liveState.messages,
+      conversationId,
+      messageLimit,
+      liveState.streamedAssistantIds
+    );
     if (get().activeConversationId === conversationId) {
       set((current) => ({
         activeConversationId: conversationId,
@@ -1608,7 +2002,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       const conversations = await api.listConversations();
       const messageLimit = uiMessageLimit(state.config);
       const previewChars = uiMessagePreviewChars(state.config);
-      const messages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+      const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+      const liveState = get();
+      const messages = mergeBackendMessagesWithLiveState(
+        backendMessages,
+        liveState.messages,
+        conversation.id,
+        messageLimit,
+        liveState.streamedAssistantIds
+      );
       set((current) => ({
         conversations,
         activeConversationId: conversation.id,
@@ -1636,7 +2038,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         const previewChars = uiMessagePreviewChars(state.config);
         const unreadCounts = { ...state.conversationUnreadCounts };
         delete unreadCounts[conversation.id];
-        const messages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+        const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+        const liveState = get();
+        const messages = mergeBackendMessagesWithLiveState(
+          backendMessages,
+          liveState.messages,
+          conversation.id,
+          messageLimit,
+          liveState.streamedAssistantIds
+        );
         set((current) => ({
           conversations,
           activeConversationId: conversation.id,
@@ -1661,7 +2071,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       const conversations = await api.listConversations();
       const messageLimit = uiMessageLimit(state.config);
       const previewChars = uiMessagePreviewChars(state.config);
-      const messages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+      const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
+      const liveState = get();
+      const messages = mergeBackendMessagesWithLiveState(
+        backendMessages,
+        liveState.messages,
+        conversation.id,
+        messageLimit,
+        liveState.streamedAssistantIds
+      );
       set((current) => ({
         conversations,
         activeConversationId,
@@ -1672,14 +2090,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }));
     }
+    const clientMessageId = `local-${crypto.randomUUID()}`;
     const temporaryMessage: ChatMessage = {
-      id: `local-${crypto.randomUUID()}`,
+      id: clientMessageId,
       conversationId: activeConversationId ?? "",
       role: "user",
       content: cleanContent,
       createdAt: new Date().toISOString(),
       source: "desktop",
-      accountId: null
+      accountId: null,
+      providerData: {
+        source: "desktop",
+        clientMessageId
+      }
     };
     set((current) => ({
       messages: displayMessages(
@@ -1709,17 +2132,28 @@ export const useAppStore = create<AppState>((set, get) => ({
           conversationId: conversationIdForSend,
           personaId: personaIdForSend,
           agentId: agentIdForSend,
-          content: cleanContent
-        });
-        await Promise.allSettled([
-          get().refreshAgentQueue(),
-          get().refreshAgentRuns()
-        ]);
-        const visibleResponseMessages = visibleChatMessages(responseMessages ?? [])
-          .filter((message) => message.source !== "desktop-agent-error");
-        const hasAssistantReply = visibleResponseMessages.some((m) => m.role === "assistant" && m.content.trim());
+          content: cleanContent,
+          providerData: {
+            source: "desktop",
+            clientMessageId: messageClientMessageId(temporaryMessage),
+            clientCreatedAt: temporaryMessage.createdAt
+          }
+        }, uiMessagePreviewChars(get().config));
+        const refreshAgentRuntime = async () => {
+          await Promise.allSettled([
+            get().refreshAgentQueue(),
+            get().refreshAgentRuns()
+          ]);
+        };
+        const visibleResponseMessages = visibleChatMessages(responseMessages ?? []);
+        const hasVisibleResponse = visibleResponseMessages.some((m) =>
+          (m.role === "assistant" || m.role === "tool") && m.content.trim()
+        );
+        const hasAssistantReply = visibleResponseMessages.some((m) =>
+          m.role === "assistant" && m.content.trim() && !isAgentErrorMessage(m)
+        );
         const assistantReply = visibleResponseMessages
-          .filter((m) => m.role === "assistant" && m.content.trim())
+          .filter((m) => m.role === "assistant" && m.content.trim() && !isAgentErrorMessage(m))
           .at(-1) ?? null;
         if (assistantReply) {
           emitPetThinkingEvent("thinking_finished", conversationIdForSend, personaIdForSend, true, assistantReply);
@@ -1737,7 +2171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               ) {
                 return false;
               }
-              if (hasAssistantReply && isLocalStatusMessage(m)) return false;
+              if (hasVisibleResponse && isLocalStatusMessage(m)) return false;
               return true;
             });
             const existingIds = new Set(withoutTemp.map((m) => m.id));
@@ -1747,7 +2181,20 @@ export const useAppStore = create<AppState>((set, get) => ({
           });
         }
         if (get().activeConversationId === conversationIdForSend) {
-          await get().refreshChatData(conversationIdForSend, personaIdForSend);
+          if (hasVisibleResponse) {
+            scheduleBackgroundStoreRefresh(
+              "chat data refresh",
+              () => get().refreshChatData(conversationIdForSend, personaIdForSend),
+              700
+            );
+          } else {
+            await get().refreshChatData(conversationIdForSend, personaIdForSend);
+          }
+        }
+        if (hasVisibleResponse) {
+          scheduleBackgroundStoreRefresh("agent runtime refresh", refreshAgentRuntime, 220);
+        } else {
+          await refreshAgentRuntime();
         }
         const current = get();
         const hasNewerLocalUser = conversationIdForSend
@@ -1778,10 +2225,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       } catch (error) {
         console.error("发送消息失败:", error);
-        await Promise.allSettled([
-          get().refreshAgentQueue(),
-          get().refreshAgentRuns()
-        ]);
+        scheduleBackgroundStoreRefresh(
+          "agent runtime refresh",
+          async () => {
+            await Promise.allSettled([
+              get().refreshAgentQueue(),
+              get().refreshAgentRuns()
+            ]);
+          },
+          0
+        );
         const current = get();
         const hasNewerLocalUser = conversationIdForSend
           ? current.messages.some((message) =>
@@ -1811,16 +2264,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   saveProfile: async (profile) => {
     const saved = await api.saveProfile(profile);
+    profileMutationVersion += 1;
     set({ profile: saved });
   },
   uploadProfileAvatar: async (file) => {
-    const buffer = await file.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(buffer));
-    const profile = await api.uploadProfileAvatar(file.name, bytes);
+    const data = await fileToDataUrl(file);
+    const profile = await api.uploadProfileAvatar(file.name, data);
+    profileMutationVersion += 1;
+    rememberLocalImagePreview(profile.avatarPath, data);
     set({ profile });
   },
   clearProfileAvatar: async () => {
+    const previousPath = get().profile.avatarPath;
     const profile = await api.clearProfileAvatar();
+    profileMutationVersion += 1;
+    forgetLocalImagePreview(previousPath);
     set({ profile });
   },
   refreshAccounts: async () => {
@@ -2028,6 +2486,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   savePersona: async (persona) => {
     const saved = await api.savePersona(persona);
+    personaMutationVersion += 1;
     const agentId = boundAgentId(saved);
     if (agentId) {
       const state = get();
@@ -2052,17 +2511,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   deletePersona: async (id) => {
     await api.deletePersona(id);
+    personaMutationVersion += 1;
     set((state) => ({ personas: state.personas.filter((persona) => persona.id !== id) }));
   },
   uploadPersonaAvatar: async (personaId, file) => {
-    const buffer = await file.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(buffer));
-    const saved = await api.uploadPersonaAvatar(personaId, file.name, bytes);
+    const data = await fileToDataUrl(file);
+    const saved = await api.uploadPersonaAvatar(personaId, file.name, data);
+    personaMutationVersion += 1;
+    rememberLocalImagePreview(saved.avatarPath, data);
     set((state) => ({ personas: state.personas.map((item) => (item.id === saved.id ? saved : item)) }));
     return saved;
   },
   clearPersonaAvatar: async (personaId) => {
+    const previousPath = get().personas.find((item) => item.id === personaId)?.avatarPath;
     const saved = await api.clearPersonaAvatar(personaId);
+    personaMutationVersion += 1;
+    forgetLocalImagePreview(previousPath);
     set((state) => ({ personas: state.personas.map((item) => (item.id === saved.id ? saved : item)) }));
     return saved;
   },
@@ -2251,9 +2715,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       : conversations[0]?.id ?? null;
     const messageLimit = conversationMessageLimit(state.config, activeConversationId, state.conversationMessageLimits);
     const previewChars = uiMessagePreviewChars(state.config);
-    const messages = activeConversationId
+    const backendMessages = activeConversationId
       ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars))
       : [];
+    const messages = mergeBackendMessagesWithLiveState(
+      backendMessages,
+      state.messages,
+      activeConversationId,
+      messageLimit,
+      state.streamedAssistantIds
+    );
     set({
       agents,
       focusedAgentId: normalizeFocusedAgentId(agents, state.focusedAgentId === id ? null : state.focusedAgentId),

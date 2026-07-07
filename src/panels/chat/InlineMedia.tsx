@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { Eye, FileText } from "lucide-react";
+import { LocalAssetImage } from "../../components/common";
 import { api } from "../../lib/api";
 import {
   fileNameFromPath,
@@ -34,8 +35,8 @@ export const InlineImage = memo(function InlineImage({
   return (
     <div className="claw-inline-image" onClick={() => onClick(repairedPath)} role="button" tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(repairedPath); }}>
-      <img
-        src={api.assetUrl(repairedPath)}
+      <LocalAssetImage
+        src={repairedPath}
         alt={fileNameFromPath(repairedPath)}
         loading="lazy"
         onError={() => setFailedPath(repairedPath)}

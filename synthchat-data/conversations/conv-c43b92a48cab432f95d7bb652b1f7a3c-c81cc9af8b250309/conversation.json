@@ -1,11 +1,29 @@
 {
   "id": "conv-c43b92a48cab432f95d7bb652b1f7a3c",
   "title": "生成一张风景图片",
-  "updatedAt": "2026-07-06T06:39:06.963290400+00:00",
-  "lastMessage": "说对了一半～我**能处理文字，也能看图**，但不是啥图都能立刻识别。你刚才发的那张图片，我这边的工具报了个读取错误，可能是路径或者格式的问题。\n\n不过没关系，你可以**直接描述图片内容**，我只要理解就行；或者**把图片内容简单说下**，我",
+  "updatedAt": "2026-07-07T03:44:47.662233900+00:00",
+  "lastMessage": "帮我看看今天有哪些热点新闻，整理总结放到桌面上，然后word发我一份",
   "personaId": "default",
-  "wechatAccountId": null,
+  "wechatAccountId": "4e6b2e6a3198@im.bot",
   "agentId": "agent-1782466838742",
   "createdAt": "2026-07-06T04:57:16.301639600+00:00",
-  "metadata": {}
+  "metadata": {
+    "hermesSessionLifecycle": {
+      "autoResetReason": null,
+      "desktopAdaptation": true,
+      "isFreshReset": false,
+      "note": "SynthChat marks Hermes SessionEntry.resume_pending semantics in conversation metadata when an agent turn is interrupted and can be resumed or diagnosed by the desktop runtime.",
+      "reason": "restart_interrupted",
+      "resumePending": true,
+      "resumeReason": "restart_interrupted",
+      "schema": "hermes_gateway_session_lifecycle_desktop_v1",
+      "sessionId": "conv-c43b92a48cab432f95d7bb652b1f7a3c",
+      "sessionKey": "conv-c43b92a48cab432f95d7bb652b1f7a3c",
+      "source": "startup-normalization",
+      "suspended": false,
+      "updatedAt": "2026-07-07T03:44:47.662233900+00:00",
+      "wasAutoReset": false
+    },
+    "platform": "wechat"
+  }
 }

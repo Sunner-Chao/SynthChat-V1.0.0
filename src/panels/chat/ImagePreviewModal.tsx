@@ -1,5 +1,6 @@
 import { memo, useEffect } from "react";
 import { X } from "lucide-react";
+import { LocalAssetImage } from "../../components/common";
 import { api } from "../../lib/api";
 import { fileNameFromPath } from "../../lib/emojiUtils";
 
@@ -19,7 +20,7 @@ export const ImagePreviewModal = memo(function ImagePreviewModal({ src, onClose 
             <button onClick={onClose} title="关闭" type="button"><X size={15} /></button>
           </div>
         </div>
-        <img src={api.assetUrl(src)} alt={fileNameFromPath(src)} />
+        <LocalAssetImage src={src} alt={fileNameFromPath(src)} />
       </div>
     </div>
   );

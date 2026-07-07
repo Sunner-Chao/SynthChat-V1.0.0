@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { FileText, X } from "lucide-react";
+import { LocalAssetImage } from "../../components/common";
 import { api } from "../../lib/api";
 import type { ArtifactTarget } from "../../lib/messageRenderUtils";
 
@@ -20,7 +21,7 @@ export const ArtifactPreview = memo(function ArtifactPreview({ target, onClose }
           </div>
         </div>
         {isImage ? (
-          <img src={api.assetUrl(target.path)} alt={target.title} />
+          <LocalAssetImage src={target.path} alt={target.title} />
         ) : (
           <div className="claw-artifact-file">
             <FileText size={42} />

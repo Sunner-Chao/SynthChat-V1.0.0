@@ -45,7 +45,7 @@ export function clampCount(
 
 export function previewText(text: string, limit: number) {
   if (text.length <= limit) return text;
-  return `${text.slice(0, limit)}\n\n[内容过长，界面仅预览前 ${limit} 个字符；复制按钮仍会复制完整消息。]`;
+  return `${text.slice(0, limit)}\n\n[内容过长，界面仅预览前 ${limit} 个字符；完整内容仍保存在本地数据中。]`;
 }
 
 export function composerErrorText(error: unknown) {

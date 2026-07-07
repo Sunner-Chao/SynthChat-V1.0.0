@@ -180,7 +180,151 @@ export function App() {
   const visibleWechatUserRef = useRef<Set<string>>(new Set());
   const deferredWechatMessagesRef = useRef<Map<string, Array<{ message: ChatMessage; personaId: string | null }>>>(new Map());
   const deferredWechatTimerRef = useRef<Map<string, number>>(new Map());
+  const chatRefreshTimersRef = useRef<Map<string, number>>(new Map());
+  const chatRefreshInFlightRef = useRef<Set<string>>(new Set());
+  const pendingStreamMessagesRef = useRef<Map<string, {
+    message: ChatMessage;
+    streaming: boolean;
+    final: boolean;
+  }>>(new Map());
+  const streamFlushTimerRef = useRef<number | null>(null);
+  const agentQueueRefreshTimerRef = useRef<number | null>(null);
+  const agentQueueRefreshInFlightRef = useRef(false);
+  const agentRunsRefreshTimerRef = useRef<number | null>(null);
+  const agentRunsRefreshInFlightRef = useRef(false);
+  const memoriesRefreshTimerRef = useRef<number | null>(null);
+  const memoriesRefreshInFlightRef = useRef(false);
   const bridgedProcessingIdsRef = useRef<Set<string>>(new Set());
+
+  const scheduleChatRefresh = useCallback((
+    conversationId?: string | null,
+    personaId?: string | null,
+    delayMs = 140
+  ) => {
+    const key = `${conversationId ?? ""}\u0000${personaId ?? ""}`;
+    const existing = chatRefreshTimersRef.current.get(key);
+    if (existing !== undefined) {
+      window.clearTimeout(existing);
+    }
+    const timer = window.setTimeout(() => {
+      chatRefreshTimersRef.current.delete(key);
+      if (chatRefreshInFlightRef.current.has(key)) {
+        scheduleChatRefresh(conversationId ?? null, personaId ?? null, delayMs);
+        return;
+      }
+      chatRefreshInFlightRef.current.add(key);
+      void refreshChatData(conversationId ?? null, personaId ?? null).finally(() => {
+        chatRefreshInFlightRef.current.delete(key);
+      });
+    }, Math.max(0, delayMs));
+    chatRefreshTimersRef.current.set(key, timer);
+  }, [refreshChatData]);
+
+  const scheduleAgentQueueRefresh = useCallback((delayMs = 180) => {
+    if (agentQueueRefreshTimerRef.current !== null) {
+      window.clearTimeout(agentQueueRefreshTimerRef.current);
+    }
+    agentQueueRefreshTimerRef.current = window.setTimeout(() => {
+      agentQueueRefreshTimerRef.current = null;
+      if (agentQueueRefreshInFlightRef.current) {
+        scheduleAgentQueueRefresh(delayMs);
+        return;
+      }
+      agentQueueRefreshInFlightRef.current = true;
+      void refreshAgentQueue().finally(() => {
+        agentQueueRefreshInFlightRef.current = false;
+      });
+    }, Math.max(0, delayMs));
+  }, [refreshAgentQueue]);
+
+  const scheduleAgentRunsRefresh = useCallback((delayMs = 220) => {
+    if (agentRunsRefreshTimerRef.current !== null) {
+      window.clearTimeout(agentRunsRefreshTimerRef.current);
+    }
+    agentRunsRefreshTimerRef.current = window.setTimeout(() => {
+      agentRunsRefreshTimerRef.current = null;
+      if (agentRunsRefreshInFlightRef.current) {
+        scheduleAgentRunsRefresh(delayMs);
+        return;
+      }
+      agentRunsRefreshInFlightRef.current = true;
+      void refreshAgentRuns().finally(() => {
+        agentRunsRefreshInFlightRef.current = false;
+      });
+    }, Math.max(0, delayMs));
+  }, [refreshAgentRuns]);
+
+  const scheduleMemoriesRefresh = useCallback((delayMs = 500) => {
+    if (memoriesRefreshTimerRef.current !== null) {
+      window.clearTimeout(memoriesRefreshTimerRef.current);
+    }
+    memoriesRefreshTimerRef.current = window.setTimeout(() => {
+      memoriesRefreshTimerRef.current = null;
+      if (memoriesRefreshInFlightRef.current) {
+        scheduleMemoriesRefresh(delayMs);
+        return;
+      }
+      memoriesRefreshInFlightRef.current = true;
+      void refreshMemories().finally(() => {
+        memoriesRefreshInFlightRef.current = false;
+      });
+    }, Math.max(0, delayMs));
+  }, [refreshMemories]);
+
+  const flushPendingStreamMessages = useCallback(() => {
+    if (streamFlushTimerRef.current !== null) {
+      window.clearTimeout(streamFlushTimerRef.current);
+      streamFlushTimerRef.current = null;
+    }
+    const pending = Array.from(pendingStreamMessagesRef.current.values());
+    pendingStreamMessagesRef.current.clear();
+    for (const item of pending) {
+      upsertIncomingMessage(item.message, {
+        streaming: item.streaming && !item.final,
+        final: item.final
+      });
+    }
+  }, [upsertIncomingMessage]);
+
+  const scheduleStreamMessageUpsert = useCallback((
+    message: ChatMessage,
+    options: { streaming?: boolean; final?: boolean },
+    immediate = false
+  ) => {
+    const key = message.id.trim() || `${message.conversationId}:${message.role}`;
+    const previous = pendingStreamMessagesRef.current.get(key);
+    pendingStreamMessagesRef.current.set(key, {
+      message,
+      streaming: Boolean(options.streaming),
+      final: Boolean(options.final || previous?.final)
+    });
+    if (immediate || options.final) {
+      flushPendingStreamMessages();
+      return;
+    }
+    if (streamFlushTimerRef.current !== null) return;
+    streamFlushTimerRef.current = window.setTimeout(() => {
+      flushPendingStreamMessages();
+    }, 60);
+  }, [flushPendingStreamMessages]);
+
+  useEffect(() => () => {
+    chatRefreshTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    chatRefreshTimersRef.current.clear();
+    chatRefreshInFlightRef.current.clear();
+    if (streamFlushTimerRef.current !== null) window.clearTimeout(streamFlushTimerRef.current);
+    streamFlushTimerRef.current = null;
+    pendingStreamMessagesRef.current.clear();
+    if (agentQueueRefreshTimerRef.current !== null) window.clearTimeout(agentQueueRefreshTimerRef.current);
+    if (agentRunsRefreshTimerRef.current !== null) window.clearTimeout(agentRunsRefreshTimerRef.current);
+    if (memoriesRefreshTimerRef.current !== null) window.clearTimeout(memoriesRefreshTimerRef.current);
+    agentQueueRefreshTimerRef.current = null;
+    agentRunsRefreshTimerRef.current = null;
+    memoriesRefreshTimerRef.current = null;
+    agentQueueRefreshInFlightRef.current = false;
+    agentRunsRefreshInFlightRef.current = false;
+    memoriesRefreshInFlightRef.current = false;
+  }, []);
 
   const showConversationProcessing = useCallback((
     conversationId: string,
@@ -195,12 +339,9 @@ export function App() {
     }
     setConversationProcessing(conversationId, true);
     if (follow) {
-      void (async () => {
-        await refreshChatData(conversationId, personaId ?? null);
-        setConversationProcessing(conversationId, true);
-      })();
+      scheduleChatRefresh(conversationId, personaId ?? null, 220);
     }
-  }, [refreshChatData, setConversationProcessing, setSection]);
+  }, [scheduleChatRefresh, setConversationProcessing, setSection]);
 
   const hideConversationProcessing = useCallback((conversationId: string) => {
     if (!conversationId) return;
@@ -237,10 +378,10 @@ export function App() {
       flushDeferredWechatMessages(conversationId);
       activeWechatTurnRef.current.delete(conversationId);
       visibleWechatUserRef.current.delete(conversationId);
-      void refreshChatData(conversationId, personaId ?? null);
+      scheduleChatRefresh(conversationId, personaId ?? null);
     }, WECHAT_REPLY_INSERT_DEFER_MS);
     deferredWechatTimerRef.current.set(conversationId, nextTimer);
-  }, [flushDeferredWechatMessages, refreshChatData]);
+  }, [flushDeferredWechatMessages, scheduleChatRefresh]);
 
   const deferWechatTurnMessage = useCallback((
     conversationId: string,
@@ -410,9 +551,7 @@ export function App() {
         ) {
           upsertIncomingMessage(payload.message, { final: payload.message.role === "assistant" });
         }
-        window.setTimeout(() => {
-          void refreshChatData(payload.conversationId ?? null, payload.personaId ?? null);
-        }, 180);
+        scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null, 180);
         return;
       }
       const isMessageEvent =
@@ -453,7 +592,7 @@ export function App() {
             incrementConversationUnread(payload.conversationId);
           }
         }
-        upsertIncomingMessage(payload.message, {
+        const streamOptions = {
           streaming: (
             (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream")
             && payload.message.role === "assistant"
@@ -463,7 +602,17 @@ export function App() {
             (payload.type === "assistant_message" || (payload.type === "assistant_stream" && payload.isLast))
             && payload.message.role === "assistant"
           )
-        });
+        };
+        if (payload.message.role === "assistant" && streamOptions.final) {
+          scheduleStreamMessageUpsert(payload.message, streamOptions, true);
+        } else if (
+          payload.message.role === "assistant"
+          && (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream")
+        ) {
+          scheduleStreamMessageUpsert(payload.message, streamOptions, Boolean(payload.isLast));
+        } else {
+          upsertIncomingMessage(payload.message, streamOptions);
+        }
         appliedInlineVisibleMessage = true;
         if (isWechatUserMessage) {
           flushDeferredWechatMessages(payload.conversationId);
@@ -495,7 +644,7 @@ export function App() {
         return;
       }
       if (payload.type === "new_message" || payload.type === "assistant_message" || payload.type === "conversation_updated") {
-        void refreshChatData(payload.conversationId ?? null, payload.personaId ?? null);
+        scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null);
       }
     }).then((handler) => {
       unlisten = handler;
@@ -512,6 +661,8 @@ export function App() {
     incrementConversationUnread,
     refreshChatData,
     scheduleWechatFallbackRefresh,
+    scheduleChatRefresh,
+    scheduleStreamMessageUpsert,
     setConversationProcessing,
     showConversationProcessing,
     upsertIncomingMessage
@@ -548,19 +699,17 @@ export function App() {
       const payload = event.payload;
       handleAgentRunEvent(payload);
       if (payload.phase === "memory_write_observed" || isMemoryWriteToolEvent(payload.toolEvent)) {
-        void refreshMemories();
+        scheduleMemoriesRefresh();
       }
       // Processing visibility is owned by the authoritative turn_started /
       // turn_finished lifecycle (see synthchat-chat-event handler).
       if (payload.message) {
         upsertIncomingMessage(payload.message);
       }
-      void refreshAgentQueue();
+      scheduleAgentQueueRefresh();
       if (payload.state === "completed" || payload.state === "failed" || payload.state === "aborted") {
-        void Promise.all([
-          refreshAgentRuns(),
-          refreshChatData(payload.conversationId, payload.personaId)
-        ]);
+        scheduleAgentRunsRefresh();
+        scheduleChatRefresh(payload.conversationId, payload.personaId);
       }
     }).then((handler) => {
       unlisten = handler;
@@ -568,7 +717,7 @@ export function App() {
     return () => {
       if (unlisten) unlisten();
     };
-  }, [handleAgentRunEvent, refreshAgentQueue, refreshAgentRuns, refreshChatData, refreshMemories, setConversationProcessing, upsertIncomingMessage]);
+  }, [handleAgentRunEvent, scheduleAgentQueueRefresh, scheduleAgentRunsRefresh, scheduleChatRefresh, scheduleMemoriesRefresh, setConversationProcessing, upsertIncomingMessage]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -580,28 +729,28 @@ export function App() {
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
         }));
       }
-      void refreshAgentQueue();
+      scheduleAgentQueueRefresh(120);
     }).then((handler) => {
       unlisten = handler;
     });
     return () => {
       if (unlisten) unlisten();
     };
-  }, [refreshAgentQueue]);
+  }, [scheduleAgentQueueRefresh]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     void listen<{ type: string; conversationId?: string | null }>("synthchat-agent-goal-event", (event) => {
-      void refreshAgentQueue();
-      void refreshAgentRuns();
-      void refreshChatData(event.payload.conversationId ?? null, null);
+      scheduleAgentQueueRefresh();
+      scheduleAgentRunsRefresh();
+      scheduleChatRefresh(event.payload.conversationId ?? null, null);
     }).then((handler) => {
       unlisten = handler;
     });
     return () => {
       if (unlisten) unlisten();
     };
-  }, [refreshAgentQueue, refreshAgentRuns, refreshChatData]);
+  }, [scheduleAgentQueueRefresh, scheduleAgentRunsRefresh, scheduleChatRefresh]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -609,16 +758,17 @@ export function App() {
       const payload = event.payload;
       handleManagedProcessEvent(payload);
       if (payload.conversationId) {
-        void refreshChatData(payload.conversationId, null);
+        scheduleChatRefresh(payload.conversationId, null);
       }
-      void Promise.all([refreshAgentRuns(), refreshAgentQueue()]);
+      scheduleAgentRunsRefresh();
+      scheduleAgentQueueRefresh();
     }).then((handler) => {
       unlisten = handler;
     });
     return () => {
       if (unlisten) unlisten();
     };
-  }, [handleManagedProcessEvent, refreshAgentQueue, refreshAgentRuns, refreshChatData]);
+  }, [handleManagedProcessEvent, scheduleAgentQueueRefresh, scheduleAgentRunsRefresh, scheduleChatRefresh]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;

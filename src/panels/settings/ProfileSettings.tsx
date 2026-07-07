@@ -1,8 +1,15 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { api } from "../../lib/api";
 import type { ProfileConfig } from "../../lib/types";
 import { Avatar } from "../../components/common";
 import { BackBtn } from "./_shared";
+
+function avatarErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message);
+  }
+  return String(error || "头像上传失败");
+}
 
 export function ProfileSettings({
   onBack,
@@ -18,13 +25,36 @@ export function ProfileSettings({
   clearAvatar: () => Promise<void>;
 }) {
   const [name, setName] = useState(profile.name);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
   useEffect(() => setName(profile.name), [profile.name]);
   const avatarInput = useRef<HTMLInputElement | null>(null);
 
   const onAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (file) await uploadAvatar(file);
+    if (!file) return;
+    setAvatarBusy(true);
+    setAvatarError("");
+    try {
+      await uploadAvatar(file);
+    } catch (error) {
+      setAvatarError(avatarErrorMessage(error));
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const onClearAvatar = async () => {
+    setAvatarBusy(true);
+    setAvatarError("");
+    try {
+      await clearAvatar();
+    } catch (error) {
+      setAvatarError(avatarErrorMessage(error));
+    } finally {
+      setAvatarBusy(false);
+    }
   };
 
   return (
@@ -35,16 +65,19 @@ export function ProfileSettings({
       </div>
       <div className="card" style={{ margin: "0 16px 12px" }}>
         <div className="profile-detail">
-          <Avatar name={profile.name} src={profile.avatarPath ? api.assetUrl(profile.avatarPath) : ""} size="large" />
+          <Avatar name={profile.name} src={profile.avatarPath || ""} size="large" />
           <h2>{profile.name}</h2>
           <p>本地用户资料</p>
           <input accept="image/*" className="hidden-input" onChange={onAvatar} ref={avatarInput} type="file" />
           <div className="inline-actions">
-            <button className="btn-primary-outline" type="button" onClick={() => avatarInput.current?.click()}>上传头像</button>
+            <button className="btn-primary-outline" disabled={avatarBusy} type="button" onClick={() => avatarInput.current?.click()}>
+              {avatarBusy ? "处理中..." : "上传头像"}
+            </button>
             {profile.avatarPath
-              ? <button className="btn-secondary-outline" type="button" onClick={() => void clearAvatar()}>清除头像</button>
+              ? <button className="btn-secondary-outline" disabled={avatarBusy} type="button" onClick={() => void onClearAvatar()}>清除头像</button>
               : null}
           </div>
+          {avatarError ? <p className="error-text">{avatarError}</p> : null}
         </div>
       </div>
       <div className="card" style={{ margin: "0 16px 12px" }}>

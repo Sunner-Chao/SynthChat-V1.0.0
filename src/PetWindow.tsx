@@ -27,6 +27,7 @@ const FRAME_MESSAGE_SOURCE = "synthchat-pet-frame";
 const PET_ACTIVE_CONTEXT_SOURCE = "pet";
 const PET_HISTORY_LIMIT = 40;
 const PET_PREVIEW_CHARS = 1200;
+const PET_CLOUD_STREAM_MAX_CHARS = 1600;
 const PET_MESSAGE_MIRROR_INTERVAL_MS = 3200;
 const PET_GLOBAL_LOOK_INTERVAL_MS = 32;
 const PET_GLOBAL_LOOK_IDLE_MS = 3000;
@@ -43,6 +44,66 @@ const PET_INPUT_HOT_ZONE_BOTTOM_PADDING_PX = 26;
 const PET_INPUT_FALLBACK_HOT_ZONE_HEIGHT_PX = 116;
 const PET_INPUT_INTERACTION_GRACE_MS = 700;
 const PET_DEFAULT_MODEL_STORAGE_KEY = "synthchat.pet.defaultModelId";
+
+function listenIfTauri<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
+  if (!isTauri()) return Promise.resolve(() => undefined);
+  return listen<T>(event, handler as Parameters<typeof listen<T>>[1]);
+}
+
+async function listPetConversations(): Promise<Conversation[]> {
+  return isTauri()
+    ? invoke<Conversation[]>("list_conversations")
+    : api.listConversations();
+}
+
+async function listPetPersonas(): Promise<Persona[]> {
+  return isTauri()
+    ? invoke<Persona[]>("list_personas")
+    : api.listPersonas();
+}
+
+function PetLocalAssetImage({
+  src,
+  alt,
+  className,
+  title,
+  onFinalError
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  title?: string;
+  onFinalError?: () => void;
+}) {
+  const [renderSrc, setRenderSrc] = useState(src ? convertFileSrc(src) : "");
+  const [fallbackTried, setFallbackTried] = useState(false);
+  useEffect(() => {
+    setRenderSrc(src ? convertFileSrc(src) : "");
+    setFallbackTried(false);
+  }, [src]);
+  if (!renderSrc) return null;
+  return (
+    <img
+      className={className}
+      src={renderSrc}
+      alt={alt}
+      title={title}
+      onError={() => {
+        if (!fallbackTried && !/^(data:|blob:|https?:)/i.test(renderSrc)) {
+          setFallbackTried(true);
+          void api.localAssetDataUrl(src)
+            .then((dataUrl: string) => {
+              if (dataUrl) setRenderSrc(dataUrl);
+              else onFinalError?.();
+            })
+            .catch(() => onFinalError?.());
+          return;
+        }
+        onFinalError?.();
+      }}
+    />
+  );
+}
 const PET_VISION_INTERVAL_STORAGE_KEY = "synthchat.pet.visionIntervalSeconds";
 const PET_VOICE_REPLY_ENABLED_STORAGE_KEY = "synthchat.pet.voiceReplyEnabled";
 const DEFAULT_PET_VISION_INTERVAL_SECONDS = 60;
@@ -663,6 +724,7 @@ export function PetWindow() {
   }, [petVoiceReplyConfig, petVoiceReplyEnabled]);
 
   useEffect(() => {
+    if (!isTauri()) return;
     void invoke("set_pet_vision_active", { active: visionEnabled }).catch((error) => {
       console.warn("pet vision active state sync failed:", error);
     });
@@ -707,7 +769,7 @@ export function PetWindow() {
             attachments: [attachment],
             silent: true
           }
-        });
+        }, PET_PREVIEW_CHARS);
         if (stopped || !messages.length) return;
         const assistant = latestAssistantMessage(messages)
           ?? await waitForAssistantReply(context.conversationId, previousAssistantState);
@@ -1051,7 +1113,7 @@ export function PetWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
-    void listen<PetActiveContext>(PET_ACTIVE_CONTEXT_EVENT, (event) => {
+    void listenIfTauri<PetActiveContext>(PET_ACTIVE_CONTEXT_EVENT, (event) => {
       const context = parsePetActiveContext(event.payload);
       if (!context) return;
       setPetContext(context);
@@ -1123,7 +1185,7 @@ export function PetWindow() {
     });
 
     let unlisten: (() => void) | null = null;
-    void listen(PET_THINKING_STATE_EVENT, (event) => {
+    void listenIfTauri(PET_THINKING_STATE_EVENT, (event) => {
       applyThinkingState(event.payload);
     }).then((handler) => {
       unlisten = handler;
@@ -1160,7 +1222,7 @@ export function PetWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
-    void listen<{
+    void listenIfTauri<{
       type?: string;
       personaId?: string;
       source?: string;
@@ -1199,7 +1261,7 @@ export function PetWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
-    void listen<{
+    void listenIfTauri<{
       type: string;
       conversationId?: string;
       message?: ChatMessage;
@@ -1305,7 +1367,7 @@ export function PetWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
-    void listen<{
+    void listenIfTauri<{
       type: string;
       source?: string;
       personaId?: string;
@@ -1387,7 +1449,7 @@ export function PetWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
-    void listen<AgentRunEvent>("synthchat-agent-run-event", (event) => {
+    void listenIfTauri<AgentRunEvent>("synthchat-agent-run-event", (event) => {
       const payload = event.payload;
       const context = activeContextRef.current ?? readStoredPetActiveContext();
       if (
@@ -1914,7 +1976,8 @@ export function PetWindow() {
     clearCloudStreamTimer();
     setBrokenCloudImages({});
     const bubbleId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const initialLength = formatted.length > 0 ? Math.min(2, formatted.length) : 0;
+    const shouldStream = formatted.length <= PET_CLOUD_STREAM_MAX_CHARS;
+    const initialLength = shouldStream && formatted.length > 0 ? Math.min(2, formatted.length) : formatted.length;
     cloudTextDraftsRef.current.set(bubbleId, formatted);
     setCloudBubble({
       id: bubbleId,
@@ -2156,8 +2219,8 @@ export function PetWindow() {
   async function resolvePetVoicePersona() {
     const context = activeContextRef.current ?? readStoredPetActiveContext();
     const [conversations, personas] = await Promise.all([
-      invoke<Conversation[]>("list_conversations"),
-      api.listPersonas()
+      listPetConversations(),
+      listPetPersonas()
     ]);
     if (personas.length === 0) return null;
     const contextConversation = context?.conversationId
@@ -2422,13 +2485,13 @@ export function PetWindow() {
       source: PET_ACTIVE_CONTEXT_SOURCE
     };
     setPetContext(nextContext);
-    void emit(PET_ACTIVE_CONTEXT_EVENT, nextContext);
+    if (isTauri()) void emit(PET_ACTIVE_CONTEXT_EVENT, nextContext);
   }
 
   async function resolvePetSendContext(): Promise<PetSendContext> {
     const context = activeContextRef.current ?? readStoredPetActiveContext();
-    const conversations = await invoke<Conversation[]>("list_conversations");
-    const personas = await invoke<Persona[]>("list_personas");
+    const conversations = await listPetConversations();
+    const personas = await listPetPersonas();
     const agents = await api.listAgents();
     const contextConversation = context?.conversationId
       ? conversations.find((conversation) => conversation.id === context.conversationId) ?? null
@@ -2606,7 +2669,7 @@ export function PetWindow() {
     return [text, attachmentMarkers, attachmentContext].filter(Boolean).join("\n\n");
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     const text = input.trim();
     const readyAttachments = composerAttachments.filter((item) => item.status === "ready");
     const hasStagingAttachment = composerAttachments.some((item) => item.status === "staging");
@@ -2619,42 +2682,53 @@ export function PetWindow() {
     setSending(true);
     playPetBehavior("thinking");
 
-    try {
-      const context = await resolvePetSendContext();
-      updatePetActiveContext(context);
-      showThinkingCloud(context.conversationId);
-      const previousAssistantState = assistantMirrorState(context.conversationId);
-      const messages = await api.sendChatMessage({
-        conversationId: context.conversationId,
-        personaId: context.personaId,
-        agentId: context.agentId,
-        content: buildPetOutboundContent(text, readyAttachments),
-        providerData: {
-          source: "pet"
-        }
-      });
-      const assistant = latestAssistantMessage(messages)
-        ?? await waitForAssistantReply(context.conversationId, previousAssistantState);
-      if (assistant) {
-        if (streamedAssistantMessageIdsRef.current.has(assistant.id)) {
-          finalizeAssistantStream(context.conversationId, assistant);
-        } else {
-          showAssistantCloud(assistant, context.conversationId);
-        }
-      } else {
+    void (async () => {
+      let submitReleased = false;
+      const releaseSubmit = () => {
+        if (submitReleased) return;
+        submitReleased = true;
+        sendingRef.current = false;
+        setSending(false);
+      };
+
+      try {
+        const context = await resolvePetSendContext();
+        updatePetActiveContext(context);
         showThinkingCloud(context.conversationId);
-        playPetBehavior("thinking", { durationMs: 1600 });
+        const previousAssistantState = assistantMirrorState(context.conversationId);
+        const outboundContent = buildPetOutboundContent(text, readyAttachments);
+        releaseSubmit();
+        const messages = await api.sendChatMessage({
+          conversationId: context.conversationId,
+          personaId: context.personaId,
+          agentId: context.agentId,
+          content: outboundContent,
+          providerData: {
+            source: "pet"
+          }
+        }, PET_PREVIEW_CHARS);
+        const assistant = latestAssistantMessage(messages)
+          ?? await waitForAssistantReply(context.conversationId, previousAssistantState);
+        if (assistant) {
+          if (streamedAssistantMessageIdsRef.current.has(assistant.id)) {
+            finalizeAssistantStream(context.conversationId, assistant);
+          } else {
+            showAssistantCloud(assistant, context.conversationId);
+          }
+        } else {
+          showThinkingCloud(context.conversationId);
+          playPetBehavior("thinking", { durationMs: 1600 });
+        }
+      } catch (error) {
+        console.error("pet send failed:", error);
+        setInput((current) => current.trim() ? current : text);
+        setComposerAttachments((current) => current.length > 0 ? current : submittedAttachments);
+        showCloud("发送失败。", "error", 3600);
+        playPetBehavior("error");
+      } finally {
+        releaseSubmit();
       }
-    } catch (error) {
-      console.error("pet send failed:", error);
-      setInput((current) => current.trim() ? current : text);
-      setComposerAttachments((current) => current.length > 0 ? current : submittedAttachments);
-      showCloud("发送失败。", "error", 3600);
-      playPetBehavior("error");
-    } finally {
-      sendingRef.current = false;
-      setSending(false);
-    }
+    })();
   }
 
   function switchModel(model: PetModel) {
@@ -2673,6 +2747,7 @@ export function PetWindow() {
   }
 
   async function petWindowAction(action: "expand" | "model" | "drag" | "orb" | "undock", edge: PetDockEdge | null = null) {
+    if (!isTauri()) return;
     try {
       await invoke("pet_window_action", { action, edge });
     } catch (error) {
@@ -2701,6 +2776,7 @@ export function PetWindow() {
   }
 
   async function toggleMainWindow() {
+    if (!isTauri()) return;
     try {
       await invoke("toggle_main_window");
     } catch (error) {
@@ -2711,6 +2787,7 @@ export function PetWindow() {
   async function syncPetPointerPassthrough(ignore: boolean) {
     if (ignoreCursorEventsRef.current === ignore) return;
     ignoreCursorEventsRef.current = ignore;
+    if (!isTauri()) return;
     try {
       await invoke("pet_window_set_ignore_cursor_events", { ignore });
     } catch (error) {
@@ -2789,6 +2866,7 @@ export function PetWindow() {
   }
 
   async function updateGlobalLook() {
+    if (!isTauri()) return;
     if (!modelLoadedRef.current || globalLookInFlightRef.current) return;
     globalLookInFlightRef.current = true;
     try {
@@ -3284,13 +3362,13 @@ export function PetWindow() {
               const ext = a.fileName.split(".").pop()?.toLowerCase() ?? "";
               const docIcon: Record<string, string> = { pdf: "📄", pptx: "📊", ppt: "📊", docx: "📝", doc: "📝", xlsx: "📊", xls: "📊", txt: "📃", csv: "📊" };
               return isImage ? (
-                <img
+                <PetLocalAssetImage
                   key={i}
                   className="pet-cloud-attachment-img"
-                  src={convertFileSrc(a.resolvedPath)}
+                  src={a.resolvedPath}
                   alt={a.fileName}
                   title={a.fileName}
-                  onError={() => {
+                  onFinalError={() => {
                     setBrokenCloudImages((current) => {
                       if (current[a.resolvedPath]) return current;
                       return { ...current, [a.resolvedPath]: true };

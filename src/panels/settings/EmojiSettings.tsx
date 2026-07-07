@@ -1,5 +1,6 @@
 import { ChangeEvent, useRef, useState } from "react";
 import { Plus, Smile } from "lucide-react";
+import { LocalAssetImage } from "../../components/common";
 import { api } from "../../lib/api";
 import type { EmojiGroup } from "../../lib/types";
 import { BackBtn } from "./_shared";
@@ -134,7 +135,7 @@ export function EmojiSettings({
                       <div className="emoji-image-grid">
                         {images.map((path) => (
                           <div className="emoji-image-item" key={path}>
-                            <img src={api.assetUrl(path)} alt={path.split(/[\\/]/).pop() || emotion} />
+                            <LocalAssetImage src={path} alt={path.split(/[\\/]/).pop() || emotion} />
                             <div>
                               <button className="btn-secondary-outline-sm" type="button"
                                 onClick={() => void renameImage(group.id, emotion, path)}>改名</button>

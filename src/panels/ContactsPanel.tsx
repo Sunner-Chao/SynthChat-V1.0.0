@@ -11,7 +11,6 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { api } from "../lib/api";
 import { resolvePersonaAgentBinding } from "../lib/personaAgentBinding";
 import { useAppStore } from "../lib/store";
 import type { Persona } from "../lib/types";
@@ -111,7 +110,7 @@ export function ContactsPanel() {
                 onClick={() => setSelectedPersonaId(persona.id)}
                 type="button"
               >
-                <Avatar name={persona.name} src={persona.avatarPath ? api.assetUrl(persona.avatarPath) : ""} />
+                <Avatar name={persona.name} src={persona.avatarPath || ""} />
                 <span>
                   <strong>{persona.name}</strong>
                   <small>{binding?.infoText ?? "未配置服务商"}</small>
@@ -151,7 +150,7 @@ export function ContactsPanel() {
             </div>
           ) : (
             <div className="profile-detail">
-              <Avatar name={selectedPersona.name} src={selectedPersona.avatarPath ? api.assetUrl(selectedPersona.avatarPath) : ""} size="large" />
+              <Avatar name={selectedPersona.name} src={selectedPersona.avatarPath || ""} size="large" />
               <h2>{selectedPersona.name}</h2>
               <p className="persona-id-text">{selectedPersona.id}</p>
               <div className="menu-card">

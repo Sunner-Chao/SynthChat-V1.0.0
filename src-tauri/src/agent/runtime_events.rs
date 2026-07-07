@@ -175,7 +175,9 @@ pub(super) fn emit_agent_run_record(
         return;
     };
     let phase = run.phase_events.last();
-    let tool_event = run.tool_events.last().cloned();
+    let tool_event = run.tool_events.last().cloned().map(preview_tool_event_for_ui);
+    let detail = phase.map(|item| preview_agent_event_detail(item.detail.clone()));
+    let message = message.map(|message| crate::preview_message_for_ui(message.clone(), None));
     let payload = json!({
         "runId": &run.run_id,
         "conversationId": &run.conversation_id,
@@ -194,7 +196,7 @@ pub(super) fn emit_agent_run_record(
         "message": message,
         "toolEvent": tool_event,
         "phase": phase.map(|item| item.phase.clone()),
-        "detail": phase.map(|item| item.detail.clone()),
+        "detail": detail,
         "workflowGraph": &run.workflow_graph,
         "workflow_graph": &run.workflow_graph,
         "error": &run.error,
@@ -203,6 +205,51 @@ pub(super) fn emit_agent_run_record(
         "lastActivityDesc": &run.last_activity_desc,
     });
     let _ = app.emit("synthchat-agent-run-event", payload);
+}
+
+fn preview_agent_event_text(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    format!(
+        "{}\n\n[内容过长，界面仅预览前 {max_chars} 个字符；完整内容仍保存在本地运行记录中。]",
+        truncate_for_prompt(text, max_chars)
+    )
+}
+
+fn preview_agent_event_detail(detail: Value) -> Value {
+    let rendered = detail.to_string();
+    if rendered.chars().count() <= 6_000 {
+        return detail;
+    }
+    json!({
+        "uiPreviewTruncated": true,
+        "preview": preview_agent_event_text(&rendered, 4_000),
+    })
+}
+
+fn preview_tool_event_for_ui(mut event: Value) -> Value {
+    let Some(object) = event.as_object_mut() else {
+        return event;
+    };
+    for key in ["summary", "text", "error"] {
+        if let Some(Value::String(text)) = object.get_mut(key) {
+            *text = preview_agent_event_text(text, 3_000);
+        }
+    }
+    if object
+        .get("raw")
+        .is_some_and(|raw| raw.to_string().chars().count() > 4_000)
+    {
+        object.insert(
+            "raw".into(),
+            json!({
+                "uiPreviewTruncated": true,
+                "reason": "raw payload omitted from live agent-run event"
+            }),
+        );
+    }
+    event
 }
 
 pub(crate) fn emit_pet_assistant_event(
@@ -216,6 +263,7 @@ pub(crate) fn emit_pet_assistant_event(
     let Some(app) = app else {
         return;
     };
+    let message = crate::preview_message_for_ui(message.clone(), None);
     let _ = app.emit(
         "synthchat-pet-event",
         json!({

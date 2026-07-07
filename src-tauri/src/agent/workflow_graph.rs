@@ -3108,6 +3108,14 @@ pub(super) fn record_workflow_reviewer_skipped(
     detail.insert("reason".into(), json!(reason));
     detail.insert("model".into(), json!(model));
     detail.insert("providerId".into(), json!(provider_id));
+    if workflow_run_current_status_is_failure(store, run_id)? {
+        insert_workflow_detail_alias_value(
+            &mut detail,
+            "preserveCurrent",
+            "preserve_current",
+            json!(true),
+        );
+    }
     append_workflow_node_event(
         store,
         run_id,
@@ -3115,6 +3123,39 @@ pub(super) fn record_workflow_reviewer_skipped(
         WorkflowNodeStatus::Skipped,
         Value::Object(detail),
     )
+}
+
+fn workflow_run_current_status_is_failure(store: &AppStore, run_id: &str) -> AppResult<bool> {
+    let run = store.agent_run(run_id)?;
+    Ok(workflow_graph_current_status_is_failure(
+        run.workflow_graph.as_ref(),
+    ))
+}
+
+fn workflow_graph_current_status_is_failure(graph: Option<&Value>) -> bool {
+    let Some(object) = graph.and_then(Value::as_object) else {
+        return false;
+    };
+    let Some(current_node) = object
+        .get("currentNode")
+        .or_else(|| object.get("current_node"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|node| !node.is_empty())
+    else {
+        return false;
+    };
+    let status = object
+        .get("currentStatus")
+        .or_else(|| object.get("current_status"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| {
+            workflow_current_status_for_target(object, current_node)
+                .as_str()
+                .map(str::to_string)
+        });
+    matches!(status.as_deref(), Some("failed" | "canceled" | "cancelled"))
 }
 
 pub(super) fn record_workflow_timeout(
@@ -3656,11 +3697,15 @@ fn final_answer_looks_like_intermediate_progress(content: &str) -> bool {
     let chinese_markers = [
         "正在",
         "稍等",
+        "等等",
         "等一下",
         "请稍候",
         "请稍等",
         "马上",
         "处理中",
+        "我看看",
+        "我去看",
+        "我去查",
         "我来查",
         "我来搜",
         "我再试",
@@ -3689,6 +3734,10 @@ fn final_answer_looks_like_tool_or_transport_leak(content: &str) -> bool {
         return false;
     }
     let normalized = trimmed.to_ascii_lowercase();
+
+    if final_answer_contains_tool_action_object(&normalized) {
+        return true;
+    }
 
     if text_contains_any(
         trimmed,
@@ -3802,6 +3851,83 @@ fn final_answer_looks_like_tool_or_transport_leak(content: &str) -> bool {
     false
 }
 
+fn final_answer_contains_tool_action_object(normalized: &str) -> bool {
+    if !normalized.contains('{') || !normalized.contains('}') {
+        return false;
+    }
+    let compact = normalized
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>();
+    let has_action_key = ascii_contains_any(
+        &compact,
+        &[
+            "{\"action\":",
+            "{'action':",
+            "{action:",
+            ",\"action\":",
+            ",'action':",
+            ",action:",
+        ],
+    );
+    if !has_action_key {
+        return false;
+    }
+    let has_tool_name = ascii_contains_any(
+        &compact,
+        &[
+            "web_extract",
+            "web.extract",
+            "web_request",
+            "web.request",
+            "web_search",
+            "web.search",
+            "browser_navigate",
+            "browser.navigate",
+            "browser_snapshot",
+            "browser.snapshot",
+            "browser_cdp",
+            "terminal",
+            "process",
+            "read_file",
+            "read.file",
+            "write_file",
+            "write.file",
+            "patch",
+            "document",
+            "artifact",
+            "image_generate",
+            "image.generate",
+            "vision_analyze",
+            "vision.analyze",
+            "tool_call",
+            "function_call",
+        ],
+    );
+    let has_tool_payload_key = ascii_contains_any(
+        &compact,
+        &[
+            "\"url\":",
+            "'url':",
+            "\"urls\":",
+            "'urls':",
+            "\"command\":",
+            "'command':",
+            "\"payload\":",
+            "'payload':",
+            "\"arguments\":",
+            "'arguments':",
+            "\"maxchars\":",
+            "'maxchars':",
+            "\"tool\":",
+            "'tool':",
+            "\"path\":",
+            "'path':",
+        ],
+    );
+    has_tool_name && (has_tool_payload_key || compact.len() < 1200)
+}
+
 #[cfg(test)]
 mod completion_gate_tests {
     use super::*;
@@ -3825,6 +3951,20 @@ mod completion_gate_tests {
         assert!(final_answer_looks_like_tool_or_transport_leak(
             r#"{"name":"image_generate","arguments":{"prompt":"湖边风景","size":"1024x1024"}}
 {"tool_calls":[{"type":"function","function":{"name":"image_generate","arguments":{"prompt":"湖边风景"}}}]}"#
+        ));
+    }
+
+    #[test]
+    fn rejects_single_quoted_tool_action_dict_as_final_answer() {
+        assert!(final_answer_looks_like_tool_or_transport_leak(
+            "小孙：\n等等哦，我去看看今天有啥热闹～\n\n{'action': 'web_extract', 'url': 'https://www.toutiao.com/', 'maxChars': 3000}"
+        ));
+    }
+
+    #[test]
+    fn rejects_tool_action_without_payload_as_final_answer() {
+        assert!(final_answer_looks_like_tool_or_transport_leak(
+            r#"{"action":"web_search"}"#
         ));
     }
 }
@@ -4941,12 +5081,46 @@ fn apply_workflow_transition_update(root: &mut Value, detail: &Value, updated_at
         .map(str::trim)
         .filter(|target| !target.is_empty())
     {
-        let current_status = workflow_current_status_for_target(root_object, target);
+        let current_status = match workflow_current_status_for_target(root_object, target) {
+            Value::Null => workflow_transition_default_current_status(detail),
+            status => status,
+        };
         root_object.insert("currentNode".into(), json!(target));
         root_object.insert("current_node".into(), json!(target));
         root_object.insert("currentStatus".into(), current_status.clone());
         root_object.insert("current_status".into(), current_status);
     }
+}
+
+fn workflow_transition_default_current_status(detail: &Value) -> Value {
+    if workflow_transition_preserves_current_status(detail) {
+        Value::Null
+    } else {
+        json!(WorkflowNodeStatus::Running)
+    }
+}
+
+fn workflow_transition_preserves_current_status(detail: &Value) -> bool {
+    let transition_detail = detail.get("detail").unwrap_or(detail);
+    if transition_detail
+        .get("preserveCurrentStatus")
+        .or_else(|| transition_detail.get("preserve_current_status"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    transition_detail
+        .get("runState")
+        .or_else(|| transition_detail.get("run_state"))
+        .and_then(Value::as_str)
+        .map(|status| {
+            matches!(
+                status.trim().to_ascii_lowercase().as_str(),
+                "completed" | "failed" | "canceled" | "cancelled"
+            )
+        })
+        .unwrap_or(false)
 }
 
 fn workflow_current_status_for_target(root_object: &Map<String, Value>, target: &str) -> Value {

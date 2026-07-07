@@ -5283,6 +5283,16 @@ button:disabled {
   box-shadow: var(--shadow-elevated);
 }
 
+.claw-bubble.assistant.error {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(254, 242, 242, 0.95);
+  color: #991b1b;
+}
+
+.claw-bubble.assistant.error:hover {
+  box-shadow: var(--shadow-card);
+}
+
 .claw-bubble.assistant.streaming {
   border-color: color-mix(in srgb, var(--primary) 40%, var(--divider));
   box-shadow: var(--shadow-card), 0 0 0 2px var(--primary-glow);

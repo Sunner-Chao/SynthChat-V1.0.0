@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Copy, Sparkles } from "lucide-react";
-import { api } from "../../lib/api";
 import { formatTime } from "../../lib/agentRunUtils";
 import {
   isCanceledToolEvent,
@@ -25,6 +24,8 @@ import { ToolMessage } from "./ToolMessage";
 import { ManagedProcessMessage } from "./ManagedProcessMessage";
 import { ImagePreviewModal } from "./ImagePreviewModal";
 import { MarkdownLite } from "./MarkdownLite";
+
+const MAX_REVEAL_TEXT_CHARS = 8_000;
 
 export type ShortMemoryMessageStat = {
   label: string;
@@ -150,6 +151,7 @@ export const MessageRow = memo(function MessageRow({
     : null;
   const processEvent = mode !== "thinking" && message.role === "tool" ? parseManagedProcessEvent(message.content) : null;
   const isUser = message.role === "user";
+  const isAgentError = message.source === "desktop-agent-error";
   const rawThinkingCards = thinkingCardsOverride ?? messageThinkingCards(message);
   const thinkingCards = mode !== "content" ? rawThinkingCards : [];
   const visibleText = !isUser && rawThinkingCards.length > 0
@@ -162,7 +164,7 @@ export const MessageRow = memo(function MessageRow({
   useEffect(() => {
     if (isLiveStreaming) setSettlingAfterStream(true);
   }, [isLiveStreaming]);
-  const revealText = canRevealText && (isLiveStreaming || animateText || settlingAfterStream);
+  const revealText = canRevealText && text.length <= MAX_REVEAL_TEXT_CHARS && (isLiveStreaming || animateText || settlingAfterStream);
   const handleRevealDone = useCallback(() => {
     if (!isLiveStreaming) setSettlingAfterStream(false);
     onAnimationDone();
@@ -176,7 +178,7 @@ export const MessageRow = memo(function MessageRow({
     <div className={isUser ? "claw-message-row user" : "claw-message-row assistant"} data-message-id={elementId}>
       <Avatar
         name={isUser ? profileName : personaName}
-        src={isUser && profileAvatar ? api.assetUrl(profileAvatar) : !isUser && personaAvatar ? api.assetUrl(personaAvatar) : ""}
+        src={isUser && profileAvatar ? profileAvatar : !isUser && personaAvatar ? personaAvatar : ""}
       />
       <div className="claw-message-content">
         <div className="claw-message-meta">
@@ -185,7 +187,17 @@ export const MessageRow = memo(function MessageRow({
         </div>
         {thinkingCards.length > 0 ? <ThinkingCards cards={thinkingCards} /> : null}
         {text ? (
-          <div className={isUser ? "claw-bubble user" : revealText ? "claw-bubble assistant streaming" : "claw-bubble assistant"}>
+          <div
+            className={
+              isUser
+                ? "claw-bubble user"
+                : isAgentError
+                  ? "claw-bubble assistant error"
+                  : revealText
+                    ? "claw-bubble assistant streaming"
+                    : "claw-bubble assistant"
+            }
+          >
             <MarkdownLite
               text={displayText}
               onImageClick={setPreviewSrc}

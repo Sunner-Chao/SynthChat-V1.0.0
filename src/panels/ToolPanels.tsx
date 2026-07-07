@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Bot, Brain, ChevronDown, ChevronRight, Clock, Download, Edit3, ExternalLink, Globe, Hash, Layers, PlugZap, Plus, Puzzle, RefreshCw, Search, Shield, Sparkles, Star, Terminal, Trash2, XCircle } from "lucide-react";
+import { LocalAssetImage } from "../components/common";
 
 // Mock listen function for standalone frontend
 function listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
@@ -216,7 +217,7 @@ export function MemoryPanel() {
               >
                 <span className="memory-tab-avatar">
                   {persona.avatarPath
-                    ? <img src={api.assetUrl(persona.avatarPath)} alt="" />
+                    ? <LocalAssetImage src={persona.avatarPath} alt="" />
                     : (persona.name || "?").slice(0, 1).toUpperCase()
                   }
                 </span>

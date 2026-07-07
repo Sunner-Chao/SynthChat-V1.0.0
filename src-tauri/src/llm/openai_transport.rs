@@ -673,6 +673,15 @@ fn openai_provider_data(payload: &Value, thinking_cards_enabled: bool) -> Option
             openai.insert(key.into(), value.clone());
         }
     }
+    if !openai.contains_key("reasoning_content") {
+        if let Some(summary) = reasoning_summary
+            .as_deref()
+            .map(str::trim)
+            .filter(|summary| !summary.is_empty())
+        {
+            openai.insert("reasoning_content".into(), json!(summary));
+        }
+    }
     if openai.is_empty() {
         None
     } else {
@@ -725,16 +734,44 @@ fn openai_thinking_cards(summary: Option<&str>) -> Option<Value> {
 fn openai_reasoning_delta(payload: &Value) -> Option<String> {
     for pointer in [
         "/choices/0/delta/reasoning_content",
+        "/choices/0/delta/reasoningContent",
+        "/choices/0/delta/reasoning_text",
+        "/choices/0/delta/reasoningText",
         "/choices/0/delta/reasoning",
         "/choices/0/delta/reasoning/text",
         "/choices/0/delta/reasoning/summary",
         "/choices/0/delta/reasoning_details",
+        "/choices/0/delta/thinking_content",
+        "/choices/0/delta/thinkingContent",
+        "/choices/0/delta/thinking",
+        "/choices/0/delta/thinking/text",
+        "/choices/0/delta/thinking/summary",
+        "/choices/0/delta/thought",
+        "/choices/0/delta/thoughts",
         "/choices/0/message/reasoning_content",
+        "/choices/0/message/reasoningContent",
+        "/choices/0/message/reasoning_text",
+        "/choices/0/message/reasoningText",
         "/choices/0/message/reasoning",
         "/choices/0/message/reasoning/text",
         "/choices/0/message/reasoning/summary",
+        "/choices/0/message/thinking_content",
+        "/choices/0/message/thinkingContent",
+        "/choices/0/message/thinking",
+        "/choices/0/message/thinking/text",
+        "/choices/0/message/thinking/summary",
+        "/choices/0/message/thought",
+        "/choices/0/message/thoughts",
         "/message/reasoning_content",
+        "/message/reasoningContent",
+        "/message/reasoning_text",
+        "/message/reasoningText",
         "/message/reasoning",
+        "/message/thinking_content",
+        "/message/thinkingContent",
+        "/message/thinking",
+        "/message/thought",
+        "/message/thoughts",
     ] {
         if let Some(value) = payload.pointer(pointer) {
             if let Some(text) = openai_reasoning_text_from_value(value) {
@@ -747,7 +784,19 @@ fn openai_reasoning_delta(payload: &Value) -> Option<String> {
 
 fn openai_reasoning_text_from_message(message: &Value) -> Option<String> {
     let mut parts = Vec::new();
-    for key in ["reasoning_content", "reasoning", "reasoning_details"] {
+    for key in [
+        "reasoning_content",
+        "reasoningContent",
+        "reasoning_text",
+        "reasoningText",
+        "reasoning",
+        "reasoning_details",
+        "thinking_content",
+        "thinkingContent",
+        "thinking",
+        "thought",
+        "thoughts",
+    ] {
         if let Some(value) = message.get(key) {
             collect_openai_reasoning_text(value, &mut parts);
         }
@@ -786,7 +835,20 @@ fn collect_openai_reasoning_text(value: &Value, parts: &mut Vec<String>) {
             }
         }
         Value::Object(object) => {
-            for key in ["text", "content", "summary", "reasoning_content"] {
+            for key in [
+                "text",
+                "content",
+                "summary",
+                "reasoning_content",
+                "reasoningContent",
+                "reasoning_text",
+                "reasoningText",
+                "thinking_content",
+                "thinkingContent",
+                "thinking",
+                "thought",
+                "thoughts",
+            ] {
                 if let Some(value) = object.get(key) {
                     collect_openai_reasoning_text(value, parts);
                 }

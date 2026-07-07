@@ -238,6 +238,12 @@ async function playVoiceArtifact(path: string) {
   }
 }
 
+function isUiPreviewMessage(message: ChatMessage) {
+  const providerData = recordValue(message.providerData);
+  const preview = recordValue(providerData?.uiPreview);
+  return preview?.truncated === true;
+}
+
 
 
 
@@ -321,6 +327,11 @@ export const ChatExperience = memo(function ChatExperience() {
   const spokenAssistantMessageIdsRef = useRef<Set<string>>(new Set());
   const activeVoiceReplyRequestRef = useRef<string | null>(null);
   const sendingRef = useRef(false);
+  const pollingRefreshInFlightRef = useRef(false);
+  const lastPollingChatRefreshAtRef = useRef(0);
+  const lastPollingRunRefreshAtRef = useRef(0);
+  const lastRuntimeEventsPollAtRef = useRef(0);
+  const runtimeCursorRef = useRef(0);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -359,6 +370,8 @@ export const ChatExperience = memo(function ChatExperience() {
   useEffect(() => {
     setRuntimeEvents([]);
     setRuntimeCursor(0);
+    runtimeCursorRef.current = 0;
+    pollingRefreshInFlightRef.current = false;
   }, [activeConversationId]);
 
   useEffect(() => {
@@ -422,57 +435,65 @@ export const ChatExperience = memo(function ChatExperience() {
   // Round-aware compaction tip: only count tokens/messages after the last summary boundary
   useEffect(() => {
     if (!activeConversationId) return;
-    const dialogueMessages = messages.filter((m) => m.role === "user" || m.role === "assistant");
-    if (dialogueMessages.length === 0) return;
-    const mode = chatConfig?.shortContextMode === "tokens" ? "tokens" : "messages";
-    const budget = clampCount(chatConfig?.shortContextTokenBudget, 8000, 500, 500_000);
-    const messageLimit = clampCount(chatConfig?.maxContextRounds, 10, 1, 500);
     let cancelled = false;
-    api.getShortContextState(activeConversationId).then((state) => {
+    const timer = window.setTimeout(() => {
       if (cancelled) return;
-      let startIndex = 0;
-      const boundaryId = state?.boundaryId ?? null;
-      if (boundaryId) {
-        const idx = dialogueMessages.findIndex((m) => m.id === boundaryId);
-        if (idx >= 0) startIndex = idx + 1;
+      const dialogueMessages = messages.filter((m) => m.role === "user" || m.role === "assistant");
+      if (dialogueMessages.length === 0) {
+        setCompactionTipVisible(false);
+        setCompactionRoundTokens(0);
+        return;
       }
-      const roundMessages = dialogueMessages.slice(startIndex);
-      if (mode === "tokens") {
-        const roundTokens = roundMessages.reduce((t, m) => t + estimateMessageTokens(visibleMessageText(m)), state?.summaryTokens ?? 0);
-        if (roundTokens >= budget) {
-          setCompactionTipVisible(true);
-          setCompactionRoundTokens(roundTokens);
+      const mode = chatConfig?.shortContextMode === "tokens" ? "tokens" : "messages";
+      const budget = clampCount(chatConfig?.shortContextTokenBudget, 8000, 500, 500_000);
+      const messageLimit = clampCount(chatConfig?.maxContextRounds, 10, 1, 500);
+      api.getShortContextState(activeConversationId).then((state) => {
+        if (cancelled) return;
+        let startIndex = 0;
+        const boundaryId = state?.boundaryId ?? null;
+        if (boundaryId) {
+          const idx = dialogueMessages.findIndex((m) => m.id === boundaryId);
+          if (idx >= 0) startIndex = idx + 1;
+        }
+        const roundMessages = dialogueMessages.slice(startIndex);
+        if (mode === "tokens") {
+          const roundTokens = roundMessages.reduce((t, m) => t + estimateMessageTokens(visibleMessageText(m)), state?.summaryTokens ?? 0);
+          if (roundTokens >= budget) {
+            setCompactionTipVisible(true);
+            setCompactionRoundTokens(roundTokens);
+          } else {
+            setCompactionTipVisible(false);
+            setCompactionRoundTokens(0);
+          }
         } else {
-          setCompactionTipVisible(false);
-          setCompactionRoundTokens(0);
+          const roundCount = roundMessages.length + (state?.summaryMessages ?? 0);
+          if (roundCount >= messageLimit) {
+            setCompactionTipVisible(true);
+            setCompactionRoundTokens(roundCount);
+          } else {
+            setCompactionTipVisible(false);
+            setCompactionRoundTokens(0);
+          }
         }
-      } else {
-        const roundCount = roundMessages.length + (state?.summaryMessages ?? 0);
-        if (roundCount >= messageLimit) {
-          setCompactionTipVisible(true);
-          setCompactionRoundTokens(roundCount);
-        } else {
-          setCompactionTipVisible(false);
-          setCompactionRoundTokens(0);
-        }
-      }
-    }).catch(() => {
-      // fallback: full count
-      if (cancelled) return;
-      if (mode === "tokens") {
-        const total = dialogueMessages.reduce((t, m) => t + estimateMessageTokens(visibleMessageText(m)), 0);
-        if (total >= budget) {
-          setCompactionTipVisible(true);
-          setCompactionRoundTokens(total);
-        }
-      } else {
-        if (dialogueMessages.length >= messageLimit) {
+      }).catch(() => {
+        // fallback: full count
+        if (cancelled) return;
+        if (mode === "tokens") {
+          const total = dialogueMessages.reduce((t, m) => t + estimateMessageTokens(visibleMessageText(m)), 0);
+          if (total >= budget) {
+            setCompactionTipVisible(true);
+            setCompactionRoundTokens(total);
+          }
+        } else if (dialogueMessages.length >= messageLimit) {
           setCompactionTipVisible(true);
           setCompactionRoundTokens(dialogueMessages.length);
         }
-      }
-    });
-    return () => { cancelled = true; };
+      });
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [messages, activeConversationId, chatConfig?.shortContextMode, chatConfig?.shortContextTokenBudget, chatConfig?.maxContextRounds]);
   const shortContextNotice = useMemo(() => {
     if (!compactionTipVisible) return null;
@@ -749,6 +770,15 @@ export const ChatExperience = memo(function ChatExperience() {
     activeConversationId && processingConversationIds.includes(activeConversationId)
   );
   const isProcessing = canStopRun || activeConversationProcessing;
+  const busyInputMode = (chatConfig?.busyInputMode ?? "queue").trim().toLowerCase();
+  const hasReadyComposerPayload = Boolean(draft.trim()) || attachments.some((item) => item.status === "ready");
+  const hasStagingAttachment = attachments.some((item) => item.status === "staging");
+  const sendButtonStopsRun = canStopRun && !hasReadyComposerPayload;
+  const busySubmitTitle = busyInputMode === "steer"
+    ? "注入当前运行"
+    : busyInputMode === "interrupt"
+      ? "打断并发送"
+      : "加入队列";
   const [showThinking, setShowThinking] = useState(false);
   // Keep the thinking row mounted through its exit animation so the
   // transition can play instead of the node being removed instantly.
@@ -1270,22 +1300,46 @@ export const ChatExperience = memo(function ChatExperience() {
     if (activeSection !== "chat") return;
     const interval = isProcessing ? activePollIntervalMs : idlePollIntervalMs;
     const timer = window.setInterval(() => {
-      void Promise.all([
-        refreshChatData(activeConversationId, selectedPersona?.id),
-        refreshAgentRuns(),
-        activeConversationId
-          ? api.listAgentRuntimeEvents({ conversationId: activeConversationId, since: runtimeCursor, limit: 80 })
+      if (pollingRefreshInFlightRef.current) return;
+      pollingRefreshInFlightRef.current = true;
+      const now = Date.now();
+      const chatRefreshFloor = isProcessing ? Math.max(activePollIntervalMs, 3000) : idlePollIntervalMs;
+      const runRefreshFloor = isProcessing ? Math.max(activePollIntervalMs, 5000) : idlePollIntervalMs;
+      const runtimePollFloor = isProcessing ? Math.max(activePollIntervalMs, 2500) : idlePollIntervalMs;
+      const shouldRefreshChat =
+        !hasStreamingContent
+        && now - lastPollingChatRefreshAtRef.current >= chatRefreshFloor;
+      const shouldRefreshRuns =
+        now - lastPollingRunRefreshAtRef.current >= runRefreshFloor;
+      const shouldPollRuntimeEvents =
+        Boolean(activeConversationId)
+        && (isProcessing || executionPanelOpen)
+        && now - lastRuntimeEventsPollAtRef.current >= runtimePollFloor;
+      if (shouldRefreshChat) lastPollingChatRefreshAtRef.current = now;
+      if (shouldRefreshRuns) lastPollingRunRefreshAtRef.current = now;
+      if (shouldPollRuntimeEvents) lastRuntimeEventsPollAtRef.current = now;
+      const messageRefresh = shouldRefreshChat
+        ? refreshChatData(activeConversationId, selectedPersona?.id)
+        : Promise.resolve();
+      void Promise.allSettled([
+        messageRefresh,
+        shouldRefreshRuns ? refreshAgentRuns() : Promise.resolve(),
+        shouldPollRuntimeEvents && activeConversationId
+          ? api.listAgentRuntimeEvents({ conversationId: activeConversationId, since: runtimeCursorRef.current, limit: 80 })
               .then((stream) => {
+                runtimeCursorRef.current = stream.cursor;
                 setRuntimeCursor(stream.cursor);
                 if (stream.events.length > 0) {
                   setRuntimeEvents((current) => [...current, ...stream.events].slice(-80));
                 }
               })
           : Promise.resolve()
-      ]);
+      ]).finally(() => {
+        pollingRefreshInFlightRef.current = false;
+      });
     }, interval);
     return () => window.clearInterval(timer);
-  }, [activeConversationId, activePollIntervalMs, activeSection, idlePollIntervalMs, isProcessing, refreshAgentRuns, refreshChatData, runtimeCursor, selectedPersona?.id]);
+  }, [activeConversationId, activePollIntervalMs, activeSection, executionPanelOpen, hasStreamingContent, idlePollIntervalMs, isProcessing, refreshAgentRuns, refreshChatData, selectedPersona?.id]);
 
   const stageFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -1686,7 +1740,11 @@ export const ChatExperience = memo(function ChatExperience() {
   const submit = async () => {
     const content = draft.trim();
     const readyAttachments = attachments.filter((item) => item.status === "ready");
-    if ((!content && readyAttachments.length === 0) || sendingRef.current) return;
+    if (!content && readyAttachments.length === 0) return;
+    if (sendingRef.current) {
+      setComposerError("上一条消息仍在提交，请稍后再发送。");
+      return;
+    }
     const submittedAttachments = attachments;
     sendingRef.current = true;
     setDraft("");
@@ -1714,7 +1772,6 @@ export const ChatExperience = memo(function ChatExperience() {
       const outbound = [content, attachmentMarkers, attachmentContext].filter(Boolean).join("\n\n");
       setAttachments([]);
       await sendMessage(outbound, outboundPersonaId, activeAgent?.id);
-      window.setTimeout(() => void refreshChatData(activeConversationId, outboundPersonaId), 500);
     } catch (error) {
       console.error("submit message failed", error);
       setDraft((current) => current.trim() ? current : content);
@@ -1748,7 +1805,18 @@ export const ChatExperience = memo(function ChatExperience() {
   };
 
   const copyMessage = async (message: ChatMessage) => {
-    const text = displayTextForMessage(visibleMessageText(message));
+    let sourceMessage = message;
+    if (isUiPreviewMessage(message)) {
+      try {
+        const fullContent = await api.getMessageContent(message.conversationId, message.id);
+        if (fullContent) {
+          sourceMessage = { ...message, content: fullContent };
+        }
+      } catch (error) {
+        console.warn("读取完整消息失败，复制当前预览内容。", error);
+      }
+    }
+    const text = displayTextForMessage(visibleMessageText(sourceMessage));
     if (text) await navigator.clipboard?.writeText(text);
     setCopiedMessageId(message.id);
     window.setTimeout(() => setCopiedMessageId(null), 1200);
@@ -1827,7 +1895,7 @@ export const ChatExperience = memo(function ChatExperience() {
                 <button disabled={settlingConversationId === conversation.id} onClick={() => selectConversationWithScrollMemory(conversation.id)} type="button">
                   <Avatar
                     name={persona?.name || conversation.title}
-                    src={persona?.avatarPath ? api.assetUrl(persona.avatarPath) : ""}
+                    src={persona?.avatarPath || ""}
                   />
                   <span>
                     <strong>{persona?.name || conversation.title}</strong>
@@ -2406,12 +2474,12 @@ export const ChatExperience = memo(function ChatExperience() {
             <Paperclip size={17} />
           </button>
           <button
-            disabled={canStopRun ? false : ((!draft.trim() && attachments.every((item) => item.status !== "ready")) || isProcessing || attachments.some((item) => item.status === "staging"))}
-            onClick={() => canStopRun ? void stopActiveRun() : void submit()}
-            title={canStopRun ? "结束当前运行" : "发送"}
+            disabled={sendButtonStopsRun ? false : (!hasReadyComposerPayload || hasStagingAttachment)}
+            onClick={() => sendButtonStopsRun ? void stopActiveRun() : void submit()}
+            title={sendButtonStopsRun ? "结束当前运行" : isProcessing ? busySubmitTitle : "发送"}
             type="button"
           >
-            {canStopRun ? <Square size={15} fill="currentColor" /> : <SendHorizontal size={17} />}
+            {sendButtonStopsRun ? <Square size={15} fill="currentColor" /> : <SendHorizontal size={17} />}
           </button>
         </footer>
         {dragActive ? (

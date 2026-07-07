@@ -1,5 +1,6 @@
 import { ChangeEvent, useRef, useState } from "react";
 import { Camera, ChevronRight, Heart, Image, Newspaper, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { LocalAssetImage } from "../components/common";
 import { api } from "../lib/api";
 import { useAppStore } from "../lib/store";
 import type { MomentComment, MomentPost } from "../lib/types";
@@ -129,7 +130,7 @@ function MomentCard({
 
       {post.coverPath ? (
         <div className="moment-cover">
-          <img alt="朋友圈封面" src={api.assetUrl(post.coverPath)} />
+          <LocalAssetImage alt="朋友圈封面" src={post.coverPath} />
           <button onClick={() => void onClearCover(post.id)} type="button">
             清除封面
           </button>

@@ -25712,7 +25712,7 @@ fn api_server_handle_get_run(store: &AppStore, path: &str) -> AppResult<Value> {
     Ok(api_server_run_response(store, &run, None)?)
 }
 
-fn api_server_handle_run_events(store: &AppStore, path: &str) -> AppResult<Value> {
+pub(super) fn api_server_handle_run_events(store: &AppStore, path: &str) -> AppResult<Value> {
     let run_id = api_server_run_path_id(path, Some("/events"))?;
     let run = store.agent_run(&run_id)?;
     let mut response = json!({
@@ -26650,7 +26650,7 @@ fn api_server_message_response(session_id: &str, message: &ChatMessage) -> Value
     })
 }
 
-fn api_server_run_response(
+pub(super) fn api_server_run_response(
     store: &AppStore,
     run: &AgentRunRecord,
     assistant: Option<&ChatMessage>,

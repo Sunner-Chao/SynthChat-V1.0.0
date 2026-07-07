@@ -1,5 +1,6 @@
 import { memo, useState, useEffect, useRef } from "react";
 import { AlertCircle, ChevronRight, Code2, FileText, FolderOpen, Loader2, Terminal, Wrench } from "lucide-react";
+import { LocalAssetImage } from "../../components/common";
 import { api } from "../../lib/api";
 import {
   toolEventReauthInfo,
@@ -16,7 +17,7 @@ import {
 import { normalizeToolDetailText, previewText } from "../../lib/messageRenderUtils";
 import type { ToolEvent } from "../../lib/types";
 
-const DEFAULT_MESSAGE_PREVIEW_CHARS = 12_000;
+const DEFAULT_MESSAGE_PREVIEW_CHARS = 6_000;
 
 export const ToolMessage = memo(function ToolMessage({ event }: { event: ToolEvent }) {
   const [expanded, setExpanded] = useState(false);
@@ -120,7 +121,7 @@ export const ToolMessage = memo(function ToolMessage({ event }: { event: ToolEve
               </div>
             ) : null}
             {isToolImage && event.path ? (
-              <img className="claw-tool-image" src={api.assetUrl(event.path)} alt="tool output" />
+              <LocalAssetImage className="claw-tool-image" src={event.path} alt="tool output" />
             ) : null}
             {canOpen && event.path ? (
               <div className="claw-tool-actions">
