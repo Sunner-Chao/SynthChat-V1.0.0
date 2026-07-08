@@ -1759,5 +1759,113 @@
     ],
     "trust": 0.5,
     "updatedAt": "2026-07-07T03:47:10.045059900+00:00"
+  },
+  {
+    "category": "user_pref",
+    "content": "User is 小孙 (likely 孙程超, based on desktop PDFs). Assistant persona is 小可, a cute anime-style virtual AI assistant with girlfriend vibe, hoodie, tech-blue glow, kawaii aesthetic.",
+    "createdAt": "2026-07-08T22:39:37.250893600+00:00",
+    "entities": [
+      "AI",
+      "Assistant",
+      "PDFs",
+      "User",
+      "aesthetic",
+      "anime-style",
+      "tech-blue"
+    ],
+    "id": "fact-4848de790f974282acaccf5bd0468a09",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-61cbe806509648fab8b616ceaefd8e1d",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-08T22:39:37.250893600+00:00"
+  },
+  {
+    "category": "general",
+    "content": "User's Windows desktop (C:\\Users\\Sun\\Desktop) contains academic/competition PDFs: storage chip innovation ('速安达' food delivery guardian), 中电海康集团 competition proposal, 华为软件精英挑战赛 task book, 挑战杯 competition forms, 高一 chemistry/biology review guides, and 孙程超's resume.",
+    "createdAt": "2026-07-08T22:39:38.078234600+00:00",
+    "entities": [
+      "Desktop",
+      "PDFs",
+      "Sun",
+      "User",
+      "Users",
+      "Windows",
+      "resume"
+    ],
+    "id": "fact-353171b03b6e4def862fd3d80cec371b",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-28989f7526d84678895d8ac8cd43d38e",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-08T22:39:38.078234600+00:00"
+  },
+  {
+    "category": "general",
+    "content": "Successfully sent user the PDF: 12_新型存储芯片创新应用-'速安达'外卖骑手守护神.pdf from desktop.",
+    "createdAt": "2026-07-08T22:39:38.775141400+00:00",
+    "entities": [
+      "12_新型存储芯片创新应用-",
+      "PDF",
+      "Successfully",
+      "desktop",
+      "外卖骑手守护神.pdf"
+    ],
+    "id": "fact-dd7ac3bdf50a4a16bf51f56967594c33",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-b69c3496fdd8485f8e888834e18809b1",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-08T22:39:38.775141400+00:00"
+  },
+  {
+    "category": "general",
+    "content": "Image generation is currently broken: xAI backend found but not configured (missing XAI_API_KEY). Persona image provider (image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d) not found. User requested self-portrait but generation failed twice.",
+    "createdAt": "2026-07-08T22:39:39.449091700+00:00",
+    "entities": [
+      "Image",
+      "Persona",
+      "User",
+      "XAI_API_KEY",
+      "found",
+      "image-provider-de2f88b2-cfeb-4fa4-ba30-9d5282f0ba5d",
+      "self-portrait",
+      "twice"
+    ],
+    "id": "fact-a86e0fa90ab141309129eb9b9d8b60b3",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-59a1abf1676340eb8ed2b45b66d03c3b",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-08T22:39:39.449091700+00:00"
+  },
+  {
+    "category": "general",
+    "content": "File system access requires PowerShell with $env:USERPROFILE on this Windows system; ~/Desktop and %USERPROFILE% expansion failed in earlier attempts.",
+    "createdAt": "2026-07-08T22:39:40.176640100+00:00",
+    "entities": [
+      "Desktop",
+      "File",
+      "PowerShell",
+      "USERPROFILE",
+      "Windows",
+      "attempts"
+    ],
+    "id": "fact-c7dedcee979a4cc6ad501ace8e14ded8",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-3d9f55e6338d4c86954ed0a837d92de7",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-08T22:39:40.176640100+00:00"
   }
 ]

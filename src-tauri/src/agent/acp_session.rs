@@ -56,6 +56,12 @@ pub(super) fn acp_update_session_runtime_config(
     let mut configs = configs
         .lock()
         .map_err(|_| AppError::BadRequest("ACP session runtime config lock poisoned".into()))?;
+    // Cap at 512 entries: ACP sessions map 1:1 to conversations, and each entry
+    // is a small config struct, but the map would grow unbounded over many sessions.
+    if configs.len() >= 512 && !configs.contains_key(session_id) {
+        let evict: Vec<String> = configs.keys().take(configs.len() / 4).cloned().collect();
+        for key in evict { configs.remove(&key); }
+    }
     let runtime = configs.entry(session_id.to_string()).or_default();
     update(runtime);
     store.set_conversation_metadata_value(

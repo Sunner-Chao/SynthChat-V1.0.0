@@ -307,6 +307,10 @@ export const ChatExperience = memo(function ChatExperience() {
   const deferredQuery = useDeferredValue(query);
   const [selectedPersonaId, setSelectedPersonaId] = useState("");
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  // Mirror of attachments kept in a ref for use in cleanup effects that need
+  // to revoke blob preview URLs without capturing a stale closure value.
+  const attachmentsRef = useRef<ComposerAttachment[]>([]);
+  useEffect(() => { attachmentsRef.current = attachments; }, [attachments]);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [pickerEmojiGroups, setPickerEmojiGroups] = useState(emojiGroups);
   const [dragActive, setDragActive] = useState(false);
@@ -402,6 +406,11 @@ export const ChatExperience = memo(function ChatExperience() {
   const personaById = useMemo(() => new Map(personas.map((persona) => [persona.id, persona])), [personas]);
   const visiblePersonas = personas;
   const selectedPersona = visiblePersonas.find((persona) => persona.id === selectedPersonaId) ?? visiblePersonas[0] ?? null;
+  // Stable ref for selectedPersona?.id so the polling setInterval is not
+  // recreated on every persona list change — recreation introduces a brief
+  // polling gap while the new interval hasn't fired yet.
+  const selectedPersonaIdRef = useRef<string | undefined>(selectedPersona?.id);
+  useEffect(() => { selectedPersonaIdRef.current = selectedPersona?.id; }, [selectedPersona?.id]);
   const activeConversationPersona = useMemo(
     () => (activeConversation?.personaId ? personaById.get(activeConversation.personaId) ?? null : null),
     [activeConversation?.personaId, personaById]
@@ -986,6 +995,15 @@ export const ChatExperience = memo(function ChatExperience() {
 
   useEffect(() => () => stopVoicePlayback(), [stopVoicePlayback]);
 
+  // Revoke all blob preview URLs when the component unmounts so the browser
+  // can free the memory without waiting for GC. attachmentsRef always holds
+  // the latest state, avoiding stale-closure capture.
+  useEffect(() => () => {
+    for (const a of attachmentsRef.current) {
+      if (a.preview?.startsWith("blob:")) URL.revokeObjectURL(a.preview);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeSection === "chat") return;
     activeVoiceReplyRequestRef.current = null;
@@ -1066,7 +1084,15 @@ export const ChatExperience = memo(function ChatExperience() {
   const saveCurrentScrollPosition = useCallback((conversationId: string | null) => {
     const element = scrollRef.current;
     if (!element || !conversationId || !canPersistScrollPosition(element)) return;
-    conversationScrollPositionCacheRef.current.set(conversationId, getScrollAnchor(element));
+    const cache = conversationScrollPositionCacheRef.current;
+    // Cap at 500 entries: JS Maps are ordered by insertion, so the oldest (first) entries
+    // are evicted first when the cache overflows. This prevents unbounded growth when
+    // a user browses hundreds of conversations in a session.
+    if (cache.size >= 500 && !cache.has(conversationId)) {
+      const firstKey = cache.keys().next().value;
+      if (firstKey !== undefined) cache.delete(firstKey);
+    }
+    cache.set(conversationId, getScrollAnchor(element));
   }, [canPersistScrollPosition, getScrollAnchor]);
 
   const restoreSavedScrollPosition = useCallback((conversationId: string | null) => {
@@ -1319,7 +1345,7 @@ export const ChatExperience = memo(function ChatExperience() {
       if (shouldRefreshRuns) lastPollingRunRefreshAtRef.current = now;
       if (shouldPollRuntimeEvents) lastRuntimeEventsPollAtRef.current = now;
       const messageRefresh = shouldRefreshChat
-        ? refreshChatData(activeConversationId, selectedPersona?.id)
+        ? refreshChatData(activeConversationId, selectedPersonaIdRef.current)
         : Promise.resolve();
       void Promise.allSettled([
         messageRefresh,
@@ -1339,7 +1365,7 @@ export const ChatExperience = memo(function ChatExperience() {
       });
     }, interval);
     return () => window.clearInterval(timer);
-  }, [activeConversationId, activePollIntervalMs, activeSection, executionPanelOpen, hasStreamingContent, idlePollIntervalMs, isProcessing, refreshAgentRuns, refreshChatData, selectedPersona?.id]);
+  }, [activeConversationId, activePollIntervalMs, activeSection, executionPanelOpen, hasStreamingContent, idlePollIntervalMs, isProcessing, refreshAgentRuns, refreshChatData]);
 
   const stageFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -1559,7 +1585,16 @@ export const ChatExperience = memo(function ChatExperience() {
   }, [activeSection, handleNativeFileDrop]);
 
   const removeAttachment = (id: string) => {
-    setAttachments((current) => current.filter((item) => item.id !== id));
+    setAttachments((current) => {
+      // Revoke any blob preview URL created by URL.createObjectURL so the
+      // browser can free the backing memory immediately instead of waiting
+      // for GC or page unload.
+      const item = current.find((a) => a.id === id);
+      if (item?.preview?.startsWith("blob:")) {
+        URL.revokeObjectURL(item.preview);
+      }
+      return current.filter((a) => a.id !== id);
+    });
   };
 
   const appendVoiceTranscript = useCallback((text: string) => {
@@ -1618,6 +1653,10 @@ export const ChatExperience = memo(function ChatExperience() {
       recorder.stop();
     }
   }, []);
+
+  // Stop any in-progress voice recording when the component unmounts so the
+  // MediaRecorder and underlying microphone stream track are released.
+  useEffect(() => () => stopVoiceInput(), [stopVoiceInput]);
 
   const startRecordedVoiceInput = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -1770,6 +1809,11 @@ export const ChatExperience = memo(function ChatExperience() {
         .map((file) => `[media attached: "${file.path}" (${file.mimeType || "application/octet-stream"})] ${file.fileName}`)
         .join("\n");
       const outbound = [content, attachmentMarkers, attachmentContext].filter(Boolean).join("\n\n");
+      // Revoke preview blob URLs before clearing the attachment list so the
+      // browser can free the backing memory without waiting for GC.
+      for (const a of attachments) {
+        if (a.preview?.startsWith("blob:")) URL.revokeObjectURL(a.preview);
+      }
       setAttachments([]);
       await sendMessage(outbound, outboundPersonaId, activeAgent?.id);
     } catch (error) {

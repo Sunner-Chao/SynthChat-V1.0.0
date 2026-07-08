@@ -1417,6 +1417,25 @@ export function McpPanel() {
     };
   }, []);
 
+  // Refresh pending approvals whenever an agent run reaches a terminal state.
+  // Without this, a run that times out while the user is looking at the approval
+  // dialog leaves stale "pending" entries on screen because ToolPanels has its
+  // own local approval state that is not connected to the main App event loop.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    void listen<{ state?: string }>("synthchat-agent-run-event", (event) => {
+      const state = event.payload.state;
+      if (state === "completed" || state === "failed" || state === "aborted") {
+        void refreshApprovals();
+      }
+    }).then((handler) => {
+      unlisten = handler;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     void listen<{ platform?: string; state?: PlatformAdapterState }>(

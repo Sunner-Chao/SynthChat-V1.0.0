@@ -1572,8 +1572,15 @@ $stream.Dispose()
         COMPUTER_USE_ELEMENTS
             .get_or_init(|| Mutex::new(HashMap::new()))
             .lock()
-            .map_err(|_| AppError::BadRequest("computer_use element cache lock poisoned".into()))?
-            .insert(run_id.to_string(), elements.clone());
+            .map_err(|_| AppError::BadRequest("computer_use element cache lock poisoned".into()))
+            .map(|mut cache| {
+                // Cap at 256 entries (one per run_id) to prevent unbounded growth.
+                if cache.len() >= 256 && !cache.contains_key(run_id) {
+                    let evict: Vec<String> = cache.keys().take(cache.len() / 4).cloned().collect();
+                    for key in evict { cache.remove(&key); }
+                }
+                cache.insert(run_id.to_string(), elements.clone());
+            })?;
         let total_elements = obj
             .get("totalElements")
             .and_then(Value::as_u64)

@@ -97,14 +97,14 @@
     },
     {
       "contexts": {
-        "prompt": 1044
+        "prompt": 1055
       },
       "firstSeenAt": "2026-06-26T10:36:37.856008600+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-07T09:40:52.950743700+00:00",
+      "lastUsedAt": "2026-07-08T22:50:39.984753900+00:00",
       "name": "claude-code",
-      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\autonomous-ai-agents\\claude-code\\SKILL.md",
+      "path": "\\\\?\\E:\\SynthChat\\SynthChat-Dev\\skills\\autonomous-ai-agents\\claude-code\\SKILL.md",
       "provenance": {
         "agentCreated": false,
         "backgroundCreated": false,
@@ -112,18 +112,18 @@
       },
       "skillId": "autonomous-ai-agents/claude-code",
       "source": "project",
-      "useCount": 1044
+      "useCount": 1055
     },
     {
       "contexts": {
-        "prompt": 1044
+        "prompt": 1055
       },
       "firstSeenAt": "2026-06-26T10:36:37.857472500+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-07T09:40:52.953033700+00:00",
+      "lastUsedAt": "2026-07-08T22:50:39.988112200+00:00",
       "name": "codex",
-      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\autonomous-ai-agents\\codex\\SKILL.md",
+      "path": "\\\\?\\E:\\SynthChat\\SynthChat-Dev\\skills\\autonomous-ai-agents\\codex\\SKILL.md",
       "provenance": {
         "agentCreated": false,
         "backgroundCreated": false,
@@ -131,7 +131,7 @@
       },
       "skillId": "autonomous-ai-agents/codex",
       "source": "project",
-      "useCount": 1044
+      "useCount": 1055
     },
     {
       "contexts": {
@@ -175,15 +175,15 @@
     },
     {
       "contexts": {
-        "prompt": 1050,
+        "prompt": 1061,
         "view": 3
       },
       "firstSeenAt": "2026-06-26T09:02:27.058018200+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-07T09:40:52.957788+00:00",
+      "lastUsedAt": "2026-07-08T22:50:39.990369400+00:00",
       "name": "bilibili-clip",
-      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.1.0\\skills\\media\\bilibili-clip\\SKILL.md",
+      "path": "\\\\?\\E:\\SynthChat\\SynthChat-Dev\\skills\\media\\bilibili-clip\\SKILL.md",
       "provenance": {
         "agentCreated": false,
         "backgroundCreated": false,
@@ -191,7 +191,7 @@
       },
       "skillId": "media/bilibili-clip",
       "source": "project",
-      "useCount": 1053
+      "useCount": 1064
     },
     {
       "contexts": {
@@ -234,5 +234,5 @@
     }
   ],
   "schema": "synthchat.skills.usage.v1",
-  "updatedAt": "2026-07-07T09:40:52.957945800+00:00"
+  "updatedAt": "2026-07-08T22:50:39.990559900+00:00"
 }

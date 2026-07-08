@@ -1,7 +1,7 @@
 {
   "id": "conv-ac1724fc3505464f85bfe705ac7b5eb5",
   "title": "Subagent 1 · researcher",
-  "updatedAt": "2026-07-07T06:58:40.368048800+00:00",
+  "updatedAt": "2026-07-08T12:18:30.921808+00:00",
   "lastMessage": "已完成可用工具检查，但当前恢复版 agent loop 未得到最终回答。\n\nIteration 1 tool read_file error: bad request: bad request: read_file refused bina",
   "personaId": "default",
   "wechatAccountId": null,

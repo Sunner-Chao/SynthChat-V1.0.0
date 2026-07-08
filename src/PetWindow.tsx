@@ -2648,7 +2648,11 @@ export function PetWindow() {
   }
 
   function removePetAttachment(id: string) {
-    setComposerAttachments((current) => current.filter((item) => item.id !== id));
+    setComposerAttachments((current) => {
+      const item = current.find((a) => a.id === id);
+      if (item?.preview?.startsWith("blob:")) URL.revokeObjectURL(item.preview);
+      return current.filter((a) => a.id !== id);
+    });
   }
 
   function buildPetOutboundContent(text: string, readyAttachments: PetComposerAttachment[]) {
@@ -2676,6 +2680,10 @@ export function PetWindow() {
     if (((!text && readyAttachments.length === 0) || hasStagingAttachment) || sendingRef.current) return;
     const submittedAttachments = composerAttachments;
     setInput("");
+    // Revoke preview blob URLs before clearing so the browser can free memory.
+    for (const a of composerAttachments) {
+      if (a.preview?.startsWith("blob:")) URL.revokeObjectURL(a.preview);
+    }
     setComposerAttachments([]);
     setModelMenuOpen(false);
     sendingRef.current = true;

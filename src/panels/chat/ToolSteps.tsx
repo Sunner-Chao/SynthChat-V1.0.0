@@ -1,4 +1,5 @@
-import { memo, useState, useEffect, useRef } from "react";
+import { memo, useState, useRef } from "react";
+import { useSharedNowMs } from "../../lib/useSharedNowMs";
 import { AlertCircle, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { formatDurationMs } from "../../lib/agentRunUtils";
 import { eventStatusLabel } from "../../lib/toolEventUtils";
@@ -19,7 +20,6 @@ export const ToolStep = memo(function ToolStep({ event }: { event: ToolEvent }) 
 
 export const TimelineStep = memo(function TimelineStep({ step, isLast }: { step: CompactStep; isLast: boolean }) {
   const [expanded, setExpanded] = useState(step.anyRunning);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const statusClass = step.anyRunning ? "running" : step.anyFailed ? "failed" : "done";
   const statusIcon = step.anyRunning
     ? <Loader2 size={14} className="claw-tl-icon-spin" />
@@ -27,13 +27,8 @@ export const TimelineStep = memo(function TimelineStep({ step, isLast }: { step:
       ? <AlertCircle size={14} />
       : <CheckCircle2 size={14} />;
   const fallbackStartedAtMsRef = useRef(Date.now());
+  const nowMs = useSharedNowMs(step.anyRunning);
   const elapsedLabel = step.anyRunning ? toolEventElapsedLabel(step.lastEvent, nowMs, fallbackStartedAtMsRef.current) : formatDurationMs(step.totalMs);
-
-  useEffect(() => {
-    if (!step.anyRunning) return;
-    const timer = window.setInterval(() => setNowMs(Date.now()), 250);
-    return () => window.clearInterval(timer);
-  }, [step.anyRunning]);
 
   return (
     <div className={`claw-tl-node claw-tl-node--${statusClass}${isLast ? " claw-tl-node--last" : ""}`}>

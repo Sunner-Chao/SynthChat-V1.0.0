@@ -47,9 +47,15 @@ function useRevealedText(
   useEffect(() => {
     if (!enabled) {
       targetTextRef.current = text;
-      completedTextRef.current = text;
       visibleCountRef.current = text.length;
       setVisibleText(text);
+      // When animation is disabled (text too long or not a streaming message),
+      // still fire onDone so callers like onAnimationDone can clear settlingAfterStream.
+      // Guard with completedTextRef to avoid re-firing on every re-render.
+      if (completedTextRef.current !== text) {
+        completedTextRef.current = text;
+        window.setTimeout(() => onDoneRef.current?.(), 0);
+      }
       return;
     }
     targetTextRef.current = text;
@@ -134,12 +140,12 @@ export const MessageRow = memo(function MessageRow({
   personaName: string;
   personaAvatar: string;
   copied: boolean;
-  onCopy: () => void;
+  onCopy: (message: ChatMessage) => void;
   previewCharLimit: number;
   onFirstStreamChar?: () => void;
   animateText: boolean;
   streamCharsPerSecond: number;
-  onAnimationDone: () => void;
+  onAnimationDone: (messageId: string) => void;
   memoryStat: ShortMemoryMessageStat | null;
   runStates: Map<string, string>;
   emojiPathIndexes: EmojiPathIndexes;
@@ -167,7 +173,7 @@ export const MessageRow = memo(function MessageRow({
   const revealText = canRevealText && text.length <= MAX_REVEAL_TEXT_CHARS && (isLiveStreaming || animateText || settlingAfterStream);
   const handleRevealDone = useCallback(() => {
     if (!isLiveStreaming) setSettlingAfterStream(false);
-    onAnimationDone();
+    onAnimationDone(message.id);
   }, [isLiveStreaming, onAnimationDone]);
   const displayText = useRevealedText(text, revealText, streamCharsPerSecond, handleRevealDone);
   if (toolEvent && isCanceledToolEvent(toolEvent)) return null;
@@ -215,7 +221,7 @@ export const MessageRow = memo(function MessageRow({
                 {memoryStat.label}
               </span>
             ) : null}
-            <button className="claw-copy" onClick={onCopy} type="button">
+            <button className="claw-copy" onClick={() => onCopy(message)} type="button">
               {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
               {copied ? "已复制" : "复制"}
             </button>

@@ -41,6 +41,11 @@ fn file_state_path_lock(path: &Path) -> Arc<Mutex<()>> {
     let mut locks = locks
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
+    // Evict idle entries (strong_count == 1: only the map holds the Arc, no
+    // active file operation is waiting on this lock) when capacity is reached.
+    if locks.len() >= 1024 {
+        locks.retain(|_, arc| Arc::strong_count(arc) > 1);
+    }
     locks
         .entry(key)
         .or_insert_with(|| Arc::new(Mutex::new(())))
@@ -96,6 +101,11 @@ fn track_file_tool_loop(payload: &Value, key: String, label: &str) -> AppResult<
     let mut tracker = tracker
         .lock()
         .map_err(|_| AppError::BadRequest("file tool loop tracker was poisoned".into()))?;
+    // Cap at 512 run entries to prevent unbounded growth.
+    if tracker.len() >= 512 && !tracker.contains_key(&task_id) {
+        let evict: Vec<String> = tracker.keys().take(tracker.len() / 4).cloned().collect();
+        for key in evict { tracker.remove(&key); }
+    }
     let state = tracker.entry(task_id).or_default();
     if state.last_key.as_deref() == Some(key.as_str()) {
         state.consecutive += 1;
@@ -134,6 +144,11 @@ fn record_patch_failure(payload: &Value, path: &Path) -> AppResult<usize> {
     let mut tracker = tracker
         .lock()
         .map_err(|_| AppError::BadRequest("patch failure tracker was poisoned".into()))?;
+    // Cap outer map at 512 run entries.
+    if tracker.len() >= 512 && !tracker.contains_key(&task_id) {
+        let evict: Vec<String> = tracker.keys().take(tracker.len() / 4).cloned().collect();
+        for key in evict { tracker.remove(&key); }
+    }
     let task_failures = tracker.entry(task_id).or_default();
     let count = task_failures.entry(path_key).or_insert(0);
     *count += 1;

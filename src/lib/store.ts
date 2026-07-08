@@ -267,6 +267,10 @@ function displayMessages(messages: ChatMessage[], limit: number) {
   return limitMessages(sortMessagesForDisplay(messages), limit);
 }
 
+function displayMessagesUpdate(messages: ChatMessage[], limit: number) {
+  return limitMessages(messages, limit);
+}
+
 function messageProviderDataRecord(message: ChatMessage): Record<string, unknown> | null {
   const value = message.providerData;
   return value && typeof value === "object" && !Array.isArray(value)
@@ -1038,7 +1042,9 @@ function mergeToolEventList(previousEvents: ToolEvent[], incoming: ToolEvent | n
     events[duplicateIndex] = incoming;
     return events;
   }
-  return [...events, incoming];
+  // Cap at 200 entries (consistent with phaseEvents) so long-running agents
+  // with many tool calls do not accumulate unbounded in-memory state.
+  return [...events, incoming].slice(-200);
 }
 
 function mergeToolRunEvents(previous: AgentRunEvent | undefined, event: AgentRunEvent) {
@@ -1390,7 +1396,7 @@ function applyWorkflowGraphEvent(
     updatedAt,
     updated_at: updatedAt
   };
-  graph.transitions = [...cloneWorkflowTransitions(graph.transitions), transition];
+  graph.transitions = [...cloneWorkflowTransitions(graph.transitions), transition].slice(-200);
   if (transition.to) {
     graph.currentNode = transition.to;
     graph.current_node = transition.to;
@@ -2029,7 +2035,10 @@ export const useAppStore = create<AppState>((set, get) => ({
           streamedAssistantIds.delete(incomingMessage.id);
         }
       }
-      return { messages: displayMessages(messages, messageLimit), streamedAssistantIds };
+      const nextMessages = index >= 0
+        ? displayMessagesUpdate(messages, messageLimit)
+        : displayMessages(messages, messageLimit);
+      return { messages: nextMessages, streamedAssistantIds };
     });
   },
   clearStreamingAssistantMessages: (conversationId) => {

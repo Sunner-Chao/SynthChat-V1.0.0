@@ -1,4 +1,5 @@
-import { memo, useState, useEffect, useRef } from "react";
+import { memo, useState, useRef } from "react";
+import { useSharedNowMs } from "../../lib/useSharedNowMs";
 import { AlertCircle, ChevronRight, Code2, FileText, FolderOpen, Loader2, Terminal, Wrench } from "lucide-react";
 import { LocalAssetImage } from "../../components/common";
 import { api } from "../../lib/api";
@@ -21,11 +22,11 @@ const DEFAULT_MESSAGE_PREVIEW_CHARS = 6_000;
 
 export const ToolMessage = memo(function ToolMessage({ event }: { event: ToolEvent }) {
   const [expanded, setExpanded] = useState(false);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const fallbackStartedAtMsRef = useRef(Date.now());
+  const isRunning = event.status === "running";
+  const nowMs = useSharedNowMs(isRunning);
   const canOpen = Boolean(event.path && event.exists);
   const isToolImage = canOpen && (event.eventType === "screenshot" || event.eventType === "image" || Boolean(event.mimeType?.startsWith("image/")));
-  const isRunning = event.status === "running";
   const reauthInfo = toolEventReauthInfo(event);
   const summaryText = event.summary?.trim() ?? "";
   const bodyText = event.text?.trim() ?? "";
@@ -65,12 +66,6 @@ export const ToolMessage = memo(function ToolMessage({ event }: { event: ToolEve
     isRunning ? "执行中..." : isFailed ? "失败" : "成功",
     elapsedLabel
   ].filter(Boolean).join(" · ");
-
-  useEffect(() => {
-    if (!isRunning) return;
-    const timer = window.setInterval(() => setNowMs(Date.now()), 250);
-    return () => window.clearInterval(timer);
-  }, [isRunning]);
 
   return (
     <div className="claw-tool-message">

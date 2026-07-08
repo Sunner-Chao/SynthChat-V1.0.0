@@ -98,14 +98,12 @@ export const MessageList = memo(function MessageList({
           personaName={personaName}
           personaAvatar={personaAvatar}
           copied={item.mode !== "thinking" && copiedMessageId === item.message.id}
-          onCopy={() => onCopy(item.message)}
+          onCopy={onCopy}
           previewCharLimit={previewCharLimit}
           onFirstStreamChar={item.mode === "thinking" ? undefined : onFirstStreamChar}
           animateText={item.mode !== "thinking" && animatedMessageIds.has(item.message.id)}
           streamCharsPerSecond={streamCharsPerSecond}
-          onAnimationDone={() => {
-            if (item.mode !== "thinking") onMessageAnimationDone(item.message.id);
-          }}
+          onAnimationDone={onMessageAnimationDone}
           memoryStat={item.mode === "thinking" ? null : memoryStats.get(item.message.id) ?? null}
           runStates={runStates}
           emojiPathIndexes={emojiPathIndexes}

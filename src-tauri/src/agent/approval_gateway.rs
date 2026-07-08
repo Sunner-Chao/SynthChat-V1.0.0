@@ -306,7 +306,11 @@ async fn continue_agent_run_after_approval(
                 )?;
             }
         }
-        if reply.content.trim().is_empty() {
+        // Guard: only run empty-response recovery when the provider did NOT signal
+        // an incomplete turn — same fix as agent_loop.rs (BUG-7).
+        if reply.content.trim().is_empty()
+            && reply.finish_reason.as_deref() != Some("incomplete")
+        {
             if let Some(recovery) =
                 next_empty_llm_response_recovery(&observations, &mut empty_response_recoveries)
             {

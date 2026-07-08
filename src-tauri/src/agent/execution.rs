@@ -36,6 +36,12 @@ use super::{
     web_tools::{web_extract_tool, web_search_tool},
     workspace::{resolve_workspace_path, workspace_root},
 };
+// Maximum entries for each terminal-session state map. Eviction removes the
+// first keys() seen by the HashMap when the cap is hit. This prevents
+// unbounded memory growth across long-running sessions with many tool calls.
+const TERMINAL_SESSION_MAP_CAPACITY: usize = 256;
+const TERMINAL_SSH_HASH_MAP_CAPACITY: usize = 64;
+
 static TERMINAL_SESSION_CWDS: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
 static SSH_TERMINAL_SESSION_CWDS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 static SSH_SYNCED_REMOTE_PATHS: OnceLock<Mutex<HashMap<String, HashSet<String>>>> = OnceLock::new();
@@ -5206,6 +5212,11 @@ fn register_detached_process_watcher(process_id: &str) -> bool {
     let Ok(mut watchers) = watchers.lock() else {
         return false;
     };
+    // Cap the watcher set to prevent unbounded growth across long-running sessions.
+    if watchers.len() >= TERMINAL_SESSION_MAP_CAPACITY && !watchers.contains(process_id) {
+        let evict: Vec<String> = watchers.iter().take(watchers.len() / 4).cloned().collect();
+        for key in evict { watchers.remove(&key); }
+    }
     watchers.insert(process_id.to_string())
 }
 
@@ -5875,6 +5886,10 @@ fn set_terminal_session_cwd(session_id: &str, cwd: PathBuf) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if sessions.len() >= TERMINAL_SESSION_MAP_CAPACITY && !sessions.contains_key(session_id) {
+            let evict: Vec<String> = sessions.keys().take(sessions.len() / 4).cloned().collect();
+            for key in evict { sessions.remove(&key); }
+        }
         sessions.insert(session_id.to_string(), cwd);
     }
 }
@@ -5939,6 +5954,10 @@ fn set_ssh_terminal_session_cwd(session_id: &str, cwd: String) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if sessions.len() >= TERMINAL_SESSION_MAP_CAPACITY && !sessions.contains_key(session_id) {
+            let evict: Vec<String> = sessions.keys().take(sessions.len() / 4).cloned().collect();
+            for key in evict { sessions.remove(&key); }
+        }
         sessions.insert(session_id.to_string(), cwd);
     }
 }
@@ -6003,6 +6022,10 @@ fn set_modal_terminal_session_cwd(session_id: &str, cwd: String) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if sessions.len() >= TERMINAL_SESSION_MAP_CAPACITY && !sessions.contains_key(session_id) {
+            let evict: Vec<String> = sessions.keys().take(sessions.len() / 4).cloned().collect();
+            for key in evict { sessions.remove(&key); }
+        }
         sessions.insert(session_id.to_string(), cwd);
     }
 }
@@ -6123,6 +6146,10 @@ fn set_modal_terminal_snapshot_id(session_id: &str, snapshot_id: String) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if snapshots.len() >= TERMINAL_SESSION_MAP_CAPACITY && !snapshots.contains_key(session_id) {
+            let evict: Vec<String> = snapshots.keys().take(snapshots.len() / 4).cloned().collect();
+            for key in evict { snapshots.remove(&key); }
+        }
         snapshots.insert(session_id.to_string(), snapshot_id);
     }
 }
@@ -6215,6 +6242,10 @@ fn set_daytona_terminal_session_cwd(session_id: &str, cwd: String) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if sessions.len() >= TERMINAL_SESSION_MAP_CAPACITY && !sessions.contains_key(session_id) {
+            let evict: Vec<String> = sessions.keys().take(sessions.len() / 4).cloned().collect();
+            for key in evict { sessions.remove(&key); }
+        }
         sessions.insert(session_id.to_string(), cwd);
     }
 }
@@ -7902,6 +7933,10 @@ fn set_ssh_synced_paths(sync_key: &str, current: HashSet<String>) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if synced.len() >= TERMINAL_SSH_HASH_MAP_CAPACITY && !synced.contains_key(sync_key) {
+            let evict: Vec<String> = synced.keys().take(synced.len() / 4).cloned().collect();
+            for key in evict { synced.remove(&key); }
+        }
         synced.insert(sync_key.to_string(), current);
     }
 }
@@ -7928,6 +7963,10 @@ fn set_ssh_pushed_hashes(sync_key: &str, hashes: HashMap<String, String>) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if pushed.len() >= TERMINAL_SSH_HASH_MAP_CAPACITY && !pushed.contains_key(sync_key) {
+            let evict: Vec<String> = pushed.keys().take(pushed.len() / 4).cloned().collect();
+            for key in evict { pushed.remove(&key); }
+        }
         pushed.insert(sync_key.to_string(), hashes);
     }
 }
@@ -9092,6 +9131,10 @@ fn set_docker_container_for_key(key: &str, container_id: &str) {
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
     {
+        if containers.len() >= TERMINAL_SESSION_MAP_CAPACITY && !containers.contains_key(key) {
+            let evict: Vec<String> = containers.keys().take(containers.len() / 4).cloned().collect();
+            for k in evict { containers.remove(&k); }
+        }
         containers.insert(key.to_string(), container_id.to_string());
     }
 }

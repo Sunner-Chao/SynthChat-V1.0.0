@@ -44,10 +44,22 @@ pub(crate) fn subscribe_agent_run_record(run_id: &str) -> broadcast::Receiver<Ag
 }
 
 pub(crate) fn publish_agent_run_record(run: &AgentRunRecord) {
+    let terminal = matches!(run.state.as_str(), "completed" | "failed" | "aborted");
     let sender = {
         let mut broadcasters = agent_run_broadcasters()
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if terminal {
+            // Remove the broadcaster entry when the run is terminal so the
+            // HashMap doesn't accumulate one entry per historical agent run
+            // for the lifetime of the process.
+            let sender = broadcasters.remove(&run.run_id);
+            if let Some(sender) = sender {
+                let _ = sender.send(run.clone());
+                return;
+            }
+            return;
+        }
         broadcasters
             .entry(run.run_id.clone())
             .or_insert_with(|| {

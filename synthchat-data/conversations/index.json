@@ -14,7 +14,7 @@
       "personaId": "default",
       "title": "Subagent 1 · coder",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -29,7 +29,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -44,7 +44,7 @@
       "personaId": "default",
       "title": "Subagent 2 · planner",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -59,7 +59,7 @@
       "personaId": "default",
       "title": "Subagent 3 · coder",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -74,7 +74,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -89,7 +89,7 @@
       "personaId": "default",
       "title": "Subagent 1 · subagent",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -104,7 +104,7 @@
       "personaId": "default",
       "title": "Subagent 1 · subagent",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T09:10:11.796776800+00:00"
+      "updatedAt": "2026-07-08T22:37:37.181658300+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -119,24 +119,24 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T06:58:40.368048800+00:00"
+      "updatedAt": "2026-07-08T12:18:30.921808+00:00"
     },
     {
       "agentId": "agent-1782466838742",
-      "agentRunCount": 4,
+      "agentRunCount": 3,
       "agentTodoCount": 0,
-      "createdAt": "2026-07-07T06:42:43.976737500+00:00",
-      "folder": "conv-03544475aa754aa58cfc924d4d7f1f1b-9d6d99de4155eec6",
+      "createdAt": "2026-07-08T22:40:32.368384500+00:00",
+      "folder": "conv-ea3878f908564651a36aab50fd027b54-b8422577cb72f755",
       "hasShortContext": true,
-      "id": "conv-03544475aa754aa58cfc924d4d7f1f1b",
-      "lastMessage": "小孙，热点新闻汇总整理好啦～\n\n📋 今日热点 TOP 5：\n1. 🔥 LV不能挪用中式纹样反向起诉中企\n2. 🌀 台风\n3. 🏞️ 万千气象看陇原\n4. 💼 七八九月千万不要离职\n5. 🤖 Claude被封 天才程序员陨落\n\n总共整理了30",
-      "messageCount": 19,
+      "id": "conv-ea3878f908564651a36aab50fd027b54",
+      "lastMessage": "MEDIA:\"E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\artifacts\\run-ad5b685e07144e5987bb20d1a2484ac5\\小可爱卡通形象.png\" 再给你发一张～如果桌面",
+      "messageCount": 12,
       "personaId": "default",
-      "title": "现在就发",
+      "title": "你好。你现在有生图功能吗？",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-07T09:45:20.055582500+00:00"
+      "updatedAt": "2026-07-08T22:51:48.723319800+00:00"
     }
   ],
-  "generatedAt": "2026-07-07T09:45:57.862149900+00:00",
+  "generatedAt": "2026-07-08T22:55:21.554954700+00:00",
   "schema": "synthchat_portable_projection_v1"
 }

@@ -181,6 +181,10 @@ export function App() {
   const visibleWechatUserRef = useRef<Set<string>>(new Set());
   const deferredWechatMessagesRef = useRef<Map<string, Array<{ message: ChatMessage; personaId: string | null }>>>(new Map());
   const deferredWechatTimerRef = useRef<Map<string, number>>(new Map());
+  // Safety-net timeouts for WeChat turns: if turn_finished never arrives the
+  // activeWechatTurnRef / visibleWechatUserRef entries would block future messages
+  // forever. A 5-minute ceiling forces cleanup regardless of backend events.
+  const wechatTurnSafetyTimerRef = useRef<Map<string, number>>(new Map());
   const chatRefreshTimersRef = useRef<Map<string, number>>(new Map());
   const chatRefreshInFlightRef = useRef<Set<string>>(new Set());
   const pendingStreamMessagesRef = useRef<Map<string, {
@@ -289,14 +293,18 @@ export function App() {
 
   const scheduleStreamMessageUpsert = useCallback((
     message: ChatMessage,
-    options: { streaming?: boolean; final?: boolean },
+    options: { streaming?: boolean; final?: boolean; preserveStreaming?: boolean },
     immediate = false
   ) => {
-    const key = message.id.trim() || `${message.conversationId}:${message.role}`;
+    // Use createdAt as part of the fallback key so that multiple concurrent
+    // streaming messages in the same conversation don't collide when id is empty.
+    const key = message.id.trim() || `${message.conversationId}:${message.role}:${message.createdAt}`;
     const previous = pendingStreamMessagesRef.current.get(key);
     pendingStreamMessagesRef.current.set(key, {
       message,
-      streaming: Boolean(options.streaming),
+      // preserveStreaming keeps a prior streaming=true alive when a non-streaming
+      // write (e.g. from agent-run-event) arrives mid-stream.
+      streaming: Boolean(options.preserveStreaming ? (previous?.streaming || options.streaming) : options.streaming),
       final: Boolean(options.final || previous?.final)
     });
     if (immediate || options.final) {
@@ -339,6 +347,8 @@ export function App() {
     agentQueueRefreshInFlightRef.current = false;
     agentRunsRefreshInFlightRef.current = false;
     memoriesRefreshInFlightRef.current = false;
+    wechatTurnSafetyTimerRef.current.forEach((timer) => window.clearTimeout(timer));
+    wechatTurnSafetyTimerRef.current.clear();
   }, []);
 
   const showConversationProcessing = useCallback((
@@ -534,6 +544,22 @@ export function App() {
           }
           deferredWechatMessagesRef.current.delete(payload.conversationId);
           activeWechatTurnRef.current.add(payload.conversationId);
+
+          // Safety net: if turn_finished never arrives (network drop, crash, etc.)
+          // the refs would block all future WeChat messages for this conversation.
+          // Force-release after 5 minutes so the app self-heals.
+          const prevSafety = wechatTurnSafetyTimerRef.current.get(payload.conversationId);
+          if (prevSafety !== undefined) window.clearTimeout(prevSafety);
+          const convId = payload.conversationId;
+          const pId = payload.personaId ?? null;
+          const safetyTimer = window.setTimeout(() => {
+            wechatTurnSafetyTimerRef.current.delete(convId);
+            activeWechatTurnRef.current.delete(convId);
+            visibleWechatUserRef.current.delete(convId);
+            flushDeferredWechatMessages(convId);
+            scheduleChatRefresh(convId, pId);
+          }, 5 * 60 * 1000);
+          wechatTurnSafetyTimerRef.current.set(payload.conversationId, safetyTimer);
         }
         const shouldSwitchSection = externalSource && messageSource !== "pet" && messageSource !== "wechat";
         showConversationProcessing(
@@ -545,6 +571,12 @@ export function App() {
         return;
       }
       if (payload.type === "turn_finished" && payload.conversationId) {
+        // Cancel the WeChat safety-net timeout — turn finished normally.
+        const safetyTimer = wechatTurnSafetyTimerRef.current.get(payload.conversationId);
+        if (safetyTimer !== undefined) {
+          window.clearTimeout(safetyTimer);
+          wechatTurnSafetyTimerRef.current.delete(payload.conversationId);
+        }
         hideConversationProcessing(payload.conversationId);
         if (payload.ok === false && !isWechatTurnEvent) {
           discardPendingStreamMessagesForConversation(payload.conversationId);
@@ -729,7 +761,9 @@ export function App() {
       // Processing visibility is owned by the authoritative turn_started /
       // turn_finished lifecycle (see synthchat-chat-event handler).
       if (payload.message) {
-        upsertIncomingMessage(payload.message);
+        // Use preserveStreaming so an agent-run-event arriving mid-stream does not
+        // override streaming:true that was set by a concurrent assistant_stream event.
+        scheduleStreamMessageUpsert(payload.message, { preserveStreaming: true }, false);
       }
       scheduleAgentQueueRefresh();
       if (payload.state === "completed" || payload.state === "failed" || payload.state === "aborted") {

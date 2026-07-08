@@ -12159,6 +12159,34 @@ impl AppStore {
         })
     }
 
+    pub fn claim_next_wechat_agent_request(
+        &self,
+        conversation_id: &str,
+    ) -> AppResult<Option<AgentQueuedRequest>> {
+        self.with_state(|s| {
+            let Some(item) = s.agent_queue.iter_mut().find(|item| {
+                item.conversation_id == conversation_id
+                    && item.status == "pending"
+                    && item
+                        .provider_data
+                        .as_ref()
+                        .and_then(|pd| pd.get("source"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s == "wechat")
+                        .unwrap_or(false)
+            }) else {
+                return Ok(None);
+            };
+            let now = now_iso();
+            item.status = "running".into();
+            item.started_at = Some(now.clone());
+            item.updated_at = now;
+            let claimed = item.clone();
+            self.persist(s)?;
+            Ok(Some(claimed))
+        })
+    }
+
     pub fn complete_agent_queue_item(
         &self,
         id: &str,

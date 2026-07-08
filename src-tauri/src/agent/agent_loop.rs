@@ -28,9 +28,41 @@ use super::workflow_graph::{
 };
 use super::*;
 
+// Tracks conversation IDs currently executing an inline WeChat queue drain.
+// When set, the admission guard is skipped to avoid deadlocking on the same
+// chat_turn_lock that the parent turn already holds.
+static WECHAT_DRAIN_ACTIVE: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+
+fn mark_wechat_drain(conversation_id: &str) {
+    WECHAT_DRAIN_ACTIVE
+        .get_or_init(|| Mutex::new(HashSet::new()))
+        .lock()
+        .unwrap()
+        .insert(conversation_id.to_string());
+}
+
+fn unmark_wechat_drain(conversation_id: &str) {
+    if let Some(set) = WECHAT_DRAIN_ACTIVE.get() {
+        set.lock().unwrap().remove(conversation_id);
+    }
+}
+
+fn is_wechat_drain_active(conversation_id: &str) -> bool {
+    WECHAT_DRAIN_ACTIVE
+        .get()
+        .map(|s| s.lock().unwrap().contains(conversation_id))
+        .unwrap_or(false)
+}
+
 const PET_WINDOW_LABEL: &str = "pet";
 const DESKTOP_STREAM_EVENT_MIN_INTERVAL: Duration = Duration::from_millis(80);
 const DESKTOP_STREAM_EVENT_MIN_BYTES: usize = 96;
+
+// Maximum per-conversation lock entries kept in memory. When this limit is
+// reached the HashMap is pruned by evicting idle entries — those where no turn
+// currently holds the Arc (strong_count == 1, only the map itself). This
+// prevents unbounded growth across long-lived sessions without external crates.
+const CHAT_TURN_LOCKS_MAX_CAPACITY: usize = 1024;
 
 static CHAT_TURN_LOCKS: OnceLock<std::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
     OnceLock::new();
@@ -825,7 +857,15 @@ fn is_pet_vision_silent_provider_data(source: &str, provider_data: Option<&Value
 
 fn chat_turn_lock(conversation_id: &str) -> Arc<tokio::sync::Mutex<()>> {
     let locks = CHAT_TURN_LOCKS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
-    let mut locks = locks.lock().unwrap();
+    let mut locks = locks.lock().unwrap_or_else(|p| p.into_inner());
+    // Evict idle entries when at capacity. An entry is "idle" when its Arc
+    // strong_count equals 1 — only the HashMap holds a reference, meaning no
+    // active turn is waiting on or currently holding that lock. The entire
+    // eviction + insert sequence runs under the std::sync::Mutex, so there is
+    // no race between the count check and the removal.
+    if locks.len() >= CHAT_TURN_LOCKS_MAX_CAPACITY {
+        locks.retain(|_, arc| Arc::strong_count(arc) > 1);
+    }
     locks
         .entry(conversation_id.to_string())
         .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
@@ -1381,6 +1421,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         .map(str::trim)
         .filter(|conversation_id| !conversation_id.is_empty())
     {
+        Some(conversation_id) if is_wechat_drain_active(conversation_id) => None,
         Some(conversation_id) => Some(chat_turn_lock(conversation_id).lock_owned().await),
         None => None,
     };
@@ -1968,7 +2009,14 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 continue;
             }
         }
-        if reply.content.trim().is_empty() {
+        // Only attempt empty-response recovery when the provider did NOT signal an
+        // incomplete turn. Incomplete turns are handled above by the
+        // "incomplete_response" recovery path; triggering both on the same reply
+        // would push conflicting guidance to the LLM and wastefully consume two
+        // iteration budget slots without any real progress.
+        if reply.content.trim().is_empty()
+            && reply.finish_reason.as_deref() != Some("incomplete")
+        {
             if let Some(recovery) =
                 next_empty_llm_response_recovery(&observations, &mut empty_llm_recovery_attempts)
             {
@@ -3128,6 +3176,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         .map(str::trim)
         .unwrap_or_default();
     if source_for_queue_drain != "proactive-internal" && !silent_pet_vision {
+        drain_wechat_queue_this_turn(store, &conversation.id, app).await;
         spawn_user_queue_drain_after_turn(store, &conversation.id, app);
     }
     maybe_run_background_skill_curator(store, &chat_config)?;
@@ -3182,6 +3231,65 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
     }
     emit_agent_run_record(desktop_app, &saved_completed_run, Some(&assistant));
     Ok(vec![user, assistant])
+}
+
+// Drains any pending WeChat queue items for the conversation while the current
+// turn still holds chat_turn_lock. Using WECHAT_DRAIN_ACTIVE flag, the inner
+// run_chat_turn call skips re-acquiring the lock, avoiding deadlock.
+async fn drain_wechat_queue_this_turn(
+    store: &AppStore,
+    conversation_id: &str,
+    app: Option<&AppHandle>,
+) {
+    let Ok(has_pending) = pending_user_queue_exists(store, conversation_id) else {
+        return;
+    };
+    if !has_pending {
+        return;
+    }
+    mark_wechat_drain(conversation_id);
+    let mut count = 0usize;
+    while let Ok(Some(item)) = store.claim_next_wechat_agent_request(conversation_id) {
+        emit_agent_queue_event(app, "claimed", Some(&item), Some(conversation_id));
+        let request = SendChatRequest {
+            conversation_id: Some(item.conversation_id.clone()),
+            persona_id: Some(item.persona_id.clone()),
+            agent_id: None,
+            content: item.content.clone(),
+            provider_data: item.request_provider_data(),
+            queue_item_id: Some(item.id.clone()),
+        };
+        let status = match Box::pin(run_chat_turn_with_app(
+            store,
+            request,
+            ToolExecutionContext::Interactive,
+            app,
+        ))
+        .await
+        {
+            Ok(messages) => {
+                let _ = crate::wechat_settings::finalize_queued_wechat_turn(
+                    store,
+                    &messages,
+                    item.provider_data.as_ref(),
+                    item.started_at.as_deref(),
+                )
+                .await;
+                "completed"
+            }
+            Err(e) => {
+                let _ = store.complete_agent_queue_item(&item.id, "failed", Some(e.to_string()));
+                break;
+            }
+        };
+        if let Ok(Some(completed)) = store.complete_agent_queue_item(&item.id, status, None) {
+            record_agent_queue_workflow_terminal(store, &completed).ok();
+            emit_agent_queue_event(app, &completed.status, Some(&completed), Some(conversation_id));
+        }
+        count += 1;
+    }
+    unmark_wechat_drain(conversation_id);
+    let _ = count;
 }
 
 fn spawn_user_queue_drain_after_turn(
