@@ -3396,7 +3396,9 @@ pub(super) fn handle_model_control_command(
             )));
         }
         if next_persona.llm_provider.trim() != provider.id {
-            return Ok("服务商由通讯录配置固定；请到通讯录修改对话服务商。这里仅切换模型 ID。".into());
+            return Ok(
+                "服务商由通讯录配置固定；请到通讯录修改对话服务商。这里仅切换模型 ID。".into(),
+            );
         }
     } else if !model.trim().is_empty() {
         if let Ok(provider) = select_llm_provider(&providers, model.trim()) {
@@ -3406,7 +3408,9 @@ pub(super) fn handle_model_control_command(
                     provider.id
                 )));
             }
-            return Ok("服务商由通讯录配置固定；请到通讯录修改对话服务商。这里仅切换模型 ID。".into());
+            return Ok(
+                "服务商由通讯录配置固定；请到通讯录修改对话服务商。这里仅切换模型 ID。".into(),
+            );
         }
     }
     if !model.trim().is_empty() {

@@ -30,8 +30,8 @@ use error::{AppError, AppResult};
 use futures::StreamExt;
 use model_catalog::{DetectedModelList, ModelCapabilities, ModelCatalogEntry, ProviderCatalogInfo};
 use models::{
-    new_id, AgentDefinition, AppConfig, BrowserProvider, ChatMessage, EmojiGroupConfig, ImageProvider,
-    LlmProvider, Persona, ProactiveStatus, ProfileConfig, ScheduledAgentJob,
+    new_id, AgentDefinition, AppConfig, BrowserProvider, ChatMessage, EmojiGroupConfig,
+    ImageProvider, LlmProvider, Persona, ProactiveStatus, ProfileConfig, ScheduledAgentJob,
     ScheduledJobOutputRecord, SearchProvider, SendChatRequest, VideoProvider, VisionProvider,
 };
 use process_utils::CommandWindowExt;
@@ -274,11 +274,7 @@ fn legacy_state_path_candidates() -> Vec<PathBuf> {
         if let Some(parent) = exe.parent() {
             candidates.push(parent.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
             if let Some(grandparent) = parent.parent() {
-                candidates.push(
-                    grandparent
-                        .join(SYNTHCHAT_DATA_DIR_NAME)
-                        .join("state.json"),
-                );
+                candidates.push(grandparent.join(SYNTHCHAT_DATA_DIR_NAME).join("state.json"));
             }
         }
     }
@@ -415,13 +411,14 @@ fn sync_runtime_env_from_store(store: &AppStore) {
 }
 
 fn default_app_update_manifest_url() -> String {
-    normalize_app_update_manifest_url(DEFAULT_APP_UPDATE_MANIFEST_URL.unwrap_or(""))
-        .unwrap_or_else(|| {
+    normalize_app_update_manifest_url(DEFAULT_APP_UPDATE_MANIFEST_URL.unwrap_or("")).unwrap_or_else(
+        || {
             DEFAULT_APP_UPDATE_MANIFEST_URL
                 .unwrap_or("")
                 .trim()
                 .to_string()
-        })
+        },
+    )
 }
 
 fn github_latest_manifest_download_url(owner: &str, repo: &str) -> String {
@@ -443,14 +440,20 @@ fn normalize_app_update_manifest_url(raw_url: &str) -> Option<String> {
             && segments[4] == "latest"
             && segments[5] == "download"
         {
-            return Some(github_latest_manifest_download_url(segments[1], segments[2]));
+            return Some(github_latest_manifest_download_url(
+                segments[1],
+                segments[2],
+            ));
         }
         if segments.len() >= 5
             && segments[2] == "releases"
             && segments[3] == "latest"
             && segments[4] == "download"
         {
-            return Some(github_latest_manifest_download_url(segments[0], segments[1]));
+            return Some(github_latest_manifest_download_url(
+                segments[0],
+                segments[1],
+            ));
         }
         if segments.len() >= 5
             && segments[0] == "repos"
@@ -471,7 +474,10 @@ fn normalize_app_update_manifest_url(raw_url: &str) -> Option<String> {
             if segments.get(4) == Some(&"download") {
                 return Some(value.to_string());
             }
-            return Some(github_latest_manifest_download_url(segments[0], segments[1]));
+            return Some(github_latest_manifest_download_url(
+                segments[0],
+                segments[1],
+            ));
         }
     }
     Some(value.to_string())
@@ -485,7 +491,10 @@ fn github_release_api_manifest_fallback(url: &reqwest::Url) -> Option<String> {
             && segments[3] == "releases"
             && segments[4] == "latest"
         {
-            return Some(github_latest_manifest_download_url(segments[1], segments[2]));
+            return Some(github_latest_manifest_download_url(
+                segments[1],
+                segments[2],
+            ));
         }
     }
     None
@@ -493,8 +502,7 @@ fn github_release_api_manifest_fallback(url: &reqwest::Url) -> Option<String> {
 
 fn github_missing_update_manifest_message(url: &reqwest::Url) -> Option<String> {
     let host = url.host_str()?;
-    if !host.eq_ignore_ascii_case("github.com") && !host.eq_ignore_ascii_case("www.github.com")
-    {
+    if !host.eq_ignore_ascii_case("github.com") && !host.eq_ignore_ascii_case("www.github.com") {
         return None;
     }
     let segments: Vec<&str> = url.path_segments()?.collect();
@@ -560,11 +568,15 @@ async fn fetch_app_update_manifest_payload(
                                 "fetch update manifest failed: {error}; fallback failed: {fallback_error}"
                             ))
                         })?;
-                    let payload = fallback_response.json::<Value>().await.map_err(|json_error| {
-                        AppError::BadRequest(format!(
-                            "read update manifest failed from fallback: {json_error}"
-                        ))
-                    })?;
+                    let payload =
+                        fallback_response
+                            .json::<Value>()
+                            .await
+                            .map_err(|json_error| {
+                                AppError::BadRequest(format!(
+                                    "read update manifest failed from fallback: {json_error}"
+                                ))
+                            })?;
                     return Ok((payload, fallback));
                 }
             }
@@ -1530,7 +1542,10 @@ async fn pick_path(
     }
     if let Some(extensions) = extensions.filter(|items| !items.is_empty()) {
         let extension_refs = extensions.iter().map(String::as_str).collect::<Vec<_>>();
-        dialog = dialog.add_filter(filter_name.unwrap_or_else(|| "Files".into()), &extension_refs);
+        dialog = dialog.add_filter(
+            filter_name.unwrap_or_else(|| "Files".into()),
+            &extension_refs,
+        );
     }
 
     let (tx, rx) = tokio::sync::oneshot::channel::<AppResult<Option<String>>>();
@@ -1661,11 +1676,7 @@ fn save_persona(
     normalize_persona_string(&mut persona.voice_reply, "volume", "+0%");
     normalize_persona_string(&mut persona.voice_reply, "pitch", "+0Hz");
     normalize_persona_string(&mut persona.voice_reply, "pythonPath", "");
-    normalize_persona_string(
-        &mut persona.voice_reply,
-        "modelDir",
-        "",
-    );
+    normalize_persona_string(&mut persona.voice_reply, "modelDir", "");
     normalize_persona_string(&mut persona.voice_reply, "speakerEmbedding", "");
     normalize_persona_string(&mut persona.voice_reply, "refinePrompt", "");
     normalize_persona_bool(&mut persona.image_generation, "enabled", false);
@@ -2364,10 +2375,12 @@ fn truncate_provider_data_for_ui(
     );
     let mut changed = truncate_thinking_card_array_for_ui(root.get_mut("thinkingCards"), max_chars);
     if let Some(responses) = root.get_mut("responses").and_then(Value::as_object_mut) {
-        changed |= truncate_thinking_card_array_for_ui(responses.get_mut("thinkingCards"), max_chars);
+        changed |=
+            truncate_thinking_card_array_for_ui(responses.get_mut("thinkingCards"), max_chars);
     }
     if let Some(anthropic) = root.get_mut("anthropic").and_then(Value::as_object_mut) {
-        changed |= truncate_thinking_card_array_for_ui(anthropic.get_mut("thinkingCards"), max_chars);
+        changed |=
+            truncate_thinking_card_array_for_ui(anthropic.get_mut("thinkingCards"), max_chars);
     }
     changed
 }
@@ -2378,20 +2391,20 @@ pub(crate) fn preview_message_for_ui(
 ) -> models::ChatMessage {
     let original_chars = message.content.chars().count();
     let preview = if message.role == "tool" {
-        truncate_json_message_content_for_ui(&message.content, preview_chars)
-            .or_else(|| {
-                truncate_chars_for_ui(
-                    &message.content,
-                    tool_event_ui_preview_char_limit(preview_chars),
-                )
-            })
+        truncate_json_message_content_for_ui(&message.content, preview_chars).or_else(|| {
+            truncate_chars_for_ui(
+                &message.content,
+                tool_event_ui_preview_char_limit(preview_chars),
+            )
+        })
     } else {
         truncate_chars_for_ui(
             &message.content,
             ui_message_preview_char_limit(preview_chars),
         )
     };
-    let provider_data_changed = truncate_provider_data_for_ui(&mut message.provider_data, preview_chars);
+    let provider_data_changed =
+        truncate_provider_data_for_ui(&mut message.provider_data, preview_chars);
     if let Some(content) = preview {
         let preview_chars = content.chars().count();
         message.content = content;
@@ -2974,7 +2987,8 @@ async fn probe_provider_vision_capability(
     const PROBE_IMAGE_BASE64: &str =
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
     let image_url = format!("data:image/png;base64,{PROBE_IMAGE_BASE64}");
-    let prompt = "This is a capability probe. If you can receive the attached image, answer exactly: OK";
+    let prompt =
+        "This is a capability probe. If you can receive the attached image, answer exactly: OK";
     let mut probe_message = ChatMessage::new(
         "capability-probe".into(),
         "user",
@@ -5229,7 +5243,9 @@ fn avatar_upload_bytes(bytes: Option<Vec<u8>>, data: Option<String>) -> AppResul
         use base64::Engine as _;
         return base64::engine::general_purpose::STANDARD
             .decode(payload)
-            .map_err(|error| AppError::BadRequest(format!("avatar image data is not valid base64: {error}")));
+            .map_err(|error| {
+                AppError::BadRequest(format!("avatar image data is not valid base64: {error}"))
+            });
     }
     bytes.ok_or_else(|| AppError::BadRequest("avatar image data is missing".into()))
 }
@@ -5244,7 +5260,9 @@ fn avatar_image_ext_from_bytes(bytes: &[u8]) -> AppResult<&'static str> {
 
 fn write_verified_image_file(path: &Path, bytes: &[u8]) -> AppResult<()> {
     let Some(parent) = path.parent() else {
-        return Err(AppError::BadRequest("avatar image path has no parent directory".into()));
+        return Err(AppError::BadRequest(
+            "avatar image path has no parent directory".into(),
+        ));
     };
     fs::create_dir_all(parent)?;
     let file_name = path
@@ -5469,7 +5487,10 @@ fn asset_url_to_path(value: &str) -> Option<String> {
     let without_scheme = trimmed
         .strip_prefix("asset://localhost/")
         .or_else(|| trimmed.strip_prefix("asset://"))?;
-    let without_query = without_scheme.split_once('?').map(|(path, _)| path).unwrap_or(without_scheme);
+    let without_query = without_scheme
+        .split_once('?')
+        .map(|(path, _)| path)
+        .unwrap_or(without_scheme);
     let decoded = percent_decode_lossy(without_query);
     Some(strip_windows_drive_url_prefix(&decoded).to_string())
 }
@@ -6035,9 +6056,15 @@ fn edge_tts_python_candidates(store: Option<&AppStore>) -> Vec<PythonCommand> {
     unique
 }
 
-fn run_edge_tts_python_command(candidate: &PythonCommand, extra_args: &[&str]) -> io::Result<Output> {
+fn run_edge_tts_python_command(
+    candidate: &PythonCommand,
+    extra_args: &[&str],
+) -> io::Result<Output> {
     let mut command = Command::new(&candidate.program);
-    command.args(&candidate.prefix_args).args(extra_args).hide_window();
+    command
+        .args(&candidate.prefix_args)
+        .args(extra_args)
+        .hide_window();
     command.output()
 }
 
@@ -6046,7 +6073,10 @@ fn run_edge_tts_python_command_strings(
     extra_args: &[String],
 ) -> io::Result<Output> {
     let mut command = Command::new(&candidate.program);
-    command.args(&candidate.prefix_args).args(extra_args).hide_window();
+    command
+        .args(&candidate.prefix_args)
+        .args(extra_args)
+        .hide_window();
     command.output()
 }
 
@@ -6110,7 +6140,9 @@ fn emit_chattts_install_progress(
     );
 }
 
-fn find_edge_tts_python(store: Option<&AppStore>) -> (Option<(PythonCommand, String)>, Vec<String>) {
+fn find_edge_tts_python(
+    store: Option<&AppStore>,
+) -> (Option<(PythonCommand, String)>, Vec<String>) {
     let mut attempts = Vec::new();
     for candidate in edge_tts_python_candidates(store) {
         match run_edge_tts_python_command(&candidate, &["--version"]) {
@@ -6240,15 +6272,15 @@ fn chattts_venv_dir(store: &AppStore) -> PathBuf {
 }
 
 fn chattts_model_dir(store: &AppStore) -> PathBuf {
-    store
-        .data_dir()
-        .join("data")
-        .join("models")
-        .join("ChatTTS")
+    store.data_dir().join("data").join("models").join("ChatTTS")
 }
 
 fn chattts_script_path(store: &AppStore) -> PathBuf {
-    store.data_dir().join("data").join("tts").join("chattts_synth.py")
+    store
+        .data_dir()
+        .join("data")
+        .join("tts")
+        .join("chattts_synth.py")
 }
 
 fn chattts_python_candidates(store: Option<&AppStore>) -> Vec<PythonCommand> {
@@ -6267,7 +6299,11 @@ fn chattts_python_candidates(store: Option<&AppStore>) -> Vec<PythonCommand> {
             candidates.push(edge_tts_python_from_path(venv_python));
         }
     }
-    for key in ["HERMES_CHATTTS_PYTHON", "HERMES_TTS_PYTHON", "HERMES_PYTHON"] {
+    for key in [
+        "HERMES_CHATTTS_PYTHON",
+        "HERMES_TTS_PYTHON",
+        "HERMES_PYTHON",
+    ] {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {
@@ -6361,7 +6397,10 @@ fn chattts_check_item(store: &AppStore) -> Value {
         });
     };
 
-    let check_args = ["-c", "import ChatTTS, torch, torchaudio, numpy; print('ok')"];
+    let check_args = [
+        "-c",
+        "import ChatTTS, torch, torchaudio, numpy; print('ok')",
+    ];
     let check_command = python.display_with(&check_args);
     match run_edge_tts_python_command(&python, &check_args) {
         Ok(output) if output.status.success() && script_ready && model_ready => json!({
@@ -6746,18 +6785,18 @@ fn install_chattts_deps_sync(
             "upgrade_pip",
             "正在升级 pip/setuptools/wheel...",
             45,
-            vec!["-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+            vec![
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "pip",
+                "setuptools",
+                "wheel",
+            ],
         ),
     ] {
-        emit_chattts_install_progress(
-            app,
-            job_id,
-            stage,
-            message,
-            Some(percent),
-            None,
-            None,
-        );
+        emit_chattts_install_progress(app, job_id, stage, message, Some(percent), None, None);
         let command_text = venv_python.display_with(&args);
         match run_edge_tts_python_command(&venv_python, &args) {
             Ok(output) if output.status.success() => logs.push(format!(
@@ -6840,7 +6879,10 @@ fn install_chattts_deps_sync(
         }
     }
 
-    let check_args = ["-c", "import ChatTTS, torch, torchaudio, numpy; print('ok')"];
+    let check_args = [
+        "-c",
+        "import ChatTTS, torch, torchaudio, numpy; print('ok')",
+    ];
     emit_chattts_install_progress(
         app,
         job_id,
@@ -8031,10 +8073,7 @@ mod tests {
         let envelope: Value = serde_json::from_str(&preview.content).unwrap();
         assert_eq!(envelope["type"], json!("toolEvent"));
         assert_eq!(envelope["event"]["toolName"], json!("terminal"));
-        assert_eq!(
-            envelope["event"]["raw"]["uiPreviewTruncated"],
-            json!(true)
-        );
+        assert_eq!(envelope["event"]["raw"]["uiPreviewTruncated"], json!(true));
         assert!(envelope["event"]["text"]
             .as_str()
             .unwrap()
@@ -8064,12 +8103,8 @@ mod tests {
 
     #[test]
     fn ui_preview_truncates_thinking_card_provider_data() {
-        let mut message = ChatMessage::new(
-            "conv-test".into(),
-            "assistant",
-            "".into(),
-            "desktop-stream",
-        );
+        let mut message =
+            ChatMessage::new("conv-test".into(), "assistant", "".into(), "desktop-stream");
         message.provider_data = Some(json!({
             "thinkingCards": [{
                 "provider": "llm",
@@ -8136,7 +8171,10 @@ mod tests {
             Some("https://github.com/Sunner-Chao/SynthChat/releases/tag/v1.1.2")
         );
         assert_eq!(manifest.notes.as_deref(), Some("Release notes"));
-        assert_eq!(manifest.published_at.as_deref(), Some("2026-06-28T00:00:00Z"));
+        assert_eq!(
+            manifest.published_at.as_deref(),
+            Some("2026-06-28T00:00:00Z")
+        );
     }
 
     #[test]

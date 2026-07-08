@@ -1211,13 +1211,9 @@ pub(crate) fn record_agent_queue_workflow_terminal(
     else {
         return Ok(());
     };
-    WorkflowDriver::new(workflow_mode_for_run(&run)).queue().terminal(
-        store,
-        &run.run_id,
-        &item.id,
-        &status,
-        item.error.as_deref(),
-    )
+    WorkflowDriver::new(workflow_mode_for_run(&run))
+        .queue()
+        .terminal(store, &run.run_id, &item.id, &status, item.error.as_deref())
 }
 
 pub async fn resume_agent_run(
@@ -1709,7 +1705,9 @@ pub(super) fn build_agent_run_diagnosis_report(
         next_steps.push("针对失败工具的 payload、权限、网络和配置重跑最小复现。");
     }
     if !workflow_diagnosis.failed_nodes.is_empty() {
-        next_steps.push("从 workflow failed 节点的 detail 反查 planner/executor/reviewer 的直接失败原因。");
+        next_steps.push(
+            "从 workflow failed 节点的 detail 反查 planner/executor/reviewer 的直接失败原因。",
+        );
     }
     if !workflow_diagnosis.waiting_nodes.is_empty() {
         next_steps.push("先处理 workflow waiting 节点对应的审批、checkpoint 或澄清阻塞。");
@@ -1808,9 +1806,7 @@ fn workflow_graph_diagnosis(graph: Option<&Value>) -> WorkflowGraphDiagnosis {
                 .and_then(|nodes| {
                     nodes
                         .iter()
-                        .find(|node| {
-                            node.get("node").and_then(Value::as_str) == Some(current_node)
-                        })
+                        .find(|node| node.get("node").and_then(Value::as_str) == Some(current_node))
                 })
                 .and_then(|node| node.get("status"))
                 .and_then(Value::as_str)
@@ -1846,17 +1842,18 @@ fn workflow_graph_diagnosis(graph: Option<&Value>) -> WorkflowGraphDiagnosis {
                 status,
                 workflow_node_role_label(name),
                 updated,
-                if detail.is_empty() { "-" } else { detail.as_str() }
+                if detail.is_empty() {
+                    "-"
+                } else {
+                    detail.as_str()
+                }
             )
         })
         .collect::<Vec<_>>();
     let failed_nodes = workflow_nodes_with_status(nodes.map(Vec::as_slice), "failed");
     let waiting_nodes = workflow_nodes_with_status(nodes.map(Vec::as_slice), "waiting");
     let canceled_nodes = workflow_nodes_with_status(nodes.map(Vec::as_slice), "canceled");
-    let mut transition_values = transitions
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+    let mut transition_values = transitions.into_iter().flatten().collect::<Vec<_>>();
     transition_values.sort_by_key(|transition| {
         transition
             .get("eventSequence")
@@ -1869,7 +1866,10 @@ fn workflow_graph_diagnosis(graph: Option<&Value>) -> WorkflowGraphDiagnosis {
         .rev()
         .take(5)
         .map(|transition| {
-            let from = transition.get("from").and_then(Value::as_str).unwrap_or("-");
+            let from = transition
+                .get("from")
+                .and_then(Value::as_str)
+                .unwrap_or("-");
             let to = transition.get("to").and_then(Value::as_str).unwrap_or("-");
             let reason = transition
                 .get("reason")
@@ -1888,7 +1888,11 @@ fn workflow_graph_diagnosis(graph: Option<&Value>) -> WorkflowGraphDiagnosis {
                 workflow_node_label(from),
                 workflow_node_label(to),
                 reason,
-                if detail.is_empty() { "-" } else { detail.as_str() }
+                if detail.is_empty() {
+                    "-"
+                } else {
+                    detail.as_str()
+                }
             )
         })
         .collect::<Vec<_>>();
@@ -1908,7 +1912,9 @@ fn workflow_graph_diagnosis(graph: Option<&Value>) -> WorkflowGraphDiagnosis {
             }
         ),
         node_count: nodes.map(|nodes| nodes.len()).unwrap_or(0),
-        transition_count: transitions.map(|transitions| transitions.len()).unwrap_or(0),
+        transition_count: transitions
+            .map(|transitions| transitions.len())
+            .unwrap_or(0),
         node_rows,
         transition_rows,
         failed_nodes,
@@ -1983,60 +1989,130 @@ fn workflow_detail_summary(object: &serde_json::Map<String, Value>) -> Option<St
             .or_else(|| object.get("tool_call_ids")),
     );
     let tool_calls = workflow_detail_tool_call_summaries(
-        object
-            .get("toolCalls")
-            .or_else(|| object.get("tool_calls")),
+        object.get("toolCalls").or_else(|| object.get("tool_calls")),
     );
-    let protocol = workflow_detail_scalar(
-        object,
-        &["toolProtocol", "tool_protocol"],
-    );
+    let protocol = workflow_detail_scalar(object, &["toolProtocol", "tool_protocol"]);
 
     let mut parts = Vec::new();
     for (label, value) in [
-        ("queueLifecycle", workflow_detail_scalar_alias(object, "queueLifecycle")),
-        ("queueStatus", workflow_detail_scalar_alias(object, "queueStatus")),
+        (
+            "queueLifecycle",
+            workflow_detail_scalar_alias(object, "queueLifecycle"),
+        ),
+        (
+            "queueStatus",
+            workflow_detail_scalar_alias(object, "queueStatus"),
+        ),
         ("admission", workflow_detail_scalar(object, &["admission"])),
-        ("requestSource", workflow_detail_scalar_alias(object, "requestSource")),
-        ("toolContext", workflow_detail_scalar_alias(object, "toolContext")),
-        ("queueItemId", workflow_detail_scalar_alias(object, "queueItemId")),
-        ("approvalId", workflow_detail_scalar_alias(object, "approvalId")),
+        (
+            "requestSource",
+            workflow_detail_scalar_alias(object, "requestSource"),
+        ),
+        (
+            "toolContext",
+            workflow_detail_scalar_alias(object, "toolContext"),
+        ),
+        (
+            "queueItemId",
+            workflow_detail_scalar_alias(object, "queueItemId"),
+        ),
+        (
+            "approvalId",
+            workflow_detail_scalar_alias(object, "approvalId"),
+        ),
         ("status", workflow_detail_scalar(object, &["status"])),
         ("serverId", workflow_detail_scalar_alias(object, "serverId")),
         ("toolName", workflow_detail_scalar_alias(object, "toolName")),
-        ("requestedName", workflow_detail_scalar_alias(object, "requestedName")),
+        (
+            "requestedName",
+            workflow_detail_scalar_alias(object, "requestedName"),
+        ),
         ("toolKind", workflow_detail_scalar_alias(object, "toolKind")),
-        ("sourceLabel", workflow_detail_scalar_alias(object, "sourceLabel")),
-        ("definitionName", workflow_detail_scalar_alias(object, "definitionName")),
-        ("requiresApproval", workflow_detail_scalar_alias(object, "requiresApproval")),
-        ("directBridge", workflow_detail_scalar_alias(object, "directBridge")),
+        (
+            "sourceLabel",
+            workflow_detail_scalar_alias(object, "sourceLabel"),
+        ),
+        (
+            "definitionName",
+            workflow_detail_scalar_alias(object, "definitionName"),
+        ),
+        (
+            "requiresApproval",
+            workflow_detail_scalar_alias(object, "requiresApproval"),
+        ),
+        (
+            "directBridge",
+            workflow_detail_scalar_alias(object, "directBridge"),
+        ),
         (
             "approvedToolCallReplay",
             workflow_detail_scalar_alias(object, "approvedToolCallReplay"),
         ),
-        ("bridgeStatus", workflow_detail_scalar_alias(object, "bridgeStatus")),
-        ("bridgeRejectionReason", workflow_detail_scalar_alias(object, "bridgeRejectionReason")),
-        ("bridgeStage", workflow_detail_scalar_alias(object, "bridgeStage")),
+        (
+            "bridgeStatus",
+            workflow_detail_scalar_alias(object, "bridgeStatus"),
+        ),
+        (
+            "bridgeRejectionReason",
+            workflow_detail_scalar_alias(object, "bridgeRejectionReason"),
+        ),
+        (
+            "bridgeStage",
+            workflow_detail_scalar_alias(object, "bridgeStage"),
+        ),
         (
             "lastBridgeTarget",
             workflow_detail_nested_summary_alias(object, "lastBridgeTarget"),
         ),
-        ("checkpointId", workflow_detail_scalar_alias(object, "checkpointId")),
-        ("checkpointScope", workflow_detail_scalar_alias(object, "checkpointScope")),
-        ("checkpointState", workflow_detail_scalar_alias(object, "checkpointState")),
-        ("checkpointIteration", workflow_detail_scalar_alias(object, "checkpointIteration")),
+        (
+            "checkpointId",
+            workflow_detail_scalar_alias(object, "checkpointId"),
+        ),
+        (
+            "checkpointScope",
+            workflow_detail_scalar_alias(object, "checkpointScope"),
+        ),
+        (
+            "checkpointState",
+            workflow_detail_scalar_alias(object, "checkpointState"),
+        ),
+        (
+            "checkpointIteration",
+            workflow_detail_scalar_alias(object, "checkpointIteration"),
+        ),
         ("kind", workflow_detail_scalar(object, &["kind"])),
         ("state", workflow_detail_scalar(object, &["state"])),
-        ("previousState", workflow_detail_scalar_alias(object, "previousState")),
+        (
+            "previousState",
+            workflow_detail_scalar_alias(object, "previousState"),
+        ),
         ("runState", workflow_detail_scalar_alias(object, "runState")),
-        ("preserveCurrent", workflow_detail_scalar_alias(object, "preserveCurrent")),
-        ("mutationKind", workflow_detail_scalar_alias(object, "mutationKind")),
-        ("targetSummary", workflow_detail_scalar_alias(object, "targetSummary")),
-        ("checkpointSummary", workflow_detail_scalar_alias(object, "checkpointSummary")),
+        (
+            "preserveCurrent",
+            workflow_detail_scalar_alias(object, "preserveCurrent"),
+        ),
+        (
+            "mutationKind",
+            workflow_detail_scalar_alias(object, "mutationKind"),
+        ),
+        (
+            "targetSummary",
+            workflow_detail_scalar_alias(object, "targetSummary"),
+        ),
+        (
+            "checkpointSummary",
+            workflow_detail_scalar_alias(object, "checkpointSummary"),
+        ),
         ("source", workflow_detail_scalar(object, &["source"])),
-        ("conversationKind", workflow_detail_scalar_alias(object, "conversationKind")),
+        (
+            "conversationKind",
+            workflow_detail_scalar_alias(object, "conversationKind"),
+        ),
         ("roomId", workflow_detail_scalar_alias(object, "roomId")),
-        ("channelId", workflow_detail_scalar_alias(object, "channelId")),
+        (
+            "channelId",
+            workflow_detail_scalar_alias(object, "channelId"),
+        ),
         ("chatId", workflow_detail_scalar_alias(object, "chatId")),
         ("threadId", workflow_detail_scalar_alias(object, "threadId")),
         ("groupId", workflow_detail_scalar_alias(object, "groupId")),
@@ -2069,33 +2145,78 @@ fn workflow_detail_summary(object: &serde_json::Map<String, Value>) -> Option<St
         ),
         ("children", workflow_detail_count(object.get("children"))),
         ("results", workflow_detail_count(object.get("results"))),
-        ("parentDepth", workflow_detail_scalar_alias(object, "parentDepth")),
-        ("childDepth", workflow_detail_scalar_alias(object, "childDepth")),
-        ("maxSubagents", workflow_detail_scalar_alias(object, "maxSubagents")),
-        ("maxSubagentDepth", workflow_detail_scalar_alias(object, "maxSubagentDepth")),
-        ("maxConcurrentChildren", workflow_detail_scalar_alias(object, "maxConcurrentChildren")),
+        (
+            "parentDepth",
+            workflow_detail_scalar_alias(object, "parentDepth"),
+        ),
+        (
+            "childDepth",
+            workflow_detail_scalar_alias(object, "childDepth"),
+        ),
+        (
+            "maxSubagents",
+            workflow_detail_scalar_alias(object, "maxSubagents"),
+        ),
+        (
+            "maxSubagentDepth",
+            workflow_detail_scalar_alias(object, "maxSubagentDepth"),
+        ),
+        (
+            "maxConcurrentChildren",
+            workflow_detail_scalar_alias(object, "maxConcurrentChildren"),
+        ),
         ("ok", workflow_detail_scalar(object, &["ok"])),
-        ("orchestratorEnabled", workflow_detail_scalar_alias(object, "orchestratorEnabled")),
-        ("subagentAutoApprove", workflow_detail_scalar_alias(object, "subagentAutoApprove")),
-        ("inheritMcpToolsets", workflow_detail_scalar_alias(object, "inheritMcpToolsets")),
+        (
+            "orchestratorEnabled",
+            workflow_detail_scalar_alias(object, "orchestratorEnabled"),
+        ),
+        (
+            "subagentAutoApprove",
+            workflow_detail_scalar_alias(object, "subagentAutoApprove"),
+        ),
+        (
+            "inheritMcpToolsets",
+            workflow_detail_scalar_alias(object, "inheritMcpToolsets"),
+        ),
         ("action", workflow_detail_scalar(object, &["action"])),
-        ("toolCount", workflow_detail_count_alias(object, "toolCount")),
+        (
+            "toolCount",
+            workflow_detail_count_alias(object, "toolCount"),
+        ),
         ("tools", (!tools.is_empty()).then(|| tools.join(", "))),
         ("origins", (!origins.is_empty()).then(|| origins.join(", "))),
-        ("callIds", (!call_ids.is_empty()).then(|| call_ids.join(", "))),
+        (
+            "callIds",
+            (!call_ids.is_empty()).then(|| call_ids.join(", ")),
+        ),
         (
             "toolCalls",
             (!tool_calls.is_empty()).then(|| tool_calls.join(", ")),
         ),
         ("protocol", protocol),
         ("stage", workflow_detail_scalar(object, &["stage"])),
-        ("resolution", workflow_detail_scalar(object, &["resolution"])),
-        ("messageId", workflow_detail_scalar_alias(object, "messageId")),
-        ("providerId", workflow_detail_scalar_alias(object, "providerId")),
+        (
+            "resolution",
+            workflow_detail_scalar(object, &["resolution"]),
+        ),
+        (
+            "messageId",
+            workflow_detail_scalar_alias(object, "messageId"),
+        ),
+        (
+            "providerId",
+            workflow_detail_scalar_alias(object, "providerId"),
+        ),
         ("summary", workflow_detail_scalar(object, &["summary"])),
-        ("errorKind", workflow_detail_scalar_alias(object, "errorKind")),
+        (
+            "errorKind",
+            workflow_detail_scalar_alias(object, "errorKind"),
+        ),
         ("reason", workflow_detail_scalar(object, &["reason"])),
-        ("timeoutSeconds", workflow_detail_scalar_alias(object, "timeoutSeconds")),
+        (
+            "timeoutSeconds",
+            workflow_detail_scalar_alias(object, "timeoutSeconds"),
+        ),
         ("error", workflow_detail_scalar(object, &["error"])),
     ] {
         if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
@@ -2226,15 +2347,11 @@ fn workflow_detail_tool_call_summaries(value: Option<&Value>) -> Vec<String> {
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
-            let summary = [
-                name.map(str::to_string),
-                origin,
-                id.map(str::to_string),
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .join(":");
+            let summary = [name.map(str::to_string), origin, id.map(str::to_string)]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(":");
             (!summary.is_empty()).then_some(summary)
         })
         .collect()

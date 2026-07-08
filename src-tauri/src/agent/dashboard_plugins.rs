@@ -2737,7 +2737,10 @@ fn kanban_dashboard_run_inspect(store: &AppStore, run_id: &str) -> AppResult<Val
         }));
     }
     if let Ok(run) = store.agent_run(run_id) {
-        let alive = matches!(run.state.as_str(), "started" | "running" | "pendingApproval");
+        let alive = matches!(
+            run.state.as_str(),
+            "started" | "running" | "pendingApproval"
+        );
         let (workflow_graph, workflow_summary) =
             workflow_graph_run_response_values(run.workflow_graph.as_ref());
         return Ok(json!({

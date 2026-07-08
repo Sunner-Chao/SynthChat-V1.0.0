@@ -261,12 +261,13 @@ pub(super) fn validate_agent_tool_call_with_error(
     available_tools: &[ToolDefinition],
 ) -> Result<(), ToolCallValidationError> {
     let context = tool_call_validation_context(call);
-    let definition = resolve_planner_tool_definition(available_tools, &call.name).ok_or_else(|| {
-        ToolCallValidationError::tool_unavailable(format!(
-            "{context} tool is not available: {}",
-            call.name
-        ))
-    })?;
+    let definition =
+        resolve_planner_tool_definition(available_tools, &call.name).ok_or_else(|| {
+            ToolCallValidationError::tool_unavailable(format!(
+                "{context} tool is not available: {}",
+                call.name
+            ))
+        })?;
     validate_tool_call_payload(&definition, &call.arguments).map_err(|error| {
         ToolCallValidationError::schema_validation(format!(
             "{context} failed schema validation: {error}"
@@ -291,16 +292,18 @@ fn validate_tool_call_bridge_target(
         return Ok(());
     }
     let bridge_payload = strip_provider_tool_call_metadata(call.arguments.clone());
-    let (target_name, target_payload) = resolve_tool_call_payload(&bridge_payload).map_err(|error| {
-        ToolCallValidationError::schema_validation(format!(
-            "{context} bridge target is invalid: {error}"
-        ))
-    })?;
-    let definition = resolve_planner_tool_definition(available_tools, &target_name).ok_or_else(|| {
-        ToolCallValidationError::tool_unavailable(format!(
-            "{context} target tool is not available: {target_name}"
-        ))
-    })?;
+    let (target_name, target_payload) =
+        resolve_tool_call_payload(&bridge_payload).map_err(|error| {
+            ToolCallValidationError::schema_validation(format!(
+                "{context} bridge target is invalid: {error}"
+            ))
+        })?;
+    let definition =
+        resolve_planner_tool_definition(available_tools, &target_name).ok_or_else(|| {
+            ToolCallValidationError::tool_unavailable(format!(
+                "{context} target tool is not available: {target_name}"
+            ))
+        })?;
     if definition.requires_approval {
         return Err(ToolCallValidationError::approval_required(format!(
             "{context} target tool requires approval: {target_name}. Call the target tool directly so the normal executor approval route can handle it."
@@ -384,7 +387,12 @@ fn normalize_agent_decision(value: Value) -> Value {
             .is_some();
     let action_requests_tool = matches!(
         action.as_str(),
-        "tool" | "use_tool" | "call_tool" | "tools" | "tool_call" | "function_call"
+        "tool"
+            | "use_tool"
+            | "call_tool"
+            | "tools"
+            | "tool_call"
+            | "function_call"
             | "function_calls"
     );
 

@@ -1,0 +1,23 @@
+{
+  "createdAt": "2026-07-08T03:57:08.403Z",
+  "workspace": "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0",
+  "runDir": "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\.multi-agent\\runs\\2026-07-08T03-57-08-402Z-consensus-你们正在协作完善-d-pro-sunner-demo-vscode-synthchat-v1-0",
+  "task": "你们正在协作完善 D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0，这是一个 Tauri + React + Rust 的桌面 agent 应用。\n\n本阶段目标：\n阶段 2：主流 agent 能力借鉴。基于官方文档和 SynthChat 现状，产出“可吸收能力矩阵”。重点吸收能力，不要照搬实现，不改代码。\n\n阶段衔接要求：\n- 先读取 D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\.multi-agent\\runs 中最近的阶段 1 产物。\n- 如果阶段 1 产物缺失或不完整，先基于当前代码库自洽推进，并明确缺失信息。\n- 需要联网检索官方文档时，只使用官方文档或项目官方仓库/文档。\n\n必须先读：\n- package.json / README.md\n- src/App.tsx\n- src/panels/ChatExperience.tsx\n- src/lib/**\n- src-tauri/src/agent.rs\n- src-tauri/src/agent/**\n- src-tauri/src/llm/**\n- src-tauri/src/mcp.rs\n- src-tauri/src/skills.rs\n- src-tauri/docs/hermes-agent-capability-audit.md\n- 现有测试：src/lib/__tests__/**\n\n参考对象：\n- Claude Code：subagents、hooks、memory、MCP、permissions、sessions。\n- Codex：本地读写运行代码、sandbox/approval、/review、AGENTS.md 指令。\n- Windsurf/Cascade：memories/rules、skills、workflows、AGENTS.md、MCP、Write/Chat 模式。\n- LangGraph：durable execution、streaming、human-in-the-loop、checkpoint。\n- AutoGen/CrewAI：多 agent 对话、任务/角色/crew、memory、guardrails、observability。\n- OpenHands：sandbox/runtime、工具执行隔离、文件/终端/浏览器执行环境。\n\n工作要求：\n- 先只读分析，再提出计划。\n- 不做大范围重写。\n- 对话链路优先于边缘功能：用户消息 -> agent 选择 -> LLM/工具调用 -> 流式事件 -> UI 展示 -> 持久化 -> 错误恢复。\n- 输出必须包含：发现、风险、建议、待测清单、下一阶段输入。\n\n产物：\n可吸收能力矩阵，每行包含：\n- 参考对象\n- 核心机制\n- SynthChat 当前是否已有类似实现\n- 应该借鉴的最小功能\n- 不应现阶段实现的复杂功能\n- 对话链路收益\n- 测试方式\n- 优先级：P0/P1/P2\n\n验收：\n- 必须引用具体文件路径和函数/模块。\n- 不得提出泛泛建议。\n- 不得改代码。",
+  "workflow": "consensus",
+  "workflowLabel": "Consensus",
+  "lead": "codex",
+  "reviewer": "claude",
+  "claudeModel": "",
+  "codexModel": "gpt-5.5",
+  "codexProvider": "yujianwudi",
+  "effort": "",
+  "claudeEffort": "",
+  "codexEffort": "xhigh",
+  "dryRun": false,
+  "qualityGate": true,
+  "analysisOnly": true,
+  "skipReview": false,
+  "skipCodex": false,
+  "timeoutMin": 60,
+  "rounds": 1
+}

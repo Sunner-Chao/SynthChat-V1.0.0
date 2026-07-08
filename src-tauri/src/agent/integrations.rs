@@ -66,21 +66,21 @@ use super::{
     },
     skills::skill_manage_tool,
     spawn_background_chat_turn_for_job, string_arg, subscribe_agent_run_record,
-    teams_pipeline_tool, tool_toolsets, truncate_output, ToolExecutionContext,
+    teams_pipeline_tool, tool_toolsets, truncate_output,
     workflow_graph::{
         workflow_graph_node_runtime_payload, workflow_graph_run_response_values,
         workflow_graph_runtime_summary, workflow_graph_runtime_timestamp,
         workflow_graph_snapshot_runtime_payload, workflow_graph_transition_runtime_payload,
         WORKFLOW_API_EVENT_NODE_PREFIX, WORKFLOW_API_EVENT_NODE_TEMPLATE,
-        WORKFLOW_API_EVENT_SNAPSHOT, WORKFLOW_API_EVENT_TRANSITION,
-        WORKFLOW_RUNTIME_KIND_SNAPSHOT, WORKFLOW_RUNTIME_KIND_TRANSITION,
-        WORKFLOW_RUNTIME_NODE_KIND_PREFIX,
+        WORKFLOW_API_EVENT_SNAPSHOT, WORKFLOW_API_EVENT_TRANSITION, WORKFLOW_RUNTIME_KIND_SNAPSHOT,
+        WORKFLOW_RUNTIME_KIND_TRANSITION, WORKFLOW_RUNTIME_NODE_KIND_PREFIX,
     },
     workflow_runtime_contract::{
         agent_runtime_contracts, insert_agent_runtime_contract_aliases,
         kanban_runtime_event_sources_value, tool_call_protocol_contract,
         workflow_graph_runtime_contract,
     },
+    ToolExecutionContext,
 };
 
 pub(super) async fn weather_tool(store: &AppStore, payload: &Value) -> AppResult<String> {
@@ -22184,14 +22184,16 @@ pub(crate) async fn text_to_speech_payload_for_desktop(
     } else {
         match desktop_text_to_speech(store, "desktop-chat-tts", &text, &payload) {
             Ok(value) => value,
-            Err(local_error) => match text_to_speech_tool(store, "desktop-chat-tts", &payload).await {
-                Ok(value) => value,
-                Err(provider_error) => {
-                    return Err(AppError::BadRequest(format!(
+            Err(local_error) => {
+                match text_to_speech_tool(store, "desktop-chat-tts", &payload).await {
+                    Ok(value) => value,
+                    Err(provider_error) => {
+                        return Err(AppError::BadRequest(format!(
                         "Local TTS failed: {local_error}; configured TTS provider failed: {provider_error}. Install edge-tts, configure ChatTTS model dir, set SYNTHCHAT_LOCAL_TTS_COMMAND, or configure an audio-capable provider."
                     )));
+                    }
                 }
-            },
+            }
         }
     };
     let result = serde_json::from_str::<Value>(&result_text)
@@ -22329,14 +22331,16 @@ async fn api_server_transcribe_audio_payload(store: &AppStore, body: &Value) -> 
     };
     let result_text = match local_result {
         Some(Ok(value)) => value,
-        Some(Err(local_error)) => match transcribe_audio_tool(store, &agent, "dashboard-audio", &payload).await {
-            Ok(value) => value,
-            Err(provider_error) => {
-                return Err(AppError::BadRequest(format!(
+        Some(Err(local_error)) => {
+            match transcribe_audio_tool(store, &agent, "dashboard-audio", &payload).await {
+                Ok(value) => value,
+                Err(provider_error) => {
+                    return Err(AppError::BadRequest(format!(
                     "Local STT failed: {local_error}; configured STT provider failed: {provider_error}. Configure SYNTHCHAT_LOCAL_STT_COMMAND or an audio-capable provider."
                 )));
+                }
             }
-        },
+        }
         None => transcribe_audio_tool(store, &agent, "dashboard-audio", &payload).await?,
     };
     let result = serde_json::from_str::<Value>(&result_text).map_err(|error| {

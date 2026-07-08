@@ -1,0 +1,64 @@
+{
+  "runDir": "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\.multi-agent\\runs\\2026-07-08T07-55-43-718Z-swarm-你们正在协作完善-d-pro-sunner-demo-vscode-synthchat-v1-0",
+  "startedAt": "2026-07-08T07:55:43.722Z",
+  "updatedAt": "2026-07-08T08:04:24.490Z",
+  "state": "failed",
+  "workflow": "swarm",
+  "lastEvent": {
+    "ts": "2026-07-08T08:04:24.490Z",
+    "phase": "workflow-exit",
+    "workflow": "swarm",
+    "label": "workflow",
+    "agent": "orchestrator",
+    "code": 1,
+    "error": "Command failed with exit code 4294967295: claude -p --effort high --input-format text --output-format text --no-session-persistence --permission-mode bypassPermissions --add-dir \"D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\""
+  },
+  "steps": [
+    {
+      "label": "workflow",
+      "agent": "orchestrator",
+      "startedAt": "2026-07-08T07:55:43.722Z",
+      "pid": "",
+      "state": "running",
+      "updatedAt": "2026-07-08T08:04:24.490Z",
+      "elapsed": "",
+      "stdout": "",
+      "stderr": "",
+      "lastOutputAge": "",
+      "artifact": "",
+      "error": "Command failed with exit code 4294967295: claude -p --effort high --input-format text --output-format text --no-session-persistence --permission-mode bypassPermissions --add-dir \"D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\""
+    },
+    {
+      "label": "claude-swarm-decompose",
+      "agent": "claude",
+      "startedAt": "2026-07-08T07:55:43.827Z",
+      "pid": 44980,
+      "state": "failed",
+      "updatedAt": "2026-07-08T08:04:24.487Z",
+      "elapsed": "8m41s",
+      "stdout": "0B",
+      "stderr": "0B",
+      "lastOutputAge": "none",
+      "artifact": "",
+      "error": "",
+      "finishedAt": "2026-07-08T08:04:24.487Z",
+      "exitCode": 4294967295
+    },
+    {
+      "label": "codex-swarm-decompose",
+      "agent": "codex",
+      "startedAt": "2026-07-08T07:55:43.875Z",
+      "pid": 40712,
+      "state": "complete",
+      "updatedAt": "2026-07-08T07:57:46.428Z",
+      "elapsed": "2m03s",
+      "stdout": "4.5KB",
+      "stderr": "350.8KB",
+      "lastOutputAge": "0sago",
+      "artifact": "4627B,updated=0sago",
+      "error": "",
+      "finishedAt": "2026-07-08T07:57:46.428Z",
+      "exitCode": 0
+    }
+  ]
+}

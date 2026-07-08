@@ -90,8 +90,7 @@ pub enum LlmStreamDeltaKind {
     Thinking,
 }
 
-pub type LlmDeltaCallback =
-    Arc<dyn Fn(LlmStreamDeltaKind, &str) -> AppResult<()> + Send + Sync>;
+pub type LlmDeltaCallback = Arc<dyn Fn(LlmStreamDeltaKind, &str) -> AppResult<()> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct LlmCallOptions {
@@ -324,7 +323,9 @@ pub(super) fn provider_supports_responses_thinking(provider: &LlmProvider) -> bo
         || haystack.contains("api.x.ai")
 }
 
-pub(super) fn provider_supports_chat_completions_fallback_for_responses(provider: &LlmProvider) -> bool {
+pub(super) fn provider_supports_chat_completions_fallback_for_responses(
+    provider: &LlmProvider,
+) -> bool {
     let base = provider_base_url(provider).to_ascii_lowercase();
     let provider_type = provider.provider_type.to_ascii_lowercase();
     let preset = provider
@@ -2926,7 +2927,10 @@ mod tests {
             .as_str()
             .unwrap();
         let arguments = serde_json::from_str::<Value>(raw_arguments).unwrap();
-        assert_eq!(arguments[TOOL_CALL_ARGUMENTS_CORRUPTION_KEY]["tool"], "terminal");
+        assert_eq!(
+            arguments[TOOL_CALL_ARGUMENTS_CORRUPTION_KEY]["tool"],
+            "terminal"
+        );
         assert!(
             arguments[TOOL_CALL_ARGUMENTS_CORRUPTION_KEY]["originalPreview"]
                 .as_str()

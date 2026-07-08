@@ -490,7 +490,9 @@ pub fn install_external_skill_file(
         );
     }
     if !source.is_file() {
-        return Err(AppError::NotFound(format!("skill file or directory {source_path}")));
+        return Err(AppError::NotFound(format!(
+            "skill file or directory {source_path}"
+        )));
     }
     let raw = fs::read_to_string(&source)?;
     let fallback_name = source
@@ -627,12 +629,7 @@ fn install_external_skill_directory(
     if let Some(agent_id) = agent_id.filter(|value| !value.trim().is_empty()) {
         store.enable_agent_skills(agent_id, vec![staged.id.clone()])?;
     }
-    record_skill_install(
-        store,
-        &staged,
-        &source_dir.to_string_lossy(),
-        &audit,
-    )?;
+    record_skill_install(store, &staged, &source_dir.to_string_lossy(), &audit)?;
     Ok(staged)
 }
 
@@ -2014,13 +2011,19 @@ fn discover_skill_roots(store: &AppStore) -> Vec<SkillRoot> {
     if let Ok(agent) = store.agent(None) {
         let configured = agent.skills_dir.trim();
         if !configured.is_empty() {
-            roots.push(skill_root(PathBuf::from(configured), "configured-directory"));
+            roots.push(skill_root(
+                PathBuf::from(configured),
+                "configured-directory",
+            ));
         }
     }
     if let Ok(configured) = env::var("SYNTHCHAT_SKILLS_DIR") {
         let configured = configured.trim();
         if !configured.is_empty() {
-            roots.push(skill_root(PathBuf::from(configured), "configured-directory"));
+            roots.push(skill_root(
+                PathBuf::from(configured),
+                "configured-directory",
+            ));
         }
     }
     roots.push(skill_root(
@@ -2035,13 +2038,22 @@ fn discover_skill_roots(store: &AppStore) -> Vec<SkillRoot> {
     }
     if let Ok(exe) = env::current_exe() {
         if let Some(parent) = exe.parent() {
-            roots.push(skill_root(parent.join("synthchat-data").join("skills"), "bundled"));
-            roots.push(skill_root(parent.join("skills"), "bundled"));
             roots.push(skill_root(
-                parent.join("resources").join("synthchat-data").join("skills"),
+                parent.join("synthchat-data").join("skills"),
                 "bundled",
             ));
-            roots.push(skill_root(parent.join("resources").join("skills"), "bundled"));
+            roots.push(skill_root(parent.join("skills"), "bundled"));
+            roots.push(skill_root(
+                parent
+                    .join("resources")
+                    .join("synthchat-data")
+                    .join("skills"),
+                "bundled",
+            ));
+            roots.push(skill_root(
+                parent.join("resources").join("skills"),
+                "bundled",
+            ));
             if let Some(grandparent) = parent.parent() {
                 roots.push(skill_root(
                     grandparent.join("synthchat-data").join("skills"),
@@ -2049,7 +2061,10 @@ fn discover_skill_roots(store: &AppStore) -> Vec<SkillRoot> {
                 ));
                 roots.push(skill_root(grandparent.join("skills"), "bundled"));
                 roots.push(skill_root(
-                    grandparent.join("resources").join("synthchat-data").join("skills"),
+                    grandparent
+                        .join("resources")
+                        .join("synthchat-data")
+                        .join("skills"),
                     "bundled",
                 ));
                 roots.push(skill_root(

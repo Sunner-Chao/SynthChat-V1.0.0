@@ -265,7 +265,10 @@ fn parse_media_attachment_path(value: &str) -> Option<(String, &str)> {
         let rest = &value[end + first.len_utf8()..];
         return (!path.is_empty()).then_some((path, rest));
     }
-    let end = value.find(" (").or_else(|| value.find(']')).unwrap_or(value.len());
+    let end = value
+        .find(" (")
+        .or_else(|| value.find(']'))
+        .unwrap_or(value.len());
     let path = value[..end].trim().to_string();
     let rest = &value[end..];
     (!path.is_empty()).then_some((path, rest))
@@ -297,7 +300,7 @@ fn expand_single_attachment_context(
             "temp_path",
         ],
     )
-        .ok_or_else(|| format!("attachment {id}: missing path"))?;
+    .ok_or_else(|| format!("attachment {id}: missing path"))?;
     let path = PathBuf::from(path_text);
     let canonical = path
         .canonicalize()

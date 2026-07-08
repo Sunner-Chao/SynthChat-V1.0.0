@@ -1,0 +1,12 @@
+**Findings**
+未发现新的阻断问题。原阻断已修复。
+
+1. 已修复：`run_chat_turn` 在 provider 缺失时不再直接 `Err`，而是走 `fail_chat_turn_before_llm`，将 planner 标记 failed、run 标记 `failed` 并写入 `error/completed_at`，追加 assistant 错误消息，并返回 `Ok(vec![user, assistant])`。对应实现见 [agent_loop.rs](/mnt/d/pro_sunner/demo_vscode/SynthChat-V1.0.0/src-tauri/src/agent/agent_loop.rs:745) 和 provider 分支 [agent_loop.rs](/mnt/d/pro_sunner/demo_vscode/SynthChat-V1.0.0/src-tauri/src/agent/agent_loop.rs:1581)。
+
+2. 明显回归风险：未发现。model 缺失分支也已使用同一个 helper，见 [agent_loop.rs](/mnt/d/pro_sunner/demo_vscode/SynthChat-V1.0.0/src-tauri/src/agent/agent_loop.rs:1598)。残余小风险是测试没有直接断言 `completed_at` 和 workflow planner 节点状态，但实现确实写了这些状态。
+
+3. 需要补 model 缺失路径测试：需要。当前新增测试只覆盖 provider 缺失，见 [tests.rs](/mnt/d/pro_sunner/demo_vscode/SynthChat-V1.0.0/src-tauri/src/agent/tests.rs:10884)。model 缺失是独立分支，建议补一个 provider 已配置、`llm_model` 为空的测试，断言返回 `Ok`、assistant `desktop-agent-error`、run `failed/error/completed_at`、无 active run。
+
+4. 最小后续建议：给现有 provider 测试补 `completed_at.is_some()` 和 planner `status == failed/errorKind == llm_error` 断言；再新增一个 model 缺失对称测试即可。
+
+未运行测试：当前环境是只读，避免触发 cargo 写入 `target/`。

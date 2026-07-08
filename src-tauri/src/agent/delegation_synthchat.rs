@@ -109,9 +109,10 @@ pub(super) async fn execute_synthchat_delegate_task_request(
     .await;
     let result = match result {
         Err(error) => {
-            let missing_child_conversation = error
-                .to_string()
-                .contains(&format!("not found: conversation {}", child_conversation.id));
+            let missing_child_conversation = error.to_string().contains(&format!(
+                "not found: conversation {}",
+                child_conversation.id
+            ));
             if missing_child_conversation && store.conversation(&child_conversation.id).is_ok() {
                 append_parent_phase_event(
                     store,

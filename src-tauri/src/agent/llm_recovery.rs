@@ -262,7 +262,10 @@ pub(super) fn persist_recovered_messages_for_retry(
     Ok(())
 }
 
-fn changed_messages_for_retry_persist(before: &[ChatMessage], after: &[ChatMessage]) -> Vec<ChatMessage> {
+fn changed_messages_for_retry_persist(
+    before: &[ChatMessage],
+    after: &[ChatMessage],
+) -> Vec<ChatMessage> {
     let before_by_id = before
         .iter()
         .map(|message| (message.id.as_str(), message))
@@ -1771,7 +1774,10 @@ fn history_with_native_image_attachments(
         .collect()
 }
 
-fn history_with_current_user_content(history: &[ChatMessage], user_content: &str) -> Vec<ChatMessage> {
+fn history_with_current_user_content(
+    history: &[ChatMessage],
+    user_content: &str,
+) -> Vec<ChatMessage> {
     let Some(last_user_index) = history.iter().rposition(|message| message.role == "user") else {
         if !user_content.trim().is_empty() {
             return vec![ChatMessage::new(
@@ -1814,24 +1820,9 @@ mod tests {
 
     #[test]
     fn history_with_current_user_content_replaces_latest_user_turn() {
-        let earlier = ChatMessage::new(
-            "conv".into(),
-            "user",
-            "old request".into(),
-            "test",
-        );
-        let assistant = ChatMessage::new(
-            "conv".into(),
-            "assistant",
-            "old answer".into(),
-            "test",
-        );
-        let latest = ChatMessage::new(
-            "conv".into(),
-            "user",
-            "placeholder".into(),
-            "test",
-        );
+        let earlier = ChatMessage::new("conv".into(), "user", "old request".into(), "test");
+        let assistant = ChatMessage::new("conv".into(), "assistant", "old answer".into(), "test");
+        let latest = ChatMessage::new("conv".into(), "user", "placeholder".into(), "test");
 
         let history =
             history_with_current_user_content(&[earlier, assistant, latest], "current request");
@@ -1842,7 +1833,10 @@ mod tests {
     }
 }
 
-fn image_attachments_from_message(message: &ChatMessage, attachment_root: &PathBuf) -> Vec<ImageAttachmentPart> {
+fn image_attachments_from_message(
+    message: &ChatMessage,
+    attachment_root: &PathBuf,
+) -> Vec<ImageAttachmentPart> {
     let root = attachment_root
         .canonicalize()
         .unwrap_or_else(|_| attachment_root.to_path_buf());
@@ -1995,7 +1989,10 @@ fn push_image_attachment_part(
     }
 }
 
-fn image_attachment_part_from_value(value: &Value, attachment_root: &PathBuf) -> Option<ImageAttachmentPart> {
+fn image_attachment_part_from_value(
+    value: &Value,
+    attachment_root: &PathBuf,
+) -> Option<ImageAttachmentPart> {
     if value
         .get("type")
         .and_then(Value::as_str)
@@ -2046,7 +2043,12 @@ fn image_attachment_part_from_value(value: &Value, attachment_root: &PathBuf) ->
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .or_else(|| canonical.file_name().and_then(|name| name.to_str()).map(str::to_string))
+        .or_else(|| {
+            canonical
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })
         .unwrap_or_else(|| "image".into());
     Some(ImageAttachmentPart {
         file_name,
@@ -2062,7 +2064,11 @@ fn normalized_image_mime(mime_type: &str, path: &PathBuf) -> Option<String> {
     if lower.starts_with("image/") && lower != "image/jpg" {
         return Some(lower);
     }
-    match path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase()) {
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+    {
         Some(ext) if ext == "jpg" || ext == "jpeg" => Some("image/jpeg".into()),
         Some(ext) if ext == "webp" => Some("image/webp".into()),
         Some(ext) if ext == "gif" => Some("image/gif".into()),
@@ -2072,7 +2078,10 @@ fn normalized_image_mime(mime_type: &str, path: &PathBuf) -> Option<String> {
     }
 }
 
-fn message_with_native_image_parts(message: &ChatMessage, attachments: &[ImageAttachmentPart]) -> ChatMessage {
+fn message_with_native_image_parts(
+    message: &ChatMessage,
+    attachments: &[ImageAttachmentPart],
+) -> ChatMessage {
     let mut next = message.clone();
     let cleaned_text = sanitize_native_image_text(&message.content);
     let text = cleaned_text.trim();
@@ -2126,8 +2135,16 @@ fn message_with_native_image_parts(message: &ChatMessage, attachments: &[ImageAt
         })
         .collect::<Vec<_>>();
     merge_provider_data_object(&mut root, "openai", json!({ "content": openai_content }));
-    merge_provider_data_object(&mut root, "responses", json!({ "content": responses_content }));
-    merge_provider_data_object(&mut root, "anthropic", json!({ "content": anthropic_content }));
+    merge_provider_data_object(
+        &mut root,
+        "responses",
+        json!({ "content": responses_content }),
+    );
+    merge_provider_data_object(
+        &mut root,
+        "anthropic",
+        json!({ "content": anthropic_content }),
+    );
     merge_provider_data_object(&mut root, "gemini", json!({ "parts": gemini_parts }));
     root.insert(
         "nativeImageAttachments".into(),
@@ -2257,14 +2274,13 @@ pub(super) async fn complete_chat_with_provider_failover_options(
             last_attempt_model = Some(attempt_model.clone());
             let mut attempt_event_provider = attempt_provider.clone();
             attempt_event_provider.model = attempt_model.clone();
-            let attempt_history =
-                history_with_native_image_attachments(
-                    store,
-                    &attempt_provider,
-                    &attempt_persona,
-                    &request_history,
-                    user_content,
-                );
+            let attempt_history = history_with_native_image_attachments(
+                store,
+                &attempt_provider,
+                &attempt_persona,
+                &request_history,
+                user_content,
+            );
             let api_hook_payload = llm_api_request_hook_payload(
                 run_id,
                 provider,

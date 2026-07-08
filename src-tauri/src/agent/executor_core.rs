@@ -13,9 +13,9 @@ use tauri::AppHandle;
 use super::{
     append_tool_approval_request, apply_scheduled_approval_mode, apply_smart_approval_mode,
     apply_subagent_approval_override, execute_recovery_internal_tool, execute_recovery_mcp_tool,
-    is_internal_tool,
-    record_tool_event_for_run, record_tool_failed_for_run, record_tool_started_for_run,
-    resolve_mcp_tool, run_pre_approval_request_hooks, tool_approval_reason,
+    is_internal_tool, record_tool_event_for_run, record_tool_failed_for_run,
+    record_tool_started_for_run, resolve_mcp_tool, run_pre_approval_request_hooks,
+    tool_approval_reason,
     workflow_graph::{
         WorkflowExecutorApprovalPolicyStage, WorkflowExecutorApprovalWait, WorkflowExecutorNode,
         WorkflowExecutorRoute, WorkflowExecutorToolIdentity, WorkflowExecutorToolResolution,
@@ -339,8 +339,7 @@ impl ExecutorCore {
         mcp_tools: &[ToolDefinition],
         error: &str,
     ) -> AppResult<()> {
-        let (server_id, tool_name) =
-            workflow_failed_tool_target(requested_tool_name, mcp_tools);
+        let (server_id, tool_name) = workflow_failed_tool_target(requested_tool_name, mcp_tools);
         self.workflow.failed(
             store,
             run_id,

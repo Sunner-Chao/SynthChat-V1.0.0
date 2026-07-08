@@ -137,9 +137,7 @@ pub(super) fn safe_provider_tool_name_for_original(
 ) -> String {
     name_map
         .iter()
-        .find_map(|(safe, value)| {
-            (value.as_str() == Some(original)).then(|| safe.clone())
-        })
+        .find_map(|(safe, value)| (value.as_str() == Some(original)).then(|| safe.clone()))
         .unwrap_or_else(|| original.to_string())
 }
 

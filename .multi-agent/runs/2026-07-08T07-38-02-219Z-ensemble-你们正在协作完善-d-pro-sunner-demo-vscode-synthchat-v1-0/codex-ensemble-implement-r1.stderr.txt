@@ -1,0 +1,3547 @@
+2026-07-08T07:38:02.358094Z  WARN codex_core_plugins::remote::remote_installed_plugin_sync: remote installed plugin bundle sync failed error=chatgpt authentication required for remote plugin catalog; api key auth is not supported
+2026-07-08T07:38:02.414481Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=C:\Users\33908\.codex\plugins\cache\openai-primary-runtime\template-creator\26.630.12135\.codex-plugin/plugin.json
+2026-07-08T07:38:02.417954Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=C:\Users\33908\.codex\plugins\cache\openai-primary-runtime\template-creator\26.630.12135\.codex-plugin/plugin.json
+2026-07-08T07:38:02.418983Z  WARN codex_core::shell_snapshot: Failed to create shell snapshot for powershell: Shell snapshot not supported yet for PowerShell
+OpenAI Codex v0.142.5
+--------
+workdir: D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+model: gpt-5.5
+provider: yujianwudi
+approval: never
+sandbox: danger-full-access
+reasoning effort: high
+reasoning summaries: none
+session id: 019f40a9-90fa-72a2-8e39-fb2a4eb56623
+--------
+user
+You are the codex lead implementation agent in a Claude + Codex local coding team.
+
+Workflow: Ensemble (ensemble)
+Workflow source inspiration: ensemble
+
+Workspace: D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+
+Task:
+你们正在协作完善 D:\pro_sunner\demo_vscode\SynthChat-V1.0.0，这是一个 Tauri + React + Rust 的桌面 agent 应用。
+
+当前阶段：阶段 5，能力组 G：UI streaming / tool cards / error display。
+
+背景：
+- 阶段 4 已建立 TypeScript/Vitest 测试闭环。
+- 阶段 5 上一轮 Codex 未能产出最终 artifact，但已经落盘了一个窄修复：当 `turn_finished ok=false` 时清理非 WeChat desktop assistant stream 残留，避免 stale refresh 继续保留 ghost bubble。
+- 当前工作区已有改动，请不要回滚用户或前序 agent 改动。
+
+只读/实现范围：
+- 只读：
+  - src/App.tsx
+  - src/lib/store.ts
+  - src/lib/__tests__/storeMessageMerge.test.ts
+  - src/lib/__tests__/chatConversationChain.test.ts
+  - src/lib/__tests__/chatTestHarness.ts
+- 只处理能力组 G 中的一个问题：失败/中断后的 assistant streaming bubble 清理和 stale refresh 收敛。
+- 不要处理 MCP、记忆、文件/终端工具、provider fallback、agent queue 等其他能力组。
+
+任务：
+1. 复核现有改动是否正确：
+   - `clearStreamingAssistantMessages(conversationId)` 是否会清理 active messages 和 pending incoming messages 中的 streaming assistant。
+   - `App.tsx` 是否只在非 WeChat `turn_finished ok=false` 时清理 desktop stream，避免破坏 WeChat fallback/defer 时序。
+2. 如有必要，做最小修正或补充一个 focused 回归测试。
+3. 运行验证：
+   - npm test
+   - npm run build
+
+输出必须包含：
+- 选中能力组和原因。
+- 发现。
+- 实际修改文件。
+- 验证结果。
+- 风险和下一阶段输入。
+
+Collaboration brief:
+# Planning skipped
+
+Planning was skipped by `--skip-planning`.
+
+Use the task text and any referenced prior-stage artifacts as the coordination brief.
+
+Task:
+
+你们正在协作完善 D:\pro_sunner\demo_vscode\SynthChat-V1.0.0，这是一个 Tauri + React + Rust 的桌面 agent 应用。
+
+当前阶段：阶段 5，能力组 G：UI streaming / tool cards / error display。
+
+背景：
+- 阶段 4 已建立 TypeScript/Vitest 测试闭环。
+- 阶段 5 上一轮 Codex 未能产出最终 artifact，但已经落盘了一个窄修复：当 `turn_finished ok=false` 时清理非 WeChat desktop assistant stream 残留，避免 stale refresh 继续保留 ghost bubble。
+- 当前工作区已有改动，请不要回滚用户或前序 agent 改动。
+
+只读/实现范围：
+- 只读：
+  - src/App.tsx
+  - src/lib/store.ts
+  - src/lib/__tests__/storeMessageMerge.test.ts
+  - src/lib/__tests__/chatConversationChain.test.ts
+  - src/lib/__tests__/chatTestHarness.ts
+- 只处理能力组 G 中的一个问题：失败/中断后的 assistant streaming bubble 清理和 stale refresh 收敛。
+- 不要处理 MCP、记忆、文件/终端工具、provider fallback、agent queue 等其他能力组。
+
+任务：
+1. 复核现有改动是否正确：
+   - `clearStreamingAssistantMessages(conversationId)` 是否会清理 active messages 和 pending incoming messages 中的 streaming assistant。
+   - `App.tsx` 是否只在非 WeChat `turn_finished ok=false` 时清理 desktop stream，避免破坏 WeChat fallback/defer 时序。
+2. 如有必要，做最小修正或补充一个 focused 回归测试。
+3. 运行验证：
+   - npm test
+   - npm run build
+
+输出必须包含：
+- 选中能力组和原因。
+- 发现。
+- 实际修改文件。
+- 验证结果。
+- 风险和下一阶段输入。
+
+Implementation rules:
+- Make the smallest useful set of edits that satisfies the task.
+- Preserve unrelated user changes.
+- Follow the repository's existing style.
+- Run focused verification when practical.
+- Leave a concise final note with changed files and verification.
+
+Workflow-specific instruction:
+This is ensemble round 1 of 1. Use prior reviews in this run directory as coordination messages.
+
+Output contract for cc-team:
+- You are producing the final artifact for codex-ensemble-implement-r1 (codex/implement).
+- You may use Skills, subagents, planning tools, scratch files, or internal notes if your CLI supports them.
+- Regardless of any internal delegation, the final answer must be emitted through the final CLI response captured by the configured output artifact as complete Markdown.
+- Do not finish with only a progress/status sentence such as 'writing the plan file' or 'collected enough information'.
+- If you create or update a separate plan/artifact file, include its path and the full useful content or a faithful detailed summary in the final artifact.
+- The orchestrator will treat status-only output as a failed artifact and may retry or hand off to the other agent.
+2026-07-08T07:38:02.678914Z  WARN codex_core_plugins::manager: failed to warm featured plugin ids cache error=remote featured plugin request to https://chatgpt.com/backend-api/plugins/featured failed with status 401 Unauthorized: {"detail":"Unauthorized"}
+2026-07-08T07:38:06.336935Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=C:\Users\33908\.codex\.tmp\plugins\plugins\ngs-analysis\.codex-plugin/plugin.json
+2026-07-08T07:38:06.341026Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt[0]: prompt must be at most 128 characters path=C:\Users\33908\.codex\.tmp\plugins\plugins\ngs-analysis\.codex-plugin/plugin.json
+codex
+我会先只读检查指定文件和当前 diff，确认前序窄修复的实际落点，再决定是否需要补一个最小回归测试。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git status --short' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'rg -n "clearStreamingAssistantMessages|turn_finished|wechat|WeChat|desktop" src/App.tsx src/lib/store.ts src/lib/__tests__/storeMessageMerge.test.ts src/lib/__tests__/chatConversationChain.test.ts src/lib/__tests__/chatTestHarness.ts' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git diff -- src/App.tsx src/lib/store.ts src/lib/__tests__/storeMessageMerge.test.ts src/lib/__tests__/chatConversationChain.test.ts src/lib/__tests__/chatTestHarness.ts' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 351ms:
+ M src/App.tsx
+ M src/lib/__tests__/storeMessageMerge.test.ts
+ M src/lib/store.ts
+?? .multi-agent/
+?? src/lib/__tests__/chatConversationChain.test.ts
+?? src/lib/__tests__/chatTestHarness.ts
+
+ succeeded in 354ms:
+src/lib/__tests__/chatConversationChain.test.ts:107:      source: "desktop",
+src/lib/__tests__/chatConversationChain.test.ts:109:        source: "desktop",
+src/lib/__tests__/chatConversationChain.test.ts:179:    expect(failedMessages.some((item) => item.role === "assistant" || item.source === "desktop-agent-error")).toBe(false);
+src/lib/__tests__/storeMessageMerge.test.ts:40:  it("keeps a local desktop user message when a refresh returns a stale backend snapshot", () => {
+src/lib/__tests__/storeMessageMerge.test.ts:45:      source: "desktop",
+src/lib/__tests__/storeMessageMerge.test.ts:52:      source: "desktop",
+src/lib/__tests__/storeMessageMerge.test.ts:66:      source: "desktop",
+src/lib/__tests__/storeMessageMerge.test.ts:73:      source: "desktop",
+src/lib/__tests__/storeMessageMerge.test.ts:81:      source: "desktop",
+src/lib/__tests__/storeMessageMerge.test.ts:90:  it("keeps a live wechat user message while backend persistence is still catching up", () => {
+src/lib/__tests__/storeMessageMerge.test.ts:91:    const wechatUser = message({
+src/lib/__tests__/storeMessageMerge.test.ts:92:      id: "wechat-live-user",
+src/lib/__tests__/storeMessageMerge.test.ts:95:      source: "wechat",
+src/lib/__tests__/storeMessageMerge.test.ts:96:      accountId: "wechat-account",
+src/lib/__tests__/storeMessageMerge.test.ts:97:      providerData: { source: "wechat", accountId: "wechat-account", userId: "wechat-user" }
+src/lib/__tests__/storeMessageMerge.test.ts:103:      source: "wechat",
+src/lib/__tests__/storeMessageMerge.test.ts:107:    const merged = merge([oldAssistant], [wechatUser]);
+src/lib/__tests__/storeMessageMerge.test.ts:109:    expect(merged.map((item) => item.id)).toEqual(["assistant-old", "wechat-live-user"]);
+src/lib/__tests__/storeMessageMerge.test.ts:114:      id: "wechat-pending-user",
+src/lib/__tests__/storeMessageMerge.test.ts:117:      source: "wechat",
+src/lib/__tests__/storeMessageMerge.test.ts:118:      accountId: "wechat-account",
+src/lib/__tests__/storeMessageMerge.test.ts:119:      providerData: { source: "wechat", accountId: "wechat-account", userId: "wechat-user" }
+src/lib/__tests__/storeMessageMerge.test.ts:124:    expect(staleMerge.map((item) => item.id)).toEqual(["wechat-pending-user"]);
+src/lib/__tests__/storeMessageMerge.test.ts:127:      id: "backend-wechat-user",
+src/lib/__tests__/storeMessageMerge.test.ts:130:      source: "wechat",
+src/lib/__tests__/storeMessageMerge.test.ts:131:      accountId: "wechat-account",
+src/lib/__tests__/storeMessageMerge.test.ts:132:      providerData: { source: "wechat", accountId: "wechat-account", userId: "wechat-user" },
+src/lib/__tests__/storeMessageMerge.test.ts:136:    expect(confirmedMerge.map((item) => item.id)).toEqual(["backend-wechat-user"]);
+src/lib/__tests__/storeMessageMerge.test.ts:144:      source: "desktop"
+src/lib/__tests__/storeMessageMerge.test.ts:153:      source: "desktop-stream"
+src/lib/__tests__/storeMessageMerge.test.ts:173:    expect(staleMerged.find((item) => item.id === "assistant-stream-1")?.source).toBe("desktop-stream");
+src/lib/__tests__/storeMessageMerge.test.ts:180:        source: "desktop"
+src/lib/__tests__/storeMessageMerge.test.ts:190:      source: "desktop"
+src/lib/__tests__/storeMessageMerge.test.ts:201:        source: "desktop"
+src/lib/__tests__/storeMessageMerge.test.ts:211:        source: "desktop-stream"
+src/lib/__tests__/storeMessageMerge.test.ts:216:    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
+src/lib/__tests__/chatTestHarness.ts:19:    source: "desktop",
+src/lib/__tests__/chatTestHarness.ts:62:        source: "desktop",
+src/lib/__tests__/chatTestHarness.ts:72:      source: "desktop"
+src/lib/store.ts:74:// just set (e.g. WeChat/pet emits a processing event before the user message is
+src/lib/store.ts:126:    source: "desktop",
+src/lib/store.ts:516:  return message.source === "desktop-agent-error";
+src/lib/store.ts:542:    && (message.source === "desktop-stream" || streamedAssistantIds.has(message.id));
+src/lib/store.ts:588:  return message.source?.startsWith("desktop-local-") ?? false;
+src/lib/store.ts:738:    if (message.source !== "pet" && message.source !== "wechat") {
+src/lib/store.ts:820:      && item.wechatAccountId === other.wechatAccountId;
+src/lib/store.ts:1381:  clearStreamingAssistantMessages: (conversationId: string) => void;
+src/lib/store.ts:1888:            previousMessage?.source === "desktop-stream"
+src/lib/store.ts:1897:        ? { ...incomingMessage, source: options?.streaming ? "desktop-stream" : previousMessage?.source ?? "desktop-stream" }
+src/lib/store.ts:1915:  clearStreamingAssistantMessages: (conversationId) => {
+src/lib/store.ts:2149:      source: "desktop",
+src/lib/store.ts:2152:        source: "desktop",
+src/lib/store.ts:2186:            source: "desktop",
+src/App.tsx:124:  if (message.source === "desktop-agent-error") return false;
+src/App.tsx:166:  const clearStreamingAssistantMessages = useAppStore((state) => state.clearStreamingAssistantMessages);
+src/App.tsx:449:        source: "desktop",
+src/App.tsx:467:      // The desktop chat row owns the exact hide timing, including its
+src/App.tsx:469:      // bubble here before ChatExperience publishes desktop-ui=false.
+src/App.tsx:513:      const isWechatEvent = eventSource === "wechat" || payload.message?.source === "wechat";
+src/App.tsx:519:        messageSource !== "desktop"
+src/App.tsx:520:        && messageSource !== "desktop-control"
+src/App.tsx:524:      // turn_finished for EVERY user-facing turn (desktop, pet, wechat,
+src/App.tsx:525:      // proactive), in order, from the single hub (run_chat_turn). The desktop
+src/App.tsx:538:        const shouldSwitchSection = externalSource && messageSource !== "pet" && messageSource !== "wechat";
+src/App.tsx:547:      if (payload.type === "turn_finished" && payload.conversationId) {
+src/App.tsx:551:          clearStreamingAssistantMessages(payload.conversationId);
+src/App.tsx:590:        if (payload.message.role === "user" && messageSource === "desktop") {
+src/App.tsx:690:    clearStreamingAssistantMessages,
+src/App.tsx:730:      // turn_finished lifecycle (see synthchat-chat-event handler).
+
+ succeeded in 398ms:
+diff --git a/src/App.tsx b/src/App.tsx
+index 2e6ee34..8b331e1 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -163,6 +163,7 @@ export function App() {
+   const handleAgentRunEvent = useAppStore((state) => state.handleAgentRunEvent);
+   const handleManagedProcessEvent = useAppStore((state) => state.handleManagedProcessEvent);
+   const upsertIncomingMessage = useAppStore((state) => state.upsertIncomingMessage);
++  const clearStreamingAssistantMessages = useAppStore((state) => state.clearStreamingAssistantMessages);
+   const refreshPersonasFromBackend = useCallback(async () => {
+     const personas = await api.listPersonas();
+     useAppStore.setState({ personas });
+@@ -308,6 +309,20 @@ export function App() {
+     }, 60);
+   }, [flushPendingStreamMessages]);
+ 
++  const discardPendingStreamMessagesForConversation = useCallback((conversationId: string) => {
++    let removed = false;
++    pendingStreamMessagesRef.current.forEach((item, key) => {
++      if (item.message.conversationId === conversationId) {
++        pendingStreamMessagesRef.current.delete(key);
++        removed = true;
++      }
++    });
++    if (removed && pendingStreamMessagesRef.current.size === 0 && streamFlushTimerRef.current !== null) {
++      window.clearTimeout(streamFlushTimerRef.current);
++      streamFlushTimerRef.current = null;
++    }
++  }, []);
++
+   useEffect(() => () => {
+     chatRefreshTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+     chatRefreshTimersRef.current.clear();
+@@ -489,6 +504,8 @@ export function App() {
+       message?: ChatMessage;
+       delta?: string;
+       isLast?: boolean;
++      ok?: boolean;
++      error?: string;
+     }>("synthchat-chat-event", (event) => {
+       const payload = event.payload;
+       const eventSource = payload.source ?? "";
+@@ -529,6 +546,12 @@ export function App() {
+       }
+       if (payload.type === "turn_finished" && payload.conversationId) {
+         hideConversationProcessing(payload.conversationId);
++        if (payload.ok === false && !isWechatTurnEvent) {
++          discardPendingStreamMessagesForConversation(payload.conversationId);
++          clearStreamingAssistantMessages(payload.conversationId);
++          scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null, 180);
++          return;
++        }
+         if (isWechatEvent) {
+           if (
+             payload.message
+@@ -656,6 +679,7 @@ export function App() {
+     };
+   }, [
+     deferWechatTurnMessage,
++    discardPendingStreamMessagesForConversation,
+     flushDeferredWechatMessages,
+     hideConversationProcessing,
+     incrementConversationUnread,
+@@ -663,6 +687,7 @@ export function App() {
+     scheduleWechatFallbackRefresh,
+     scheduleChatRefresh,
+     scheduleStreamMessageUpsert,
++    clearStreamingAssistantMessages,
+     setConversationProcessing,
+     showConversationProcessing,
+     upsertIncomingMessage
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index 2f1a505..b4b2e57 100644
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -1,6 +1,7 @@
+ import { describe, expect, it, beforeEach } from "vitest";
+-import { __chatStoreTestUtils } from "../store";
++import { __chatStoreTestUtils, useAppStore } from "../store";
+ import type { ChatMessage } from "../types";
++import { testMessage } from "./chatTestHarness";
+ 
+ function message(partial: Partial<ChatMessage> & Pick<ChatMessage, "id" | "role" | "content">): ChatMessage {
+   return {
+@@ -28,6 +29,12 @@ function merge(
+ describe("chat store message merge", () => {
+   beforeEach(() => {
+     __chatStoreTestUtils.resetPendingIncomingMessagesForTests();
++    useAppStore.setState({
++      activeConversationId: "conv-1",
++      messages: [],
++      streamedAssistantIds: new Set<string>(),
++      conversationMessageLimits: {}
++    });
+   });
+ 
+   it("keeps a local desktop user message when a refresh returns a stale backend snapshot", () => {
+@@ -128,4 +135,97 @@ describe("chat store message merge", () => {
+     const confirmedMerge = merge([backendUser], []);
+     expect(confirmedMerge.map((item) => item.id)).toEqual(["backend-wechat-user"]);
+   });
++
++  it("keeps a live assistant stream through stale refresh and converges on the final message", () => {
++    const stream = testMessage({
++      id: "assistant-stream-1",
++      role: "assistant",
++      content: "Partial",
++      source: "desktop"
++    });
++    useAppStore.getState().upsertIncomingMessage(stream, { streaming: true });
++
++    const streamingState = useAppStore.getState();
++    expect(streamingState.messages).toHaveLength(1);
++    expect(streamingState.messages[0]).toMatchObject({
++      id: "assistant-stream-1",
++      content: "Partial",
++      source: "desktop-stream"
++    });
++    expect(streamingState.streamedAssistantIds.has("assistant-stream-1")).toBe(true);
++
++    const staleBackend = [
++      testMessage({
++        id: "backend-user-1",
++        role: "user",
++        content: "Prompt",
++        createdAt: "2026-07-08T03:59:59.000Z"
++      })
++    ];
++    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++      staleBackend,
++      streamingState.messages,
++      "conv-1",
++      20,
++      streamingState.streamedAssistantIds
++    );
++    expect(staleMerged.map((item) => item.id)).toEqual(["backend-user-1", "assistant-stream-1"]);
++    expect(staleMerged.find((item) => item.id === "assistant-stream-1")?.source).toBe("desktop-stream");
++
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-stream-1",
++        role: "assistant",
++        content: "Partial final answer",
++        source: "desktop"
++      }),
++      { final: true }
++    );
++
++    const finalState = useAppStore.getState();
++    expect(finalState.messages.filter((item) => item.id === "assistant-stream-1")).toHaveLength(1);
++    expect(finalState.messages[0]).toMatchObject({
++      id: "assistant-stream-1",
++      content: "Partial final answer",
++      source: "desktop"
++    });
++    expect(finalState.streamedAssistantIds.has("assistant-stream-1")).toBe(false);
++  });
++
++  it("clears a failed assistant stream before stale refresh can preserve a ghost bubble", () => {
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-failed-stream",
++        role: "assistant",
++        content: "Partial answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const streamingState = useAppStore.getState();
++    expect(streamingState.messages).toMatchObject([
++      {
++        id: "assistant-failed-stream",
++        role: "assistant",
++        source: "desktop-stream"
++      }
++    ]);
++    expect(streamingState.streamedAssistantIds.has("assistant-failed-stream")).toBe(true);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.messages.some((item) => item.id === "assistant-failed-stream")).toBe(false);
++    expect(clearedState.streamedAssistantIds.has("assistant-failed-stream")).toBe(false);
++
++    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++      [],
++      clearedState.messages,
++      "conv-1",
++      20,
++      clearedState.streamedAssistantIds
++    );
++    expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index cedd93a..00b4765 100644
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -532,6 +532,32 @@ function pendingIncomingMessagesForConversation(conversationId: string | null |
+   return conversationId ? pendingIncomingMessagesByConversation.get(conversationId) ?? [] : [];
+ }
+ 
++function isStreamingAssistantMessage(
++  message: ChatMessage,
++  conversationId: string,
++  streamedAssistantIds: Set<string>
++) {
++  return message.conversationId === conversationId
++    && message.role === "assistant"
++    && (message.source === "desktop-stream" || streamedAssistantIds.has(message.id));
++}
++
++function clearPendingStreamingAssistantMessages(
++  conversationId: string,
++  streamedAssistantIds: Set<string>
++) {
++  const pending = pendingIncomingMessagesByConversation.get(conversationId);
++  if (!pending || pending.length === 0) return;
++  const next = pending.filter((message) =>
++    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
++  );
++  if (next.length > 0) {
++    pendingIncomingMessagesByConversation.set(conversationId, next);
++  } else {
++    pendingIncomingMessagesByConversation.delete(conversationId);
++  }
++}
++
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+   const byId = new Map<string, ChatMessage>();
+   for (const message of messages) byId.set(message.id, message);
+@@ -1352,6 +1378,7 @@ interface AppState {
+   incrementConversationUnread: (conversationId: string, amount?: number) => void;
+   markConversationRead: (conversationId: string) => void;
+   upsertIncomingMessage: (message: ChatMessage, options?: IncomingMessageUpsertOptions) => void;
++  clearStreamingAssistantMessages: (conversationId: string) => void;
+   createConversation: (personaId?: string) => Promise<void>;
+   openPersonaConversation: (personaId: string) => Promise<void>;
+   deleteConversation: (conversationId: string) => Promise<ConversationDeleteMemorySettlingResult>;
+@@ -1885,6 +1912,28 @@ export const useAppStore = create<AppState>((set, get) => ({
+       return { messages: displayMessages(messages, messageLimit), streamedAssistantIds };
+     });
+   },
++  clearStreamingAssistantMessages: (conversationId) => {
++    if (!conversationId) return;
++    set((state) => {
++      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
++      const removedIds = new Set<string>();
++      const messages = state.messages.filter((message) => {
++        if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
++          return true;
++        }
++        removedIds.add(message.id);
++        return false;
++      });
++      const stillTracked = Array.from(state.streamedAssistantIds)
++        .filter((id) => !removedIds.has(id));
++      const trackedChanged = stillTracked.length !== state.streamedAssistantIds.size;
++      if (removedIds.size === 0 && !trackedChanged) return state;
++      return {
++        messages,
++        streamedAssistantIds: trackedChanged ? new Set(stillTracked) : state.streamedAssistantIds
++      };
++    });
++  },
+   createConversation: async (personaId) => {
+     const persona = personaId ? get().personas.find((item) => item.id === personaId) : null;
+     const conversation = await api.createConversation(persona?.name, personaId);
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/__tests__/storeMessageMerge.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/store.ts', LF will be replaced by CRLF the next time Git touches it
+
+codex
+当前 diff 已经集中在 G 组相关路径：`store.ts` 增加清理 API，`App.tsx` 在失败事件里调用，测试文件已有两个 streaming merge 用例。我接下来会核对边界条件，尤其是 pending incoming 队列是否真的被覆盖。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\store.ts | Select-Object -Skip 500 -First 70" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\store.ts | Select-Object -Skip 1840 -First 100" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\App.tsx | Select-Object -Skip 480 -First 130" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\__tests__\\storeMessageMerge.test.ts" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\__tests__\\chatTestHarness.ts" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 427ms:
+  };
+}
+
+function isSilentPetOnlyMessage(message: ChatMessage) {
+  const providerData = messageProviderDataRecord(message);
+  return providerData?.silent === true
+    && (message.source === "pet-vision" || providerData.source === "pet-vision" || providerData.visibility === "pet-only");
+}
+
+function isVisibleChatMessage(message: ChatMessage) {
+  if (isSilentPetOnlyMessage(message)) return false;
+  return !(message.role === "user" && message.source === "proactive-internal");
+}
+
+function isAgentErrorMessage(message: ChatMessage) {
+  return message.source === "desktop-agent-error";
+}
+
+function visibleChatMessages(messages: ChatMessage[]) {
+  return sortMessagesForDisplay(messages.filter(isVisibleChatMessage));
+}
+
+function rememberPendingIncomingMessage(message: ChatMessage) {
+  if (!message.conversationId || !isVisibleChatMessage(message)) return;
+  const pending = pendingIncomingMessagesByConversation.get(message.conversationId) ?? [];
+  const next = pending.filter((item) => item.id !== message.id);
+  next.push(message);
+  pendingIncomingMessagesByConversation.set(message.conversationId, next.slice(-80));
+}
+
+function pendingIncomingMessagesForConversation(conversationId: string | null | undefined) {
+  return conversationId ? pendingIncomingMessagesByConversation.get(conversationId) ?? [] : [];
+}
+
+function isStreamingAssistantMessage(
+  message: ChatMessage,
+  conversationId: string,
+  streamedAssistantIds: Set<string>
+) {
+  return message.conversationId === conversationId
+    && message.role === "assistant"
+    && (message.source === "desktop-stream" || streamedAssistantIds.has(message.id));
+}
+
+function clearPendingStreamingAssistantMessages(
+  conversationId: string,
+  streamedAssistantIds: Set<string>
+) {
+  const pending = pendingIncomingMessagesByConversation.get(conversationId);
+  if (!pending || pending.length === 0) return;
+  const next = pending.filter((message) =>
+    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+  );
+  if (next.length > 0) {
+    pendingIncomingMessagesByConversation.set(conversationId, next);
+  } else {
+    pendingIncomingMessagesByConversation.delete(conversationId);
+  }
+}
+
+function mergeUniqueMessagesById(messages: ChatMessage[]) {
+  const byId = new Map<string, ChatMessage>();
+  for (const message of messages) byId.set(message.id, message);
+  return Array.from(byId.values());
+}
+
+function prunePendingIncomingMessages(conversationId: string | null | undefined, backendMessages: ChatMessage[]) {
+  if (!conversationId) return;
+  const pending = pendingIncomingMessagesByConversation.get(conversationId);
+  if (!pending || pending.length === 0) return;
+
+ succeeded in 395ms:
+    if (pendingTimer !== undefined) {
+      window.clearTimeout(pendingTimer);
+      processingClearTimerCache.delete(conversationId);
+    }
+    if (remaining <= 0) {
+      clearProcessing();
+      return;
+    }
+    const timer = window.setTimeout(clearProcessing, remaining);
+    processingClearTimerCache.set(conversationId, timer);
+  },
+  incrementConversationUnread: (conversationId, amount = 1) => {
+    if (!conversationId || amount <= 0) return;
+    set((state) => ({
+      conversationUnreadCounts: {
+        ...state.conversationUnreadCounts,
+        [conversationId]: (state.conversationUnreadCounts[conversationId] ?? 0) + amount
+      }
+    }));
+  },
+  markConversationRead: (conversationId) => {
+    if (!conversationId) return;
+    set((state) => {
+      if (!(conversationId in state.conversationUnreadCounts)) return state;
+      const unreadCounts = { ...state.conversationUnreadCounts };
+      delete unreadCounts[conversationId];
+      return { conversationUnreadCounts: unreadCounts };
+    });
+  },
+  upsertIncomingMessage: (message, options) => {
+    if (!isVisibleChatMessage(message)) return;
+    set((state) => {
+      const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+      if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+        rememberPendingIncomingMessage(uiMessage);
+        return state;
+      }
+      const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+      const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+      const previousMessage = index >= 0 ? state.messages[index] : null;
+      const incomingMessage = preserveLiveThinkingCardsForFinalMessage(uiMessage, previousMessage, options);
+      const shouldKeepStreamingPresentation =
+        incomingMessage.role === "assistant"
+        && !options?.final
+        && (
+          options?.streaming
+          || (
+            previousMessage?.source === "desktop-stream"
+            && (state.streamedAssistantIds.has(incomingMessage.id) || options?.final)
+            && (
+              incomingMessage.content.startsWith(previousMessage.content)
+              || previousMessage.content.startsWith(incomingMessage.content)
+            )
+          )
+        );
+      const nextMessage = shouldKeepStreamingPresentation
+        ? { ...incomingMessage, source: options?.streaming ? "desktop-stream" : previousMessage?.source ?? "desktop-stream" }
+        : incomingMessage;
+      const messages = index >= 0
+        ? state.messages.map((item) => (item.id === incomingMessage.id ? nextMessage : item))
+        : [...state.messages, nextMessage];
+      let streamedAssistantIds = state.streamedAssistantIds;
+      if (incomingMessage.role === "assistant") {
+        if (options?.streaming) {
+          streamedAssistantIds = new Set(streamedAssistantIds);
+          streamedAssistantIds.add(incomingMessage.id);
+        } else if (options?.final && streamedAssistantIds.has(incomingMessage.id)) {
+          streamedAssistantIds = new Set(streamedAssistantIds);
+          streamedAssistantIds.delete(incomingMessage.id);
+        }
+      }
+      return { messages: displayMessages(messages, messageLimit), streamedAssistantIds };
+    });
+  },
+  clearStreamingAssistantMessages: (conversationId) => {
+    if (!conversationId) return;
+    set((state) => {
+      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+      const removedIds = new Set<string>();
+      const messages = state.messages.filter((message) => {
+        if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+          return true;
+        }
+        removedIds.add(message.id);
+        return false;
+      });
+      const stillTracked = Array.from(state.streamedAssistantIds)
+        .filter((id) => !removedIds.has(id));
+      const trackedChanged = stillTracked.length !== state.streamedAssistantIds.size;
+      if (removedIds.size === 0 && !trackedChanged) return state;
+      return {
+        messages,
+        streamedAssistantIds: trackedChanged ? new Set(stillTracked) : state.streamedAssistantIds
+      };
+    });
+  },
+  createConversation: async (personaId) => {
+    const persona = personaId ? get().personas.find((item) => item.id === personaId) : null;
+    const conversation = await api.createConversation(persona?.name, personaId);
+    const conversations = await api.listConversations();
+
+ succeeded in 447ms:
+    void tick();
+    const timer = window.setInterval(() => {
+      void tick();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [refreshChatData]);
+
+  useEffect(() => {
+    if (activeSection !== "contacts") return;
+    const timer = window.setInterval(() => {
+      if (processingConversationCount > 0) return;
+      void refreshChatData(null, null);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [activeSection, processingConversationCount, refreshChatData]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    void listen<{
+      type: string;
+      source?: string;
+      personaId?: string;
+      conversationId?: string;
+      message?: ChatMessage;
+      delta?: string;
+      isLast?: boolean;
+      ok?: boolean;
+      error?: string;
+    }>("synthchat-chat-event", (event) => {
+      const payload = event.payload;
+      const eventSource = payload.source ?? "";
+      const messageSource = payload.message?.source ?? eventSource;
+      const isWechatEvent = eventSource === "wechat" || payload.message?.source === "wechat";
+      const isActiveWechatTurn = Boolean(
+        payload.conversationId && activeWechatTurnRef.current.has(payload.conversationId)
+      );
+      const isWechatTurnEvent = isWechatEvent || isActiveWechatTurn;
+      const externalSource =
+        messageSource !== "desktop"
+        && messageSource !== "desktop-control"
+        && messageSource !== "proactive-internal";
+
+      // Authoritative thinking lifecycle: the backend emits turn_started /
+      // turn_finished for EVERY user-facing turn (desktop, pet, wechat,
+      // proactive), in order, from the single hub (run_chat_turn). The desktop
+      // drives its "thinking" UI solely from this pair and auto-follows the
+      // turn's conversation, so timing is uniform across all sources.
+      if (payload.type === "turn_started" && payload.conversationId) {
+        if (isWechatEvent) {
+          const timer = deferredWechatTimerRef.current.get(payload.conversationId);
+          if (timer !== undefined) {
+            window.clearTimeout(timer);
+            deferredWechatTimerRef.current.delete(payload.conversationId);
+          }
+          deferredWechatMessagesRef.current.delete(payload.conversationId);
+          activeWechatTurnRef.current.add(payload.conversationId);
+        }
+        const shouldSwitchSection = externalSource && messageSource !== "pet" && messageSource !== "wechat";
+        showConversationProcessing(
+          payload.conversationId,
+          payload.personaId ?? null,
+          true,
+          shouldSwitchSection
+        );
+        return;
+      }
+      if (payload.type === "turn_finished" && payload.conversationId) {
+        hideConversationProcessing(payload.conversationId);
+        if (payload.ok === false && !isWechatTurnEvent) {
+          discardPendingStreamMessagesForConversation(payload.conversationId);
+          clearStreamingAssistantMessages(payload.conversationId);
+          scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null, 180);
+          return;
+        }
+        if (isWechatEvent) {
+          if (
+            payload.message
+            && isVisibleChatEventMessage(payload.message)
+            && (payload.message.role === "assistant" || payload.message.role === "tool")
+          ) {
+            if (visibleWechatUserRef.current.has(payload.conversationId)) {
+              upsertIncomingMessage(payload.message);
+            } else {
+              deferWechatTurnMessage(payload.conversationId, payload.personaId, payload.message);
+            }
+          }
+          scheduleWechatFallbackRefresh(payload.conversationId, payload.personaId ?? null);
+          return;
+        }
+        if (
+          payload.message
+          && isVisibleChatEventMessage(payload.message)
+          && (payload.message.role === "assistant" || payload.message.role === "tool")
+        ) {
+          upsertIncomingMessage(payload.message, { final: payload.message.role === "assistant" });
+        }
+        scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null, 180);
+        return;
+      }
+      const isMessageEvent =
+        payload.type === "assistant_stream"
+        || payload.type === "assistant_thinking_stream"
+        || payload.type === "new_message"
+        || payload.type === "tool_message"
+        || payload.type === "assistant_message";
+      const isVisibleMessageEvent =
+        Boolean(payload.conversationId && payload.message && isVisibleChatEventMessage(payload.message));
+      let appliedInlineVisibleMessage = false;
+      if (isMessageEvent && payload.conversationId && payload.message && isVisibleMessageEvent) {
+        if (payload.message.role === "user" && messageSource === "desktop") {
+          // Desktop sends its own user messages and handles optimistic UI locally.
+          return;
+        }
+        const isWechatUserMessage = payload.message.role === "user" && isWechatEvent;
+        if (isWechatUserMessage) {
+          visibleWechatUserRef.current.add(payload.conversationId);
+        }
+        const shouldDeferWechatTurnMessage =
+          isWechatTurnEvent
+          && !visibleWechatUserRef.current.has(payload.conversationId)
+          && (payload.message.role === "assistant" || payload.message.role === "tool");
+        if (shouldDeferWechatTurnMessage) {
+          deferWechatTurnMessage(payload.conversationId, payload.personaId, payload.message);
+          return;
+        }
+        if (payload.type === "assistant_message" || payload.type === "new_message") {
+          const state = useAppStore.getState();
+          const shouldMarkUnread =
+            payload.conversationId !== state.activeConversationId
+            || state.activeSection !== "chat";
+
+ succeeded in 380ms:
+import { describe, expect, it, beforeEach } from "vitest";
+import { __chatStoreTestUtils, useAppStore } from "../store";
+import type { ChatMessage } from "../types";
+import { testMessage } from "./chatTestHarness";
+
+function message(partial: Partial<ChatMessage> & Pick<ChatMessage, "id" | "role" | "content">): ChatMessage {
+  return {
+    conversationId: "conv-1",
+    createdAt: "2026-07-07T08:00:00.000Z",
+    accountId: null,
+    ...partial
+  };
+}
+
+function merge(
+  backendMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+  limit = 20
+) {
+  return __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+    backendMessages,
+    currentMessages,
+    "conv-1",
+    limit,
+    new Set<string>()
+  );
+}
+
+describe("chat store message merge", () => {
+  beforeEach(() => {
+    __chatStoreTestUtils.resetPendingIncomingMessagesForTests();
+    useAppStore.setState({
+      activeConversationId: "conv-1",
+      messages: [],
+      streamedAssistantIds: new Set<string>(),
+      conversationMessageLimits: {}
+    });
+  });
+
+  it("keeps a local desktop user message when a refresh returns a stale backend snapshot", () => {
+    const localUser = message({
+      id: "local-user-1",
+      role: "user",
+      content: "帮我整理今天新闻",
+      source: "desktop",
+      providerData: { clientMessageId: "local-user-1" }
+    });
+    const oldAssistant = message({
+      id: "assistant-old",
+      role: "assistant",
+      content: "上一轮回复",
+      source: "desktop",
+      createdAt: "2026-07-07T07:59:00.000Z"
+    });
+
+    const merged = merge([oldAssistant], [localUser]);
+
+    expect(merged.map((item) => item.id)).toEqual(["assistant-old", "local-user-1"]);
+  });
+
+  it("replaces a local user echo once the persisted backend user message arrives", () => {
+    const localUser = message({
+      id: "local-user-1",
+      role: "user",
+      content: "生成一张海边图片",
+      source: "desktop",
+      providerData: { clientMessageId: "client-1" }
+    });
+    const backendUser = message({
+      id: "backend-user-1",
+      role: "user",
+      content: "生成一张海边图片",
+      source: "desktop",
+      providerData: { clientMessageId: "client-1" },
+      createdAt: "2026-07-07T08:00:01.000Z"
+    });
+    const assistant = message({
+      id: "assistant-1",
+      role: "assistant",
+      content: "图片已生成。",
+      source: "desktop",
+      createdAt: "2026-07-07T08:00:02.000Z"
+    });
+
+    const merged = merge([backendUser, assistant], [localUser]);
+
+    expect(merged.map((item) => item.id)).toEqual(["backend-user-1", "assistant-1"]);
+  });
+
+  it("keeps a live wechat user message while backend persistence is still catching up", () => {
+    const wechatUser = message({
+      id: "wechat-live-user",
+      role: "user",
+      content: "整理新闻",
+      source: "wechat",
+      accountId: "wechat-account",
+      providerData: { source: "wechat", accountId: "wechat-account", userId: "wechat-user" }
+    });
+    const oldAssistant = message({
+      id: "assistant-old",
+      role: "assistant",
+      content: "上一轮微信回复",
+      source: "wechat",
+      createdAt: "2026-07-07T07:58:00.000Z"
+    });
+
+    const merged = merge([oldAssistant], [wechatUser]);
+
+    expect(merged.map((item) => item.id)).toEqual(["assistant-old", "wechat-live-user"]);
+  });
+
+  it("carries pending inactive-conversation messages into the active conversation refresh and prunes after backend confirmation", () => {
+    const pendingWechatUser = message({
+      id: "wechat-pending-user",
+      role: "user",
+      content: "帮我查一下天气",
+      source: "wechat",
+      accountId: "wechat-account",
+      providerData: { source: "wechat", accountId: "wechat-account", userId: "wechat-user" }
+    });
+    __chatStoreTestUtils.rememberPendingIncomingMessage(pendingWechatUser);
+
+    const staleMerge = merge([], []);
+    expect(staleMerge.map((item) => item.id)).toEqual(["wechat-pending-user"]);
+
+    const backendUser = message({
+      id: "backend-wechat-user",
+      role: "user",
+      content: "帮我查一下天气",
+      source: "wechat",
+      accountId: "wechat-account",
+      providerData: { source: "wechat", accountId: "wechat-account", userId: "wechat-user" },
+      createdAt: "2026-07-07T08:00:01.000Z"
+    });
+    const confirmedMerge = merge([backendUser], []);
+    expect(confirmedMerge.map((item) => item.id)).toEqual(["backend-wechat-user"]);
+  });
+
+  it("keeps a live assistant stream through stale refresh and converges on the final message", () => {
+    const stream = testMessage({
+      id: "assistant-stream-1",
+      role: "assistant",
+      content: "Partial",
+      source: "desktop"
+    });
+    useAppStore.getState().upsertIncomingMessage(stream, { streaming: true });
+
+    const streamingState = useAppStore.getState();
+    expect(streamingState.messages).toHaveLength(1);
+    expect(streamingState.messages[0]).toMatchObject({
+      id: "assistant-stream-1",
+      content: "Partial",
+      source: "desktop-stream"
+    });
+    expect(streamingState.streamedAssistantIds.has("assistant-stream-1")).toBe(true);
+
+    const staleBackend = [
+      testMessage({
+        id: "backend-user-1",
+        role: "user",
+        content: "Prompt",
+        createdAt: "2026-07-08T03:59:59.000Z"
+      })
+    ];
+    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+      staleBackend,
+      streamingState.messages,
+      "conv-1",
+      20,
+      streamingState.streamedAssistantIds
+    );
+    expect(staleMerged.map((item) => item.id)).toEqual(["backend-user-1", "assistant-stream-1"]);
+    expect(staleMerged.find((item) => item.id === "assistant-stream-1")?.source).toBe("desktop-stream");
+
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-stream-1",
+        role: "assistant",
+        content: "Partial final answer",
+        source: "desktop"
+      }),
+      { final: true }
+    );
+
+    const finalState = useAppStore.getState();
+    expect(finalState.messages.filter((item) => item.id === "assistant-stream-1")).toHaveLength(1);
+    expect(finalState.messages[0]).toMatchObject({
+      id: "assistant-stream-1",
+      content: "Partial final answer",
+      source: "desktop"
+    });
+    expect(finalState.streamedAssistantIds.has("assistant-stream-1")).toBe(false);
+  });
+
+  it("clears a failed assistant stream before stale refresh can preserve a ghost bubble", () => {
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-failed-stream",
+        role: "assistant",
+        content: "Partial answer before provider failure",
+        source: "desktop"
+      }),
+      { streaming: true }
+    );
+
+    const streamingState = useAppStore.getState();
+    expect(streamingState.messages).toMatchObject([
+      {
+        id: "assistant-failed-stream",
+        role: "assistant",
+        source: "desktop-stream"
+      }
+    ]);
+    expect(streamingState.streamedAssistantIds.has("assistant-failed-stream")).toBe(true);
+
+    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
+
+    const clearedState = useAppStore.getState();
+    expect(clearedState.messages.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+    expect(clearedState.streamedAssistantIds.has("assistant-failed-stream")).toBe(false);
+
+    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+      [],
+      clearedState.messages,
+      "conv-1",
+      20,
+      clearedState.streamedAssistantIds
+    );
+    expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+  });
+});
+
+ succeeded in 413ms:
+import type {
+  AgentQueuedRequest,
+  AgentRunEvent,
+  ChatMessage,
+  Conversation,
+  SendChatRequest,
+  ToolEvent
+} from "../types";
+
+export const TEST_NOW = "2026-07-08T04:00:00.000Z";
+
+export function testMessage(
+  partial: Partial<ChatMessage> & Pick<ChatMessage, "id" | "role" | "content">
+): ChatMessage {
+  return {
+    conversationId: "conv-1",
+    createdAt: TEST_NOW,
+    accountId: null,
+    source: "desktop",
+    ...partial
+  };
+}
+
+export function testConversation(partial: Partial<Conversation> = {}): Conversation {
+  return {
+    id: "conv-1",
+    title: "Test conversation",
+    personaId: "persona-1",
+    agentId: "agent-conv",
+    lastMessage: "",
+    updatedAt: TEST_NOW,
+    ...partial
+  };
+}
+
+export function deterministicReplyText(content: string) {
+  return `deterministic reply: ${content}`;
+}
+
+export function deterministicChatResponse(
+  request: SendChatRequest,
+  options: {
+    userId?: string;
+    assistantId?: string;
+    assistantContent?: string;
+    createdAt?: string;
+  } = {}
+): ChatMessage[] {
+  const conversationId = request.conversationId ?? "conv-1";
+  const createdAt = options.createdAt ?? TEST_NOW;
+  const clientMessageId = request.providerData && typeof request.providerData === "object"
+    ? (request.providerData as { clientMessageId?: unknown }).clientMessageId
+    : undefined;
+  return [
+    testMessage({
+      id: options.userId ?? "backend-user-1",
+      conversationId,
+      role: "user",
+      content: request.content,
+      createdAt,
+      providerData: {
+        source: "desktop",
+        clientMessageId
+      }
+    }),
+    testMessage({
+      id: options.assistantId ?? "assistant-1",
+      conversationId,
+      role: "assistant",
+      content: options.assistantContent ?? deterministicReplyText(request.content),
+      createdAt,
+      source: "desktop"
+    })
+  ];
+}
+
+export function testToolEvent(partial: Partial<ToolEvent> = {}): ToolEvent {
+  return {
+    eventType: "tool_completed",
+    serverId: "__internal",
+    toolName: "read_file",
+    callId: "call-1",
+    referenceId: "ref-1",
+    runId: "run-1",
+    checkpointId: null,
+    status: "completed",
+    ok: true,
+    timedOut: false,
+    elapsedMs: 42,
+    kind: "read",
+    title: "Read file",
+    summary: "Read file completed",
+    path: "README.md",
+    text: "file contents",
+    error: null,
+    raw: { payload: { path: "README.md" } },
+    ...partial
+  };
+}
+
+export function testAgentRunEvent(partial: Partial<AgentRunEvent> = {}): AgentRunEvent {
+  return {
+    runId: "run-1",
+    conversationId: "conv-1",
+    personaId: "persona-1",
+    agentId: "agent-conv",
+    queueItemId: "queue-1",
+    state: "running",
+    updatedAt: TEST_NOW,
+    lastActivityAt: TEST_NOW,
+    lastActivityDesc: "Running",
+    ...partial
+  };
+}
+
+export function testQueuedRequest(partial: Partial<AgentQueuedRequest> = {}): AgentQueuedRequest {
+  return {
+    id: "queue-1",
+    conversationId: "conv-1",
+    personaId: "persona-1",
+    userMessageId: "user-1",
+    content: "test request",
+    status: "pending",
+    createdAt: TEST_NOW,
+    updatedAt: TEST_NOW,
+    startedAt: null,
+    completedAt: null,
+    error: null,
+    ...partial
+  };
+}
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\store.ts | Select-Object -Skip 560 -First 210" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'rg -n "__chatStoreTestUtils|mergeBackendMessagesWithLiveState|rememberPendingIncomingMessage|resetPendingIncomingMessagesForTests" src/lib/store.ts' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 333ms:
+523:function rememberPendingIncomingMessage(message: ChatMessage) {
+752:function mergeBackendMessagesWithLiveState(
+786:export const __chatStoreTestUtils = {
+787:  mergeBackendMessagesWithLiveState,
+788:  rememberPendingIncomingMessage,
+789:  resetPendingIncomingMessagesForTests: () => pendingIncomingMessagesByConversation.clear()
+1609:    const messages = mergeBackendMessagesWithLiveState(
+1684:      const nextMessages = mergeBackendMessagesWithLiveState(
+1730:    const messages = mergeBackendMessagesWithLiveState(
+1787:    const messages = mergeBackendMessagesWithLiveState(
+1875:        rememberPendingIncomingMessage(uiMessage);
+1945:    const messages = mergeBackendMessagesWithLiveState(
+1970:    const messages = mergeBackendMessagesWithLiveState(
+1998:    const messages = mergeBackendMessagesWithLiveState(
+2025:    const messages = mergeBackendMessagesWithLiveState(
+2056:      const messages = mergeBackendMessagesWithLiveState(
+2092:        const messages = mergeBackendMessagesWithLiveState(
+2125:      const messages = mergeBackendMessagesWithLiveState(
+2770:    const messages = mergeBackendMessagesWithLiveState(
+
+ succeeded in 361ms:
+function mergeUniqueMessagesById(messages: ChatMessage[]) {
+  const byId = new Map<string, ChatMessage>();
+  for (const message of messages) byId.set(message.id, message);
+  return Array.from(byId.values());
+}
+
+function prunePendingIncomingMessages(conversationId: string | null | undefined, backendMessages: ChatMessage[]) {
+  if (!conversationId) return;
+  const pending = pendingIncomingMessagesByConversation.get(conversationId);
+  if (!pending || pending.length === 0) return;
+  const backendIds = new Set(backendMessages.map((message) => message.id));
+  const unresolved = pending.filter((message) =>
+    !backendIds.has(message.id)
+    && !backendMessages.some((backend) => matchesPersistedUserMessage(message, backend))
+  );
+  if (unresolved.length > 0) {
+    pendingIncomingMessagesByConversation.set(conversationId, unresolved.slice(-80));
+  } else {
+    pendingIncomingMessagesByConversation.delete(conversationId);
+  }
+}
+
+function isLocalUiMessage(message: ChatMessage) {
+  return message.id.startsWith("local-");
+}
+
+function isLocalStatusMessage(message: ChatMessage) {
+  return message.source?.startsWith("desktop-local-") ?? false;
+}
+
+interface IncomingMessageUpsertOptions {
+  streaming?: boolean;
+  final?: boolean;
+}
+
+function messageTime(message: ChatMessage) {
+  const timestamp = Date.parse(message.createdAt);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function normalizeMessageContentForMatch(content: string) {
+  return content.replace(/\r\n/g, "\n").trim();
+}
+
+function providerDataString(value: unknown, keys: string[]) {
+  const record = providerDataRecord(value);
+  if (!record) return "";
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+  return "";
+}
+
+function messageClientMessageId(message: ChatMessage) {
+  return providerDataString(message.providerData, ["clientMessageId", "client_message_id"]);
+}
+
+function matchesPersistedUserMessage(liveMessage: ChatMessage, backendMessage: ChatMessage) {
+  if (liveMessage.role !== "user" || backendMessage.role !== "user") {
+    return false;
+  }
+  const liveClientId = messageClientMessageId(liveMessage);
+  const backendClientId = messageClientMessageId(backendMessage);
+  if (liveClientId && backendClientId && liveClientId === backendClientId) {
+    return true;
+  }
+  const liveContent = normalizeMessageContentForMatch(liveMessage.content);
+  if (!liveContent || liveContent !== normalizeMessageContentForMatch(backendMessage.content)) {
+    return false;
+  }
+  const liveSource = liveMessage.source?.trim() ?? "";
+  const backendSource = backendMessage.source?.trim() ?? "";
+  if (liveSource && backendSource && liveSource !== backendSource) {
+    return false;
+  }
+  const liveAccountId = liveMessage.accountId ?? null;
+  const backendAccountId = backendMessage.accountId ?? null;
+  if (liveAccountId && backendAccountId && liveAccountId !== backendAccountId) {
+    return false;
+  }
+  const liveCreatedAt = messageTime(liveMessage);
+  const backendCreatedAt = messageTime(backendMessage);
+  return !(
+    liveCreatedAt > 0
+    && backendCreatedAt > 0
+    && Math.abs(backendCreatedAt - liveCreatedAt) > 120_000
+  );
+}
+
+function matchesLocalUserReplacement(liveMessage: ChatMessage, backendMessage: ChatMessage) {
+  if (!matchesPersistedUserMessage(liveMessage, backendMessage)) {
+    return false;
+  }
+  const liveCreatedAt = messageTime(liveMessage);
+  const backendCreatedAt = messageTime(backendMessage);
+  return !(
+    liveCreatedAt > 0
+    && backendCreatedAt > 0
+    && backendCreatedAt < liveCreatedAt - 5_000
+  );
+}
+
+function isTrackedStreamingAssistantMessage(
+  message: ChatMessage,
+  conversationId: string | null,
+  streamedAssistantIds: Set<string>
+) {
+  return Boolean(
+    conversationId
+    && message.conversationId === conversationId
+    && message.role === "assistant"
+    && streamedAssistantIds.has(message.id)
+    && isVisibleChatMessage(message)
+    && !isLocalUiMessage(message)
+    && !isLocalStatusMessage(message)
+  );
+}
+
+function shouldPreferLiveStreamingAssistant(
+  liveMessage: ChatMessage,
+  backendMessage: ChatMessage,
+  conversationId: string | null,
+  streamedAssistantIds: Set<string>
+) {
+  if (!isTrackedStreamingAssistantMessage(liveMessage, conversationId, streamedAssistantIds)) return false;
+  if (backendMessage.role !== "assistant") return false;
+  if (!backendMessage.content && liveMessage.content) return true;
+  return (
+    liveMessage.content.length > backendMessage.content.length
+    && liveMessage.content.startsWith(backendMessage.content)
+  );
+}
+
+function mergeLocalUiMessages(
+  backendMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+  conversationId: string | null,
+  limit: number,
+  streamedAssistantIds: Set<string> = new Set()
+) {
+  if (!conversationId) return displayMessages(backendMessages, limit);
+  const currentById = new Map(currentMessages.map((message) => [message.id, message]));
+  const backendMessagesWithLiveStreams = backendMessages.map((backend) => {
+    const live = currentById.get(backend.id);
+    return live && shouldPreferLiveStreamingAssistant(live, backend, conversationId, streamedAssistantIds)
+      ? live
+      : backend;
+  });
+  const backendIds = new Set(backendMessagesWithLiveStreams.map((message) => message.id));
+  const localMessages = currentMessages.filter((message) => {
+    if (message.conversationId !== conversationId || !isLocalUiMessage(message) || backendIds.has(message.id)) {
+      return false;
+    }
+    if (message.role === "user") {
+      return !backendMessages.some((backend) => matchesLocalUserReplacement(message, backend));
+    }
+    if (isLocalStatusMessage(message)) {
+      const localCreatedAt = messageTime(message);
+      return !backendMessages.some((backend) => backend.role === "assistant" && messageTime(backend) >= localCreatedAt - 1000);
+    }
+    return false;
+  });
+  const streamingAssistantMessages = currentMessages.filter((message) =>
+    isTrackedStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+    && !backendIds.has(message.id)
+  );
+  const transientLiveMessages = currentMessages.filter((message) => {
+    if (message.conversationId !== conversationId || backendIds.has(message.id)) {
+      return false;
+    }
+    if (!isVisibleChatMessage(message) || isLocalUiMessage(message) || isLocalStatusMessage(message)) {
+      return false;
+    }
+    if (message.role !== "user") {
+      return false;
+    }
+    if (message.source !== "pet" && message.source !== "wechat") {
+      return false;
+    }
+    return !backendMessages.some((backend) => matchesPersistedUserMessage(message, backend));
+  });
+  if (localMessages.length === 0 && transientLiveMessages.length === 0 && streamingAssistantMessages.length === 0) {
+    return displayMessages(backendMessagesWithLiveStreams, limit);
+  }
+  return displayMessages(
+    [...backendMessagesWithLiveStreams, ...localMessages, ...transientLiveMessages, ...streamingAssistantMessages],
+    limit
+  );
+}
+
+function mergeBackendMessagesWithLiveState(
+  backendMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+  conversationId: string | null,
+  limit: number,
+  streamedAssistantIds: Set<string>
+) {
+  const pending = pendingIncomingMessagesForConversation(conversationId);
+  const liveMessages = pending.length > 0
+    ? mergeUniqueMessagesById([...currentMessages, ...pending])
+    : currentMessages;
+  let messages = mergeLocalUiMessages(
+    backendMessages,
+    liveMessages,
+    conversationId,
+    limit,
+    streamedAssistantIds
+  );
+  if (pending.length > 0) {
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\store.ts | Select-Object -Skip 2320 -First 120" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\__tests__\\chatConversationChain.test.ts | Select-Object -First 240" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 348ms:
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../api";
+import { __chatStoreTestUtils, useAppStore } from "../store";
+import type { AgentDefinition, ChatMessage, SendChatRequest } from "../types";
+import {
+  deterministicChatResponse,
+  testAgentRunEvent,
+  testConversation,
+  TEST_NOW,
+  testQueuedRequest,
+  testToolEvent
+} from "./chatTestHarness";
+
+type StoreState = ReturnType<typeof useAppStore.getState>;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushAsync() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function stubRuntimeGlobals() {
+  let uuid = 0;
+  vi.stubGlobal("crypto", {
+    randomUUID: vi.fn(() => `uuid-${++uuid}`)
+  });
+  vi.stubGlobal("window", {
+    setTimeout: ((handler: TimerHandler, timeout?: number) => setTimeout(handler, timeout)) as typeof window.setTimeout,
+    clearTimeout: ((handle?: number) => clearTimeout(handle)) as typeof window.clearTimeout
+  });
+}
+
+function agent(id: string, isDefault = false): AgentDefinition {
+  return {
+    id,
+    name: id,
+    isDefault
+  } as AgentDefinition;
+}
+
+function resetStore(overrides: Partial<StoreState> = {}) {
+  __chatStoreTestUtils.resetPendingIncomingMessagesForTests();
+  useAppStore.setState({
+    activeSection: "chat",
+    focusedAgentId: null,
+    conversations: [testConversation()],
+    activeConversationId: "conv-1",
+    messages: [],
+    conversationMessageLimits: {},
+    processingConversationIds: [],
+    conversationUnreadCounts: {},
+    agents: [agent("agent-conv"), agent("agent-explicit", true)],
+    personas: [{ id: "persona-1", name: "Persona", agentId: "agent-conv" } as any],
+    agentQueue: [],
+    agentRuns: [],
+    activeAgentRuns: {},
+    streamedAssistantIds: new Set<string>(),
+    managedProcessEvents: [],
+    ...overrides
+  });
+}
+
+function mockRefreshBackends() {
+  vi.spyOn(api, "listAgentQueue").mockResolvedValue([]);
+  vi.spyOn(api, "listAgentRuns").mockResolvedValue([]);
+  vi.spyOn(api, "listConversations").mockResolvedValue([testConversation()]);
+  vi.spyOn(api, "listMessages").mockResolvedValue([]);
+}
+
+describe("chat conversation store chain", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(TEST_NOW));
+    stubRuntimeGlobals();
+    resetStore();
+    mockRefreshBackends();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("sends a deterministic chat request, shows a local user message, then merges backend user and assistant", async () => {
+    const response = deferred<ChatMessage[]>();
+    const sendSpy = vi.spyOn(api, "sendChatMessage").mockReturnValue(response.promise);
+
+    await useAppStore.getState().sendMessage("  hello agent  ", "persona-1", "agent-explicit");
+
+    const localMessages = useAppStore.getState().messages;
+    expect(localMessages).toHaveLength(1);
+    expect(localMessages[0]).toMatchObject({
+      id: "local-uuid-1",
+      role: "user",
+      content: "hello agent",
+      source: "desktop",
+      providerData: {
+        source: "desktop",
+        clientMessageId: "local-uuid-1"
+      }
+    });
+    expect(useAppStore.getState().processingConversationIds).toEqual(["conv-1"]);
+
+    const request = sendSpy.mock.calls[0][0] as SendChatRequest;
+    expect(request).toMatchObject({
+      conversationId: "conv-1",
+      personaId: "persona-1",
+      agentId: "agent-explicit",
+      content: "hello agent"
+    });
+    expect((request.providerData as any).clientMessageId).toBe("local-uuid-1");
+
+    response.resolve(deterministicChatResponse(request));
+    await flushAsync();
+
+    const finalMessages = useAppStore.getState().messages;
+    expect(finalMessages.map((item) => [item.id, item.role, item.content])).toEqual([
+      ["backend-user-1", "user", "hello agent"],
+      ["assistant-1", "assistant", "deterministic reply: hello agent"]
+    ]);
+    expect(finalMessages.some((item) => item.id === "local-uuid-1")).toBe(false);
+    expect(useAppStore.getState().processingConversationIds).toEqual([]);
+  });
+
+  it("filters invalid explicit agent ids and falls back to the conversation agent when no explicit agent is provided", async () => {
+    const cases: Array<{ label: string; agentId?: string; expected: string | null }> = [
+      { label: "invalid explicit", agentId: "missing-agent", expected: null },
+      { label: "undefined fallback", agentId: undefined, expected: "agent-conv" }
+    ];
+
+    for (const entry of cases) {
+      resetStore();
+      const response = deferred<ChatMessage[]>();
+      const sendSpy = vi.spyOn(api, "sendChatMessage").mockReturnValue(response.promise);
+
+      await useAppStore.getState().sendMessage(entry.label, "persona-1", entry.agentId);
+
+      const request = sendSpy.mock.calls[0][0] as SendChatRequest;
+      expect(request.agentId).toBe(entry.expected);
+      response.resolve(deterministicChatResponse(request));
+      await flushAsync();
+      sendSpy.mockRestore();
+    }
+  });
+
+  it("keeps transport failures out of the chat timeline, refreshes runtime state, and allows a retry to converge", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queueSpy = vi.spyOn(useAppStore.getState(), "refreshAgentQueue");
+    const runsSpy = vi.spyOn(useAppStore.getState(), "refreshAgentRuns");
+    const sendSpy = vi.spyOn(api, "sendChatMessage")
+      .mockRejectedValueOnce(new Error("provider offline"))
+      .mockImplementationOnce(async (request: unknown) => deterministicChatResponse(request as SendChatRequest, {
+        userId: "backend-user-retry",
+        assistantId: "assistant-retry"
+      }));
+
+    await useAppStore.getState().sendMessage("please retry", "persona-1", "agent-explicit");
+    await flushAsync();
+    await vi.runOnlyPendingTimersAsync();
+
+    const failedMessages = useAppStore.getState().messages;
+    expect(failedMessages).toHaveLength(1);
+    expect(failedMessages[0]).toMatchObject({
+      id: "local-uuid-1",
+      role: "user",
+      content: "please retry"
+    });
+    expect(failedMessages.some((item) => item.role === "assistant" || item.source === "desktop-agent-error")).toBe(false);
+    expect(useAppStore.getState().processingConversationIds).toEqual([]);
+    expect(queueSpy).toHaveBeenCalled();
+    expect(runsSpy).toHaveBeenCalled();
+
+    await useAppStore.getState().sendMessage("please retry", "persona-1", "agent-explicit");
+    await flushAsync();
+
+    const retryRequest = sendSpy.mock.calls[1][0] as SendChatRequest;
+    expect((retryRequest.providerData as any).clientMessageId).toBe("local-uuid-2");
+    expect(useAppStore.getState().messages.map((item) => [item.id, item.role])).toEqual([
+      ["backend-user-retry", "user"],
+      ["assistant-retry", "assistant"]
+    ]);
+    expect(useAppStore.getState().messages.some((item) => item.id.startsWith("local-"))).toBe(false);
+  });
+
+  it("merges agent run events, mock tool events, queue state, and abort/cancel terminal state into the UI store", () => {
+    useAppStore.setState({
+      agentQueue: [
+        testQueuedRequest(),
+        testQueuedRequest({ id: "queue-abort", content: "cancel me" })
+      ]
+    });
+
+    useAppStore.getState().handleAgentRunEvent(testAgentRunEvent({
+      state: "running",
+      toolEvent: testToolEvent({ status: "running", ok: true, summary: "Reading README.md" }),
+      phase: "tool_started",
+      detail: { toolName: "read_file" }
+    }));
+
+    let state = useAppStore.getState();
+    expect(state.activeAgentRuns["run-1"]).toMatchObject({
+      runId: "run-1",
+      state: "running",
+      accumulatedToolEvents: [{ status: "running", toolName: "read_file" }]
+    });
+    expect(state.agentRuns[0]).toMatchObject({
+      runId: "run-1",
+      state: "running",
+      toolEvents: [{ status: "running", toolName: "read_file" }]
+    });
+    expect(state.agentQueue.find((item) => item.id === "queue-1")).toMatchObject({
+      status: "running",
+      startedAt: TEST_NOW
+    });
+
+    useAppStore.getState().handleAgentRunEvent(testAgentRunEvent({
+      state: "completed",
+      toolEvent: testToolEvent({ status: "completed", ok: true, summary: "README.md loaded" }),
+      phase: "completed",
+      lastActivityDesc: "Done"
+    }));
+
+    state = useAppStore.getState();
+    expect(state.activeAgentRuns["run-1"]).toBeUndefined();
+    expect(state.agentRuns.find((run) => run.runId === "run-1")).toMatchObject({
+      state: "completed",
+      completedAt: TEST_NOW,
+      toolEvents: [{ status: "completed", summary: "README.md loaded" }]
+    });
+
+ succeeded in 370ms:
+    const profile = await api.uploadProfileAvatar(file.name, data);
+    profileMutationVersion += 1;
+    rememberLocalImagePreview(profile.avatarPath, data);
+    set({ profile });
+  },
+  clearProfileAvatar: async () => {
+    const previousPath = get().profile.avatarPath;
+    const profile = await api.clearProfileAvatar();
+    profileMutationVersion += 1;
+    forgetLocalImagePreview(previousPath);
+    set({ profile });
+  },
+  refreshAccounts: async () => {
+    const accounts = await api.listAccounts();
+    set({ accounts });
+  },
+  saveAccounts: async (accounts) => {
+    await api.saveAccounts(accounts);
+    set({ accounts });
+  },
+  linkWechatAccount: async (personaId, accountId) => {
+    const accounts = await api.linkWechatAccount(personaId, accountId);
+    set({ accounts });
+  },
+  unlinkWechatAccount: async (personaId) => {
+    const accounts = await api.unlinkWechatAccount(personaId);
+    set({ accounts });
+  },
+  saveImageProviders: async (imageProviders) => {
+    await api.saveImageProviders(imageProviders);
+    set({ imageProviders });
+  },
+  saveVideoProviders: async (videoProviders) => {
+    await api.saveVideoProviders(videoProviders);
+    set({ videoProviders });
+  },
+  saveSearchProviders: async (searchProviders) => {
+    await api.saveSearchProviders(searchProviders);
+    set({ searchProviders });
+  },
+  saveVisionProviders: async (visionProviders) => {
+    await api.saveVisionProviders(visionProviders);
+    set({ visionProviders });
+  },
+  saveBrowserProviders: async (browserProviders) => {
+    await api.saveBrowserProviders(browserProviders);
+    set({ browserProviders });
+  },
+  saveThemes: async (themes) => {
+    await api.saveThemes(themes);
+    set({ themes });
+  },
+  importThemeCss: async (file) => {
+    const buffer = await file.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(buffer));
+    const themes = await api.importThemeCss(file.name, bytes);
+    set({ themes });
+  },
+  saveEmojiGroups: async (emojiGroups) => {
+    await api.saveEmojiGroups(emojiGroups);
+    set({ emojiGroups });
+  },
+  uploadEmojiImage: async (groupId, emotion, file) => {
+    const buffer = await file.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(buffer));
+    const emojiGroups = await api.uploadEmojiImage(groupId, emotion, file.name, bytes);
+    set({ emojiGroups });
+  },
+  refreshMemories: async (personaId) => {
+    const memories = await api.listMemories(personaId);
+    set({ memories });
+  },
+  saveMemory: async (memory) => {
+    const saved = await api.saveMemory(memory);
+    set((state) => ({
+      memories: [saved, ...state.memories.filter((item) => item.id !== saved.id)]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    }));
+  },
+  deleteMemory: async (id) => {
+    await api.deleteMemory(id);
+    set((state) => ({ memories: state.memories.filter((memory) => memory.id !== id) }));
+  },
+  saveWorldbook: async (book) => {
+    const saved = await api.saveWorldbook(book);
+    set((state) => ({
+      worldbooks: [saved, ...state.worldbooks.filter((item) => item.id !== saved.id)]
+        .sort((a, b) => a.name.localeCompare(b.name))
+    }));
+  },
+  deleteWorldbook: async (id) => {
+    await api.deleteWorldbook(id);
+    set((state) => ({ worldbooks: state.worldbooks.filter((book) => book.id !== id) }));
+  },
+  refreshMoments: async () => {
+    const moments = await api.listMoments();
+    set({ moments });
+  },
+  createMoment: async (body) => {
+    const post = await api.createMoment(body);
+    set((state) => ({ moments: [post, ...state.moments].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) }));
+  },
+  updateMomentText: async (postId, body) => {
+    const post = await api.updateMomentText(postId, body);
+    set((state) => ({ moments: state.moments.map((item) => (item.id === post.id ? post : item)) }));
+  },
+  addMomentComment: async (postId, text) => {
+    const post = await api.addMomentComment(postId, text);
+    set((state) => ({ moments: state.moments.map((item) => (item.id === post.id ? post : item)) }));
+  },
+  updateMomentComment: async (postId, commentId, text) => {
+    const post = await api.updateMomentComment(postId, commentId, text);
+    set((state) => ({ moments: state.moments.map((item) => (item.id === post.id ? post : item)) }));
+  },
+  deleteMoment: async (postId) => {
+    await api.deleteMoment(postId);
+    set((state) => ({ moments: state.moments.filter((post) => post.id !== postId) }));
+  },
+  deleteMomentComment: async (postId, commentId) => {
+    const post = await api.deleteMomentComment(postId, commentId);
+
+codex
+复核中发现一个需要补强的点：现有失败清理测试只覆盖 active `messages`，没有直接证明 inactive conversation 的 pending incoming stream 会被清掉。这个正好是任务验收项之一，我会用已有 test utils 补一个很窄的用例，不碰其他能力组。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\lib\\store.ts | Select-Object -Skip 740 -First 60" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\App.tsx | Select-Object -Skip 280 -First 50" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'rg -n "assistant_stream|scheduleStreamMessageUpsert|pendingStreamMessagesRef|isLast|streaming" src/App.tsx' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 357ms:
+    return !backendMessages.some((backend) => matchesPersistedUserMessage(message, backend));
+  });
+  if (localMessages.length === 0 && transientLiveMessages.length === 0 && streamingAssistantMessages.length === 0) {
+    return displayMessages(backendMessagesWithLiveStreams, limit);
+  }
+  return displayMessages(
+    [...backendMessagesWithLiveStreams, ...localMessages, ...transientLiveMessages, ...streamingAssistantMessages],
+    limit
+  );
+}
+
+function mergeBackendMessagesWithLiveState(
+  backendMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+  conversationId: string | null,
+  limit: number,
+  streamedAssistantIds: Set<string>
+) {
+  const pending = pendingIncomingMessagesForConversation(conversationId);
+  const liveMessages = pending.length > 0
+    ? mergeUniqueMessagesById([...currentMessages, ...pending])
+    : currentMessages;
+  let messages = mergeLocalUiMessages(
+    backendMessages,
+    liveMessages,
+    conversationId,
+    limit,
+    streamedAssistantIds
+  );
+  if (pending.length > 0) {
+    const messageIds = new Set(messages.map((message) => message.id));
+    const backendIds = new Set(backendMessages.map((message) => message.id));
+    const missingPending = pending.filter((message) =>
+      !messageIds.has(message.id)
+      && !backendIds.has(message.id)
+      && !backendMessages.some((backend) => matchesPersistedUserMessage(message, backend))
+    );
+    if (missingPending.length > 0) {
+      messages = displayMessages([...messages, ...missingPending], limit);
+    }
+  }
+  prunePendingIncomingMessages(conversationId, backendMessages);
+  return messages;
+}
+
+export const __chatStoreTestUtils = {
+  mergeBackendMessagesWithLiveState,
+  rememberPendingIncomingMessage,
+  resetPendingIncomingMessagesForTests: () => pendingIncomingMessagesByConversation.clear()
+};
+
+function hasPendingAgentWork(state: AppState, conversationId: string | null) {
+  if (!conversationId) return false;
+  return Object.values(state.activeAgentRuns).some((run) =>
+    run.conversationId === conversationId
+    && !run.parentRunId
+    && !TERMINAL_AGENT_STATES.has(run.state)
+  )
+    || state.agentQueue.some((item) =>
+      item.conversationId === conversationId
+
+ succeeded in 375ms:
+186:  const pendingStreamMessagesRef = useRef<Map<string, {
+188:    streaming: boolean;
+280:    const pending = Array.from(pendingStreamMessagesRef.current.values());
+281:    pendingStreamMessagesRef.current.clear();
+284:        streaming: item.streaming && !item.final,
+290:  const scheduleStreamMessageUpsert = useCallback((
+292:    options: { streaming?: boolean; final?: boolean },
+296:    const previous = pendingStreamMessagesRef.current.get(key);
+297:    pendingStreamMessagesRef.current.set(key, {
+299:      streaming: Boolean(options.streaming),
+314:    pendingStreamMessagesRef.current.forEach((item, key) => {
+316:        pendingStreamMessagesRef.current.delete(key);
+320:    if (removed && pendingStreamMessagesRef.current.size === 0 && streamFlushTimerRef.current !== null) {
+332:    pendingStreamMessagesRef.current.clear();
+468:      // minimum-visible delay and streaming overlap. Avoid clearing the pet
+506:      isLast?: boolean;
+581:        payload.type === "assistant_stream"
+619:          streaming: (
+620:            (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream")
+622:            && !payload.isLast
+625:            (payload.type === "assistant_message" || (payload.type === "assistant_stream" && payload.isLast))
+630:          scheduleStreamMessageUpsert(payload.message, streamOptions, true);
+633:          && (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream")
+635:          scheduleStreamMessageUpsert(payload.message, streamOptions, Boolean(payload.isLast));
+644:      if (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream") {
+657:        // streaming bubble before the final event catches up.
+689:    scheduleStreamMessageUpsert,
+
+ succeeded in 392ms:
+    pendingStreamMessagesRef.current.clear();
+    for (const item of pending) {
+      upsertIncomingMessage(item.message, {
+        streaming: item.streaming && !item.final,
+        final: item.final
+      });
+    }
+  }, [upsertIncomingMessage]);
+
+  const scheduleStreamMessageUpsert = useCallback((
+    message: ChatMessage,
+    options: { streaming?: boolean; final?: boolean },
+    immediate = false
+  ) => {
+    const key = message.id.trim() || `${message.conversationId}:${message.role}`;
+    const previous = pendingStreamMessagesRef.current.get(key);
+    pendingStreamMessagesRef.current.set(key, {
+      message,
+      streaming: Boolean(options.streaming),
+      final: Boolean(options.final || previous?.final)
+    });
+    if (immediate || options.final) {
+      flushPendingStreamMessages();
+      return;
+    }
+    if (streamFlushTimerRef.current !== null) return;
+    streamFlushTimerRef.current = window.setTimeout(() => {
+      flushPendingStreamMessages();
+    }, 60);
+  }, [flushPendingStreamMessages]);
+
+  const discardPendingStreamMessagesForConversation = useCallback((conversationId: string) => {
+    let removed = false;
+    pendingStreamMessagesRef.current.forEach((item, key) => {
+      if (item.message.conversationId === conversationId) {
+        pendingStreamMessagesRef.current.delete(key);
+        removed = true;
+      }
+    });
+    if (removed && pendingStreamMessagesRef.current.size === 0 && streamFlushTimerRef.current !== null) {
+      window.clearTimeout(streamFlushTimerRef.current);
+      streamFlushTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => {
+    chatRefreshTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    chatRefreshTimersRef.current.clear();
+    chatRefreshInFlightRef.current.clear();
+    if (streamFlushTimerRef.current !== null) window.clearTimeout(streamFlushTimerRef.current);
+
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command "Get-Content -Path src\\App.tsx | Select-Object -Skip 600 -First 75" in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'Get-Content -Path package.json' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 367ms:
+          && (payload.message.role === "assistant" || payload.message.role === "tool");
+        if (shouldDeferWechatTurnMessage) {
+          deferWechatTurnMessage(payload.conversationId, payload.personaId, payload.message);
+          return;
+        }
+        if (payload.type === "assistant_message" || payload.type === "new_message") {
+          const state = useAppStore.getState();
+          const shouldMarkUnread =
+            payload.conversationId !== state.activeConversationId
+            || state.activeSection !== "chat";
+          const messageKey = payload.message.id.trim() || `${payload.message.createdAt}:${payload.message.content.length}`;
+          const previousKey = lastCountedMessageRef.current.get(payload.conversationId);
+          if (shouldMarkUnread && previousKey !== messageKey) {
+            lastCountedMessageRef.current.set(payload.conversationId, messageKey);
+            incrementConversationUnread(payload.conversationId);
+          }
+        }
+        const streamOptions = {
+          streaming: (
+            (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream")
+            && payload.message.role === "assistant"
+            && !payload.isLast
+          ),
+          final: (
+            (payload.type === "assistant_message" || (payload.type === "assistant_stream" && payload.isLast))
+            && payload.message.role === "assistant"
+          )
+        };
+        if (payload.message.role === "assistant" && streamOptions.final) {
+          scheduleStreamMessageUpsert(payload.message, streamOptions, true);
+        } else if (
+          payload.message.role === "assistant"
+          && (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream")
+        ) {
+          scheduleStreamMessageUpsert(payload.message, streamOptions, Boolean(payload.isLast));
+        } else {
+          upsertIncomingMessage(payload.message, streamOptions);
+        }
+        appliedInlineVisibleMessage = true;
+        if (isWechatUserMessage) {
+          flushDeferredWechatMessages(payload.conversationId);
+        }
+      }
+      if (payload.type === "assistant_stream" || payload.type === "assistant_thinking_stream") {
+        return;
+      }
+      if (payload.type === "tool_message") {
+        return;
+      }
+      if (
+        appliedInlineVisibleMessage
+        && (messageSource === "pet" || payload.message?.role === "assistant")
+        && (payload.type === "new_message" || payload.type === "assistant_message")
+      ) {
+        // The live message has already been inserted. A same-tick refresh can
+        // read a stale backend snapshot and temporarily wipe or downgrade the
+        // streaming bubble before the final event catches up.
+        return;
+      }
+      if (
+        payload.type === "conversation_updated"
+        && payload.conversationId
+        && isWechatEvent
+        && !visibleWechatUserRef.current.has(payload.conversationId)
+      ) {
+        scheduleWechatFallbackRefresh(payload.conversationId, payload.personaId ?? null);
+        return;
+      }
+      if (payload.type === "new_message" || payload.type === "assistant_message" || payload.type === "conversation_updated") {
+        scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null);
+      }
+    }).then((handler) => {
+      unlisten = handler;
+    });
+    return () => {
+
+ succeeded in 370ms:
+{
+  "name": "synthchat-v1",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:build:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-native.ps1",
+    "desktop:build:macos": "bash scripts/build-macos-native.sh"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.2.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}
+
+codex
+我会做一个小修正：inactive conversation 收到 assistant streaming 时，也把 pending message 标成 `desktop-stream` 并登记 streamed id；final 到达时解除登记。这样失败清理函数才能统一清理 active 和 pending 两条路径。
+apply patch
+patch: completed
+D:\pro_sunner\demo_vscode\SynthChat-V1.0.0\src\lib\store.ts
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..bb674744fe7d91f86cc21865fddecc808491d213
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -1872,8 +1872,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..bb674744fe7d91f86cc21865fddecc808491d213
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -1872,8 +1872,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+
+codex
+接下来补一个 focused regression：先让 stream 进入 inactive conversation 的 pending incoming，再调用失败清理，确认 stale refresh 不会再把它合回来。
+apply patch
+patch: completed
+D:\pro_sunner\demo_vscode\SynthChat-V1.0.0\src\lib\__tests__\storeMessageMerge.test.ts
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..bb674744fe7d91f86cc21865fddecc808491d213
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -1872,8 +1872,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..bb674744fe7d91f86cc21865fddecc808491d213
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -1872,8 +1872,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+
+codex
+修正和回归用例已落到 `store.ts` 与 `storeMessageMerge.test.ts`。现在运行完整 Vitest，再跑生产构建。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'npm test' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+2026-07-08T07:40:16.053508Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 2 seconds
+Output:
+
+> synthchat-v1@1.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 D:/pro_sunner/demo_vscode/SynthChat-V1.0.0
+
+ ❯ src/lib/__tests__/storeMessageMerge.test.ts (7 tests | 1 failed) 11ms
+     × clears a failed pending assistant stream before inactive conversation refresh 4ms
+
+ Test Files  1 failed | 11 passed (12)
+      Tests  1 failed | 142 passed (143)
+   Start at  15:40:15
+   Duration  767ms (transform 1.39s, setup 0ms, import 1.81s, tests 103ms, environment 1ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/storeMessageMerge.test.ts > chat store message merge > clears a failed pending assistant stream before inactive conversation refresh
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/lib/__tests__/storeMessageMerge.test.ts:260:86
+    258|
+    259|     const clearedState = useAppStore.getState();
+    260|     expect(clearedState.streamedAssistantIds.has("assistant-pending-fa…
+       |                                                                                      ^
+    261|     expect(
+    262|       __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ exited 1 in 2049ms:
+
+> synthchat-v1@1.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 D:/pro_sunner/demo_vscode/SynthChat-V1.0.0
+
+ ❯ src/lib/__tests__/storeMessageMerge.test.ts (7 tests | 1 failed) 11ms
+     × clears a failed pending assistant stream before inactive conversation refresh 4ms
+
+ Test Files  1 failed | 11 passed (12)
+      Tests  1 failed | 142 passed (143)
+   Start at  15:40:15
+   Duration  767ms (transform 1.39s, setup 0ms, import 1.81s, tests 103ms, environment 1ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/storeMessageMerge.test.ts > chat store message merge > clears a failed pending assistant stream before inactive conversation refresh
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/lib/__tests__/storeMessageMerge.test.ts:260:86
+    258|
+    259|     const clearedState = useAppStore.getState();
+    260|     expect(clearedState.streamedAssistantIds.has("assistant-pending-fa…
+       |                                                                                      ^
+    261|     expect(
+    262|       __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..bb674744fe7d91f86cc21865fddecc808491d213
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -1872,8 +1872,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+
+codex
+测试暴露出一个真实缺口：pending stream 被删除了，但对应 streamed id 没有从 `streamedAssistantIds` 里解除，因为现有实现只用 active message 的 removed ids 做清理。我会把 pending 清理返回的 id 纳入同一套收敛逻辑。
+apply patch
+patch: completed
+D:\pro_sunner\demo_vscode\SynthChat-V1.0.0\src\lib\store.ts
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..22ea6454c0f1dbb7f10088ac074bdb56c925818b
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -546,16 +546,22 @@
+   conversationId: string,
+   streamedAssistantIds: Set<string>
+ ) {
++  const removedIds = new Set<string>();
+   const pending = pendingIncomingMessagesByConversation.get(conversationId);
+-  if (!pending || pending.length === 0) return;
+-  const next = pending.filter((message) =>
+-    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+-  );
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
+   if (next.length > 0) {
+     pendingIncomingMessagesByConversation.set(conversationId, next);
+   } else {
+     pendingIncomingMessagesByConversation.delete(conversationId);
+   }
++  return removedIds;
+ }
+ 
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+@@ -1872,8 +1878,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1915,8 +1933,7 @@
+   clearStreamingAssistantMessages: (conversationId) => {
+     if (!conversationId) return;
+     set((state) => {
+-      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+-      const removedIds = new Set<string>();
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+       const messages = state.messages.filter((message) => {
+         if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+           return true;
+
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..22ea6454c0f1dbb7f10088ac074bdb56c925818b
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -546,16 +546,22 @@
+   conversationId: string,
+   streamedAssistantIds: Set<string>
+ ) {
++  const removedIds = new Set<string>();
+   const pending = pendingIncomingMessagesByConversation.get(conversationId);
+-  if (!pending || pending.length === 0) return;
+-  const next = pending.filter((message) =>
+-    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+-  );
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
+   if (next.length > 0) {
+     pendingIncomingMessagesByConversation.set(conversationId, next);
+   } else {
+     pendingIncomingMessagesByConversation.delete(conversationId);
+   }
++  return removedIds;
+ }
+ 
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+@@ -1872,8 +1878,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1915,8 +1933,7 @@
+   clearStreamingAssistantMessages: (conversationId) => {
+     if (!conversationId) return;
+     set((state) => {
+-      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+-      const removedIds = new Set<string>();
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+       const messages = state.messages.filter((message) => {
+         if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+           return true;
+
+codex
+修正已完成；现在重新跑 `npm test`，确认这个缺口和既有测试都收敛。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'npm test' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 1984ms:
+
+> synthchat-v1@1.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 D:/pro_sunner/demo_vscode/SynthChat-V1.0.0
+
+
+ Test Files  12 passed (12)
+      Tests  143 passed (143)
+   Start at  15:40:43
+   Duration  720ms (transform 1.21s, setup 0ms, import 1.65s, tests 97ms, environment 1ms)
+
+
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..22ea6454c0f1dbb7f10088ac074bdb56c925818b
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -546,16 +546,22 @@
+   conversationId: string,
+   streamedAssistantIds: Set<string>
+ ) {
++  const removedIds = new Set<string>();
+   const pending = pendingIncomingMessagesByConversation.get(conversationId);
+-  if (!pending || pending.length === 0) return;
+-  const next = pending.filter((message) =>
+-    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+-  );
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
+   if (next.length > 0) {
+     pendingIncomingMessagesByConversation.set(conversationId, next);
+   } else {
+     pendingIncomingMessagesByConversation.delete(conversationId);
+   }
++  return removedIds;
+ }
+ 
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+@@ -1872,8 +1878,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1915,8 +1933,7 @@
+   clearStreamingAssistantMessages: (conversationId) => {
+     if (!conversationId) return;
+     set((state) => {
+-      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+-      const removedIds = new Set<string>();
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+       const messages = state.messages.filter((message) => {
+         if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+           return true;
+
+codex
+`npm test` 已通过，12 个测试文件共 143 个用例。继续跑 `npm run build` 做类型检查和 Vite 构建验证。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'npm run build' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 9243ms:
+
+> synthchat-v1@1.1.0 build
+> tsc && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 1650 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   1.07 kB │ gzip:   0.51 kB
+dist/assets/index-D3HCtwTc.css  232.54 kB │ gzip:  36.75 kB
+dist/assets/index-BdQEJhq9.js   729.95 kB │ gzip: 200.34 kB
+✓ built in 2.21s
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..22ea6454c0f1dbb7f10088ac074bdb56c925818b
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -546,16 +546,22 @@
+   conversationId: string,
+   streamedAssistantIds: Set<string>
+ ) {
++  const removedIds = new Set<string>();
+   const pending = pendingIncomingMessagesByConversation.get(conversationId);
+-  if (!pending || pending.length === 0) return;
+-  const next = pending.filter((message) =>
+-    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+-  );
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
+   if (next.length > 0) {
+     pendingIncomingMessagesByConversation.set(conversationId, next);
+   } else {
+     pendingIncomingMessagesByConversation.delete(conversationId);
+   }
++  return removedIds;
+ }
+ 
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+@@ -1872,8 +1878,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1915,8 +1933,7 @@
+   clearStreamingAssistantMessages: (conversationId) => {
+     if (!conversationId) return;
+     set((state) => {
+-      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+-      const removedIds = new Set<string>();
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+       const messages = state.messages.filter((message) => {
+         if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+           return true;
+
+codex
+构建也通过，只有现有的大 chunk 警告。最后我会检查一次 diff，确认改动没有越出 G 组范围。
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git diff -- src/App.tsx src/lib/store.ts src/lib/__tests__/storeMessageMerge.test.ts' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+exec
+"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command 'git status --short' in D:\pro_sunner\demo_vscode\SynthChat-V1.0.0
+ succeeded in 388ms:
+diff --git a/src/App.tsx b/src/App.tsx
+index 2e6ee34..8b331e1 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -163,6 +163,7 @@ export function App() {
+   const handleAgentRunEvent = useAppStore((state) => state.handleAgentRunEvent);
+   const handleManagedProcessEvent = useAppStore((state) => state.handleManagedProcessEvent);
+   const upsertIncomingMessage = useAppStore((state) => state.upsertIncomingMessage);
++  const clearStreamingAssistantMessages = useAppStore((state) => state.clearStreamingAssistantMessages);
+   const refreshPersonasFromBackend = useCallback(async () => {
+     const personas = await api.listPersonas();
+     useAppStore.setState({ personas });
+@@ -308,6 +309,20 @@ export function App() {
+     }, 60);
+   }, [flushPendingStreamMessages]);
+ 
++  const discardPendingStreamMessagesForConversation = useCallback((conversationId: string) => {
++    let removed = false;
++    pendingStreamMessagesRef.current.forEach((item, key) => {
++      if (item.message.conversationId === conversationId) {
++        pendingStreamMessagesRef.current.delete(key);
++        removed = true;
++      }
++    });
++    if (removed && pendingStreamMessagesRef.current.size === 0 && streamFlushTimerRef.current !== null) {
++      window.clearTimeout(streamFlushTimerRef.current);
++      streamFlushTimerRef.current = null;
++    }
++  }, []);
++
+   useEffect(() => () => {
+     chatRefreshTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+     chatRefreshTimersRef.current.clear();
+@@ -489,6 +504,8 @@ export function App() {
+       message?: ChatMessage;
+       delta?: string;
+       isLast?: boolean;
++      ok?: boolean;
++      error?: string;
+     }>("synthchat-chat-event", (event) => {
+       const payload = event.payload;
+       const eventSource = payload.source ?? "";
+@@ -529,6 +546,12 @@ export function App() {
+       }
+       if (payload.type === "turn_finished" && payload.conversationId) {
+         hideConversationProcessing(payload.conversationId);
++        if (payload.ok === false && !isWechatTurnEvent) {
++          discardPendingStreamMessagesForConversation(payload.conversationId);
++          clearStreamingAssistantMessages(payload.conversationId);
++          scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null, 180);
++          return;
++        }
+         if (isWechatEvent) {
+           if (
+             payload.message
+@@ -656,6 +679,7 @@ export function App() {
+     };
+   }, [
+     deferWechatTurnMessage,
++    discardPendingStreamMessagesForConversation,
+     flushDeferredWechatMessages,
+     hideConversationProcessing,
+     incrementConversationUnread,
+@@ -663,6 +687,7 @@ export function App() {
+     scheduleWechatFallbackRefresh,
+     scheduleChatRefresh,
+     scheduleStreamMessageUpsert,
++    clearStreamingAssistantMessages,
+     setConversationProcessing,
+     showConversationProcessing,
+     upsertIncomingMessage
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index 2f1a505..d1eee48 100644
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -1,6 +1,7 @@
+ import { describe, expect, it, beforeEach } from "vitest";
+-import { __chatStoreTestUtils } from "../store";
++import { __chatStoreTestUtils, useAppStore } from "../store";
+ import type { ChatMessage } from "../types";
++import { testMessage } from "./chatTestHarness";
+ 
+ function message(partial: Partial<ChatMessage> & Pick<ChatMessage, "id" | "role" | "content">): ChatMessage {
+   return {
+@@ -28,6 +29,12 @@ function merge(
+ describe("chat store message merge", () => {
+   beforeEach(() => {
+     __chatStoreTestUtils.resetPendingIncomingMessagesForTests();
++    useAppStore.setState({
++      activeConversationId: "conv-1",
++      messages: [],
++      streamedAssistantIds: new Set<string>(),
++      conversationMessageLimits: {}
++    });
+   });
+ 
+   it("keeps a local desktop user message when a refresh returns a stale backend snapshot", () => {
+@@ -128,4 +135,137 @@ describe("chat store message merge", () => {
+     const confirmedMerge = merge([backendUser], []);
+     expect(confirmedMerge.map((item) => item.id)).toEqual(["backend-wechat-user"]);
+   });
++
++  it("keeps a live assistant stream through stale refresh and converges on the final message", () => {
++    const stream = testMessage({
++      id: "assistant-stream-1",
++      role: "assistant",
++      content: "Partial",
++      source: "desktop"
++    });
++    useAppStore.getState().upsertIncomingMessage(stream, { streaming: true });
++
++    const streamingState = useAppStore.getState();
++    expect(streamingState.messages).toHaveLength(1);
++    expect(streamingState.messages[0]).toMatchObject({
++      id: "assistant-stream-1",
++      content: "Partial",
++      source: "desktop-stream"
++    });
++    expect(streamingState.streamedAssistantIds.has("assistant-stream-1")).toBe(true);
++
++    const staleBackend = [
++      testMessage({
++        id: "backend-user-1",
++        role: "user",
++        content: "Prompt",
++        createdAt: "2026-07-08T03:59:59.000Z"
++      })
++    ];
++    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++      staleBackend,
++      streamingState.messages,
++      "conv-1",
++      20,
++      streamingState.streamedAssistantIds
++    );
++    expect(staleMerged.map((item) => item.id)).toEqual(["backend-user-1", "assistant-stream-1"]);
++    expect(staleMerged.find((item) => item.id === "assistant-stream-1")?.source).toBe("desktop-stream");
++
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-stream-1",
++        role: "assistant",
++        content: "Partial final answer",
++        source: "desktop"
++      }),
++      { final: true }
++    );
++
++    const finalState = useAppStore.getState();
++    expect(finalState.messages.filter((item) => item.id === "assistant-stream-1")).toHaveLength(1);
++    expect(finalState.messages[0]).toMatchObject({
++      id: "assistant-stream-1",
++      content: "Partial final answer",
++      source: "desktop"
++    });
++    expect(finalState.streamedAssistantIds.has("assistant-stream-1")).toBe(false);
++  });
++
++  it("clears a failed assistant stream before stale refresh can preserve a ghost bubble", () => {
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-failed-stream",
++        role: "assistant",
++        content: "Partial answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const streamingState = useAppStore.getState();
++    expect(streamingState.messages).toMatchObject([
++      {
++        id: "assistant-failed-stream",
++        role: "assistant",
++        source: "desktop-stream"
++      }
++    ]);
++    expect(streamingState.streamedAssistantIds.has("assistant-failed-stream")).toBe(true);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.messages.some((item) => item.id === "assistant-failed-stream")).toBe(false);
++    expect(clearedState.streamedAssistantIds.has("assistant-failed-stream")).toBe(false);
++
++    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++      [],
++      clearedState.messages,
++      "conv-1",
++      20,
++      clearedState.streamedAssistantIds
++    );
++    expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
++  });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index cedd93a..4606c99 100644
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -532,6 +532,38 @@ function pendingIncomingMessagesForConversation(conversationId: string | null |
+   return conversationId ? pendingIncomingMessagesByConversation.get(conversationId) ?? [] : [];
+ }
+ 
++function isStreamingAssistantMessage(
++  message: ChatMessage,
++  conversationId: string,
++  streamedAssistantIds: Set<string>
++) {
++  return message.conversationId === conversationId
++    && message.role === "assistant"
++    && (message.source === "desktop-stream" || streamedAssistantIds.has(message.id));
++}
++
++function clearPendingStreamingAssistantMessages(
++  conversationId: string,
++  streamedAssistantIds: Set<string>
++) {
++  const removedIds = new Set<string>();
++  const pending = pendingIncomingMessagesByConversation.get(conversationId);
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
++  if (next.length > 0) {
++    pendingIncomingMessagesByConversation.set(conversationId, next);
++  } else {
++    pendingIncomingMessagesByConversation.delete(conversationId);
++  }
++  return removedIds;
++}
++
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+   const byId = new Map<string, ChatMessage>();
+   for (const message of messages) byId.set(message.id, message);
+@@ -1352,6 +1384,7 @@ interface AppState {
+   incrementConversationUnread: (conversationId: string, amount?: number) => void;
+   markConversationRead: (conversationId: string) => void;
+   upsertIncomingMessage: (message: ChatMessage, options?: IncomingMessageUpsertOptions) => void;
++  clearStreamingAssistantMessages: (conversationId: string) => void;
+   createConversation: (personaId?: string) => Promise<void>;
+   openPersonaConversation: (personaId: string) => Promise<void>;
+   deleteConversation: (conversationId: string) => Promise<ConversationDeleteMemorySettlingResult>;
+@@ -1845,8 +1878,20 @@ export const useAppStore = create<AppState>((set, get) => ({
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1885,6 +1930,27 @@ export const useAppStore = create<AppState>((set, get) => ({
+       return { messages: displayMessages(messages, messageLimit), streamedAssistantIds };
+     });
+   },
++  clearStreamingAssistantMessages: (conversationId) => {
++    if (!conversationId) return;
++    set((state) => {
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
++      const messages = state.messages.filter((message) => {
++        if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
++          return true;
++        }
++        removedIds.add(message.id);
++        return false;
++      });
++      const stillTracked = Array.from(state.streamedAssistantIds)
++        .filter((id) => !removedIds.has(id));
++      const trackedChanged = stillTracked.length !== state.streamedAssistantIds.size;
++      if (removedIds.size === 0 && !trackedChanged) return state;
++      return {
++        messages,
++        streamedAssistantIds: trackedChanged ? new Set(stillTracked) : state.streamedAssistantIds
++      };
++    });
++  },
+   createConversation: async (personaId) => {
+     const persona = personaId ? get().personas.find((item) => item.id === personaId) : null;
+     const conversation = await api.createConversation(persona?.name, personaId);
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/__tests__/storeMessageMerge.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/store.ts', LF will be replaced by CRLF the next time Git touches it
+
+ succeeded in 508ms:
+ M src/App.tsx
+ M src/lib/__tests__/storeMessageMerge.test.ts
+ M src/lib/store.ts
+?? .multi-agent/
+?? src/lib/__tests__/chatConversationChain.test.ts
+?? src/lib/__tests__/chatTestHarness.ts
+
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..22ea6454c0f1dbb7f10088ac074bdb56c925818b
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -546,16 +546,22 @@
+   conversationId: string,
+   streamedAssistantIds: Set<string>
+ ) {
++  const removedIds = new Set<string>();
+   const pending = pendingIncomingMessagesByConversation.get(conversationId);
+-  if (!pending || pending.length === 0) return;
+-  const next = pending.filter((message) =>
+-    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+-  );
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
+   if (next.length > 0) {
+     pendingIncomingMessagesByConversation.set(conversationId, next);
+   } else {
+     pendingIncomingMessagesByConversation.delete(conversationId);
+   }
++  return removedIds;
+ }
+ 
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+@@ -1872,8 +1878,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1915,8 +1933,7 @@
+   clearStreamingAssistantMessages: (conversationId) => {
+     if (!conversationId) return;
+     set((state) => {
+-      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+-      const removedIds = new Set<string>();
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+       const messages = state.messages.filter((message) => {
+         if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+           return true;
+
+codex
+**选中能力组**
+
+能力组 G：UI streaming / tool cards / error display。原因是本轮只处理失败/中断后 assistant streaming bubble 清理，以及 stale refresh 不再恢复 ghost bubble。
+
+**发现**
+
+`App.tsx` 现有逻辑符合要求：仅在 `turn_finished` 且 `ok === false` 且不是 WeChat turn 时清理 desktop stream；`isWechatTurnEvent` 覆盖显式 WeChat event 和 active WeChat turn，未破坏 WeChat fallback/defer 时序。
+
+复核时发现一个缺口：inactive conversation 的 assistant stream 会进入 pending incoming，但之前没有稳定标记为 `desktop-stream`，也没有在 pending 清理后移除对应 `streamedAssistantIds`。这会导致 stale refresh 仍有机会保留 ghost bubble。本轮已修正。
+
+**实际修改文件**
+
+- [src/lib/store.ts](D:/pro_sunner/demo_vscode/SynthChat-V1.0.0/src/lib/store.ts)
+  - inactive conversation 收到 streaming assistant 时，pending message 标记为 `desktop-stream` 并登记 streamed id。
+  - final assistant 到达时解除 streamed id。
+  - `clearStreamingAssistantMessages(conversationId)` 现在同时清理 active messages 和 pending incoming messages，并用 pending/active removed ids 一起收敛 `streamedAssistantIds`。
+
+- [src/lib/__tests__/storeMessageMerge.test.ts](D:/pro_sunner/demo_vscode/SynthChat-V1.0.0/src/lib/__tests__/storeMessageMerge.test.ts)
+  - 补充 focused regression：失败 pending assistant stream 在 inactive conversation refresh 前被清理，stale merge 不再恢复。
+
+`src/App.tsx` 是工作区已有改动；本轮只复核，未继续修改。
+
+**验证结果**
+
+- `npm test`：通过，12 test files / 143 tests。
+- `npm run build`：通过。Vite 仍提示 chunk 大于 500 kB，这是既有构建警告，不属于本轮范围。
+
+**风险和下一阶段输入**
+
+风险较低，改动集中在 desktop assistant streaming 状态收敛。下一阶段建议用 App 事件层或端到端路径补一个 `turn_finished ok=false` 的 UI/event regression，覆盖真实 Tauri event 顺序下的失败流清理。
+diff --git a/src/lib/__tests__/storeMessageMerge.test.ts b/src/lib/__tests__/storeMessageMerge.test.ts
+index b4b2e57407bb804e72a55267fe4915776558ee86..d1eee486e72ef02b6ff83ac28fe18359263d6745
+--- a/src/lib/__tests__/storeMessageMerge.test.ts
++++ b/src/lib/__tests__/storeMessageMerge.test.ts
+@@ -228,4 +228,44 @@
+     );
+     expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+   });
++
++  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
++    useAppStore.setState({ activeConversationId: "other-conv" });
++    useAppStore.getState().upsertIncomingMessage(
++      testMessage({
++        id: "assistant-pending-failed-stream",
++        role: "assistant",
++        content: "Partial inactive answer before provider failure",
++        source: "desktop"
++      }),
++      { streaming: true }
++    );
++
++    const pendingState = useAppStore.getState();
++    expect(pendingState.messages).toHaveLength(0);
++    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        pendingState.messages,
++        "conv-1",
++        20,
++        pendingState.streamedAssistantIds
++      ).map((item) => [item.id, item.source])
++    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
++
++    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
++
++    const clearedState = useAppStore.getState();
++    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
++    expect(
++      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
++        [],
++        clearedState.messages,
++        "conv-1",
++        20,
++        clearedState.streamedAssistantIds
++      )
++    ).toEqual([]);
++  });
+ });
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 58bcdfa98040211c941e5e7b4d36842208666dee..22ea6454c0f1dbb7f10088ac074bdb56c925818b
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -546,16 +546,22 @@
+   conversationId: string,
+   streamedAssistantIds: Set<string>
+ ) {
++  const removedIds = new Set<string>();
+   const pending = pendingIncomingMessagesByConversation.get(conversationId);
+-  if (!pending || pending.length === 0) return;
+-  const next = pending.filter((message) =>
+-    !isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)
+-  );
++  if (!pending || pending.length === 0) return removedIds;
++  const next = pending.filter((message) => {
++    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
++      return true;
++    }
++    removedIds.add(message.id);
++    return false;
++  });
+   if (next.length > 0) {
+     pendingIncomingMessagesByConversation.set(conversationId, next);
+   } else {
+     pendingIncomingMessagesByConversation.delete(conversationId);
+   }
++  return removedIds;
+ }
+ 
+ function mergeUniqueMessagesById(messages: ChatMessage[]) {
+@@ -1872,8 +1878,20 @@
+     set((state) => {
+       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
+       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
+-        rememberPendingIncomingMessage(uiMessage);
+-        return state;
++        let pendingMessage = uiMessage;
++        let streamedAssistantIds = state.streamedAssistantIds;
++        if (uiMessage.role === "assistant") {
++          if (options?.streaming) {
++            pendingMessage = { ...uiMessage, source: "desktop-stream" };
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.add(uiMessage.id);
++          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
++            streamedAssistantIds = new Set(streamedAssistantIds);
++            streamedAssistantIds.delete(uiMessage.id);
++          }
++        }
++        rememberPendingIncomingMessage(pendingMessage);
++        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
+       }
+       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
+       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
+@@ -1915,8 +1933,7 @@
+   clearStreamingAssistantMessages: (conversationId) => {
+     if (!conversationId) return;
+     set((state) => {
+-      clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+-      const removedIds = new Set<string>();
++      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+       const messages = state.messages.filter((message) => {
+         if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+           return true;
+
+tokens used
+46,957

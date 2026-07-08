@@ -696,7 +696,10 @@ fn openai_provider_data(payload: &Value, thinking_cards_enabled: bool) -> Option
     }
 }
 
-fn openai_stream_provider_data(reasoning_content: &str, thinking_cards_enabled: bool) -> Option<Value> {
+fn openai_stream_provider_data(
+    reasoning_content: &str,
+    thinking_cards_enabled: bool,
+) -> Option<Value> {
     let reasoning_content = reasoning_content.trim();
     if reasoning_content.is_empty() {
         return None;
@@ -882,7 +885,10 @@ mod reasoning_tests {
     fn openai_stream_provider_data_projects_thinking_cards() {
         let data = openai_stream_provider_data("先确认工具结果是否可用。", true).unwrap();
 
-        assert_eq!(data["openai"]["reasoning_content"], "先确认工具结果是否可用。");
+        assert_eq!(
+            data["openai"]["reasoning_content"],
+            "先确认工具结果是否可用。"
+        );
         assert_eq!(data["thinkingCards"][0]["provider"], "openai");
         assert_eq!(data["thinkingCards"][0]["streaming"], false);
     }
@@ -891,7 +897,10 @@ mod reasoning_tests {
     fn openai_stream_provider_data_can_keep_reasoning_without_cards() {
         let data = openai_stream_provider_data("先确认工具结果是否可用。", false).unwrap();
 
-        assert_eq!(data["openai"]["reasoning_content"], "先确认工具结果是否可用。");
+        assert_eq!(
+            data["openai"]["reasoning_content"],
+            "先确认工具结果是否可用。"
+        );
         assert!(data.get("thinkingCards").is_none());
     }
 }

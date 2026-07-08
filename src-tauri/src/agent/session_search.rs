@@ -695,10 +695,19 @@ fn normalize_session_search_kind(kind: &str) -> String {
         "artifact" | "artifacts" | "tool_artifact" | "tool_artifacts" | "file" | "files" => {
             "artifact".into()
         }
-        "memory" | "memories" | "session_memory" | "session_memories"
-        | "deleted_session_memory" | "deleted_session_memories"
-        | "conversation_memory" | "conversation_memories" | "session_summary"
-        | "session_summaries" | "short_memory" | "short_memories" | "short_term_memory"
+        "memory"
+        | "memories"
+        | "session_memory"
+        | "session_memories"
+        | "deleted_session_memory"
+        | "deleted_session_memories"
+        | "conversation_memory"
+        | "conversation_memories"
+        | "session_summary"
+        | "session_summaries"
+        | "short_memory"
+        | "short_memories"
+        | "short_term_memory"
         | "short_term_memories" => "session_memory".into(),
         _ => "all".into(),
     }

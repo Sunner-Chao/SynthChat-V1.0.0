@@ -24,12 +24,11 @@ use crate::{
     models::{
         new_id, now_iso, AgentCheckpointRecord, AgentDefinition, AgentQueuedRequest,
         AgentRunPhaseRecord, AgentRunRecord, AgentTodoItem, AppConfig, BrowserProvider,
-        CapabilityAdapter, ChatMessage, Conversation, EnhancedSkillSummary,
-        FileStateReaderRecord, FileStateRecord, ImageProvider, LlmProvider, MemoryEntry, Persona,
-        PlannerTraceRecord, PluginSummary, ProfileConfig, ScheduledAgentJob,
-        ScheduledJobOutputRecord, SearchProvider, ShortContextState, ToolApprovalRequest,
-        ToolDefinition, ToolEvent, ToolRouterTraceRecord, ToolTraceEntry, VideoProvider,
-        VisionProvider,
+        CapabilityAdapter, ChatMessage, Conversation, EnhancedSkillSummary, FileStateReaderRecord,
+        FileStateRecord, ImageProvider, LlmProvider, MemoryEntry, Persona, PlannerTraceRecord,
+        PluginSummary, ProfileConfig, ScheduledAgentJob, ScheduledJobOutputRecord, SearchProvider,
+        ShortContextState, ToolApprovalRequest, ToolDefinition, ToolEvent, ToolRouterTraceRecord,
+        ToolTraceEntry, VideoProvider, VisionProvider,
     },
     process_utils::CommandWindowExt,
     threat_patterns::{first_threat_message, ThreatScope},
@@ -720,13 +719,18 @@ mod tests {
         let legacy_child = store
             .create_conversation(Some("Legacy Subagent".into()), Some(persona.id.clone()))
             .unwrap();
-        let mut legacy_run =
-            AgentRunRecord::new(legacy_child.id.clone(), persona.id.clone(), legacy_child.agent_id);
+        let mut legacy_run = AgentRunRecord::new(
+            legacy_child.id.clone(),
+            persona.id.clone(),
+            legacy_child.agent_id,
+        );
         legacy_run.parent_run_id = Some("run-parent".into());
         store.save_agent_run(legacy_run).unwrap();
 
         let visible = store.conversations().unwrap();
-        assert!(visible.iter().any(|conversation| conversation.id == parent.id));
+        assert!(visible
+            .iter()
+            .any(|conversation| conversation.id == parent.id));
         assert!(!visible
             .iter()
             .any(|conversation| conversation.id == child.id));
@@ -2040,13 +2044,21 @@ mod tests {
         user.created_at = "2026-07-07T00:00:00Z".into();
         let user = store.append_message(user).unwrap();
 
-        let mut first_tool =
-            ChatMessage::new(conversation.id.clone(), "tool", "web search started".into(), "tool");
+        let mut first_tool = ChatMessage::new(
+            conversation.id.clone(),
+            "tool",
+            "web search started".into(),
+            "tool",
+        );
         first_tool.created_at = "2026-07-07T00:00:01Z".into();
         store.append_message(first_tool).unwrap();
 
-        let mut second_tool =
-            ChatMessage::new(conversation.id.clone(), "tool", "web extract started".into(), "tool");
+        let mut second_tool = ChatMessage::new(
+            conversation.id.clone(),
+            "tool",
+            "web extract started".into(),
+            "tool",
+        );
         second_tool.created_at = "2026-07-07T00:00:02Z".into();
         store.append_message(second_tool).unwrap();
 
@@ -2063,7 +2075,13 @@ mod tests {
         assert_eq!(messages.len(), 3);
         assert!(messages.iter().any(|message| message.id == user.id));
         assert!(messages.iter().any(|message| message.id == assistant.id));
-        assert!(messages.iter().filter(|message| message.role == "tool").count() <= 1);
+        assert!(
+            messages
+                .iter()
+                .filter(|message| message.role == "tool")
+                .count()
+                <= 1
+        );
 
         let _ = fs::remove_dir_all(dir);
     }
@@ -5566,7 +5584,9 @@ fn ensure_portable_profile_layout(path: &Path) -> AppResult<()> {
 }
 
 fn portable_profile_root(path: &Path) -> PathBuf {
-    path.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+    path.parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_path_buf()
 }
 
 fn portable_tmp_path(path: &Path) -> PathBuf {
@@ -5696,7 +5716,9 @@ fn project_portable_profile_state(path: &Path, state: &PersistedState) -> AppRes
         let approvals = state
             .tool_approvals
             .iter()
-            .filter(|approval| approval.conversation_id.as_deref() == Some(conversation.id.as_str()))
+            .filter(|approval| {
+                approval.conversation_id.as_deref() == Some(conversation.id.as_str())
+            })
             .cloned()
             .collect::<Vec<_>>();
         let todos = state
@@ -5724,7 +5746,10 @@ fn project_portable_profile_state(path: &Path, state: &PersistedState) -> AppRes
         write_json_projection(&conversation_dir.join("agent-runs.json"), &agent_runs)?;
         write_json_projection(&conversation_dir.join("tool-approvals.json"), &approvals)?;
         write_json_projection(&conversation_dir.join("agent-todos.json"), &todos)?;
-        write_json_projection(&conversation_dir.join("planner-traces.json"), &planner_traces)?;
+        write_json_projection(
+            &conversation_dir.join("planner-traces.json"),
+            &planner_traces,
+        )?;
         write_json_projection(
             &conversation_dir.join("tool-router-traces.json"),
             &tool_router_traces,
@@ -5788,7 +5813,12 @@ fn normalize_persisted_config(state: &mut PersistedState) {
     }
     state.config.chat.llm_credential_pool_strategy =
         normalize_credential_pool_strategy(&state.config.chat.llm_credential_pool_strategy).into();
-    if state.config.reply.get("typingIndicatorRefreshSeconds").is_none() {
+    if state
+        .config
+        .reply
+        .get("typingIndicatorRefreshSeconds")
+        .is_none()
+    {
         state.config.reply["typingIndicatorRefreshSeconds"] = json!(2);
     }
 }
@@ -6291,7 +6321,10 @@ fn prune_conversation_messages_for_storage(messages: &mut Vec<ChatMessage>, max:
     let Some(protected_user) = protected_user else {
         return;
     };
-    if messages.iter().any(|message| message.id == protected_user.id) {
+    if messages
+        .iter()
+        .any(|message| message.id == protected_user.id)
+    {
         return;
     }
     if messages.len() >= max {
@@ -6769,13 +6802,9 @@ fn remove_recoverable_error_messages_for_run(
 
 fn replace_run_tool_event_with_completed(run: &mut AgentRunRecord, event: &Value) {
     if let Some(call_id) = tool_event_provider_call_id(event) {
-        if let Some(index) = run
-            .tool_events
-            .iter()
-            .position(|candidate| {
-                tool_event_provider_call_id(candidate).as_deref() == Some(call_id.as_str())
-            })
-        {
+        if let Some(index) = run.tool_events.iter().position(|candidate| {
+            tool_event_provider_call_id(candidate).as_deref() == Some(call_id.as_str())
+        }) {
             run.tool_events[index] = event.clone();
             return;
         }
@@ -7278,11 +7307,7 @@ fn mark_agent_run_aborted(run: &mut AgentRunRecord, now: &str, summary: &str) ->
     close_running_tool_events(run, "canceled", "运行已取消")
 }
 
-fn mark_workflow_graph_current_node_canceled(
-    run: &mut AgentRunRecord,
-    now: &str,
-    summary: &str,
-) {
+fn mark_workflow_graph_current_node_canceled(run: &mut AgentRunRecord, now: &str, summary: &str) {
     let event_sequence = next_store_workflow_event_sequence(run);
     let abort_detail = json!({
         "aborted": true,
@@ -7323,12 +7348,12 @@ fn mark_workflow_graph_current_node_canceled(
         graph.insert("last_event_sequence".into(), json!(event_sequence));
         graph.insert("updatedAt".into(), json!(now));
         graph.insert("updated_at".into(), json!(now));
-        let nodes = graph.entry("nodes").or_insert_with(|| Value::Array(Vec::new()));
+        let nodes = graph
+            .entry("nodes")
+            .or_insert_with(|| Value::Array(Vec::new()));
         if let Some(nodes) = nodes.as_array_mut() {
             if let Some(node) = nodes.iter_mut().find(|node| {
-                node.get("node")
-                    .and_then(Value::as_str)
-                    == Some(current_node.as_str())
+                node.get("node").and_then(Value::as_str) == Some(current_node.as_str())
             }) {
                 if let Some(object) = node.as_object_mut() {
                     object.insert("status".into(), json!("canceled"));
@@ -7509,8 +7534,7 @@ fn set_persona_tool_iterations(persona: &mut Persona, value: u32) {
 }
 
 fn normalize_image_provider(mut provider: ImageProvider) -> ImageProvider {
-    if provider.model.trim().eq_ignore_ascii_case("gpt-image-2") && provider.timeout_seconds < 300
-    {
+    if provider.model.trim().eq_ignore_ascii_case("gpt-image-2") && provider.timeout_seconds < 300 {
         provider.timeout_seconds = 300;
     }
     provider
@@ -10467,7 +10491,10 @@ impl AppStore {
 
     pub fn set_image_providers(&self, providers: Vec<ImageProvider>) -> AppResult<()> {
         self.with_state(|s| {
-            s.image_providers = providers.into_iter().map(normalize_image_provider).collect();
+            s.image_providers = providers
+                .into_iter()
+                .map(normalize_image_provider)
+                .collect();
             self.persist(s)
         })
     }
@@ -11228,7 +11255,9 @@ impl AppStore {
                 let provider = enabled
                     .into_iter()
                     .find(|provider| provider.id == preferred)
-                    .ok_or_else(|| AppError::NotFound(format!("enabled llm provider {preferred}")))?;
+                    .ok_or_else(|| {
+                        AppError::NotFound(format!("enabled llm provider {preferred}"))
+                    })?;
                 let expanded = expand_llm_provider_credentials(provider);
                 let strategy = s.config.chat.llm_credential_pool_strategy.clone();
                 let usage = s.llm_credential_usage.clone();

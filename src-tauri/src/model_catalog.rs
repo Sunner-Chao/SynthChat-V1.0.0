@@ -367,13 +367,11 @@ fn find_model_entry<'a>(
 
 fn string_vec(value: Option<&Value>) -> Vec<String> {
     match value {
-        Some(Value::Array(items)) => {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect()
-        }
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect(),
         Some(Value::String(text)) => text
             .split(|ch| matches!(ch, ',' | '/' | '|' | ';'))
             .map(str::trim)
@@ -454,48 +452,57 @@ fn object_string_vec(
     })
 }
 
-fn object_modalities(object: &serde_json::Map<String, Value>) -> (Option<Vec<String>>, Option<Vec<String>>) {
-    let direct_input = object_string_vec(object, &[
-        "input",
-        "inputs",
-        "inputModalities",
-        "input_modalities",
-        "supportedInputModalities",
-        "supported_input_modalities",
-    ]);
-    let direct_output = object_string_vec(object, &[
-        "output",
-        "outputs",
-        "outputModalities",
-        "output_modalities",
-        "supportedOutputModalities",
-        "supported_output_modalities",
-    ]);
+fn object_modalities(
+    object: &serde_json::Map<String, Value>,
+) -> (Option<Vec<String>>, Option<Vec<String>>) {
+    let direct_input = object_string_vec(
+        object,
+        &[
+            "input",
+            "inputs",
+            "inputModalities",
+            "input_modalities",
+            "supportedInputModalities",
+            "supported_input_modalities",
+        ],
+    );
+    let direct_output = object_string_vec(
+        object,
+        &[
+            "output",
+            "outputs",
+            "outputModalities",
+            "output_modalities",
+            "supportedOutputModalities",
+            "supported_output_modalities",
+        ],
+    );
     let nested = object.get("modalities").and_then(Value::as_object);
-    let nested_input = nested
-        .and_then(|value| {
-            let modalities = lower_string_vec(value.get("input"));
-            if modalities.is_empty() {
-                None
-            } else {
-                Some(modalities)
-            }
-        });
-    let nested_output = nested
-        .and_then(|value| {
-            let modalities = lower_string_vec(value.get("output"));
-            if modalities.is_empty() {
-                None
-            } else {
-                Some(modalities)
-            }
-        });
+    let nested_input = nested.and_then(|value| {
+        let modalities = lower_string_vec(value.get("input"));
+        if modalities.is_empty() {
+            None
+        } else {
+            Some(modalities)
+        }
+    });
+    let nested_output = nested.and_then(|value| {
+        let modalities = lower_string_vec(value.get("output"));
+        if modalities.is_empty() {
+            None
+        } else {
+            Some(modalities)
+        }
+    });
     let flat_modalities = if nested.is_none() {
         object_string_vec(object, &["modalities"])
     } else {
         None
     };
-    (direct_input.or(nested_input).or(flat_modalities), direct_output.or(nested_output))
+    (
+        direct_input.or(nested_input).or(flat_modalities),
+        direct_output.or(nested_output),
+    )
 }
 
 fn partial_capabilities_from_object(
@@ -504,30 +511,49 @@ fn partial_capabilities_from_object(
     let (input_modalities, output_modalities) = object_modalities(object);
     let partial = PartialModelCapabilities {
         supports_tools: object_bool(object, &["supportsTools", "supports_tools", "tool_call"]),
-        supports_vision: object_bool(object, &[
-            "supportsVision",
-            "supports_vision",
-            "vision",
-            "imageInput",
-            "image_input",
-            "multimodal",
-            "attachment",
-        ]),
-        supports_reasoning: object_bool(object, &["supportsReasoning", "supports_reasoning", "reasoning"]),
+        supports_vision: object_bool(
+            object,
+            &[
+                "supportsVision",
+                "supports_vision",
+                "vision",
+                "imageInput",
+                "image_input",
+                "multimodal",
+                "attachment",
+            ],
+        ),
+        supports_reasoning: object_bool(
+            object,
+            &["supportsReasoning", "supports_reasoning", "reasoning"],
+        ),
         supports_pdf: object_bool(object, &["supportsPdf", "supports_pdf"]),
         supports_audio_input: object_bool(object, &["supportsAudioInput", "supports_audio_input"]),
         supports_structured_output: object_bool(
             object,
-            &["supportsStructuredOutput", "supports_structured_output", "structured_output"],
+            &[
+                "supportsStructuredOutput",
+                "supports_structured_output",
+                "structured_output",
+            ],
         ),
         open_weights: object_bool(object, &["openWeights", "open_weights"]),
         input_modalities,
         output_modalities,
-        context_window: object_u64(object, &["contextWindow", "context_window", "inputTokenLimit"]),
-        max_output_tokens: object_u64(object, &["maxOutputTokens", "max_output_tokens", "outputTokenLimit"]),
+        context_window: object_u64(
+            object,
+            &["contextWindow", "context_window", "inputTokenLimit"],
+        ),
+        max_output_tokens: object_u64(
+            object,
+            &["maxOutputTokens", "max_output_tokens", "outputTokenLimit"],
+        ),
         model_family: object_string(object, &["modelFamily", "model_family", "family"]),
         status: object_string(object, &["status"]),
-        knowledge_cutoff: object_string(object, &["knowledgeCutoff", "knowledge_cutoff", "knowledge"]),
+        knowledge_cutoff: object_string(
+            object,
+            &["knowledgeCutoff", "knowledge_cutoff", "knowledge"],
+        ),
     };
     let has_any = partial.supports_tools.is_some()
         || partial.supports_vision.is_some()
@@ -695,7 +721,10 @@ fn curated_vision_capabilities(
     }
 }
 
-fn curated_gateway_capabilities(provider: &LlmProvider, model_id: &str) -> Option<ModelCapabilities> {
+fn curated_gateway_capabilities(
+    provider: &LlmProvider,
+    model_id: &str,
+) -> Option<ModelCapabilities> {
     let host = provider.base_url.trim().to_ascii_lowercase();
     let model = model_id.trim().to_ascii_lowercase();
     if host.contains("xiaomimimo.com") && model == "mimo-v2.5" {
@@ -1252,7 +1281,9 @@ pub async fn detect_provider_models(provider: LlmProvider) -> AppResult<Detected
     } else {
         match provider_type.as_str() {
             "anthropic" => fetch_anthropic_models(&provider, &base_url, api_key.as_deref()).await,
-            "gemini" | "google" => fetch_gemini_models(&provider, &base_url, api_key.as_deref()).await,
+            "gemini" | "google" => {
+                fetch_gemini_models(&provider, &base_url, api_key.as_deref()).await
+            }
             "echo" => Ok(Vec::new()),
             _ => fetch_openai_compatible_models(&provider, &base_url, api_key.as_deref()).await,
         }
@@ -1336,7 +1367,9 @@ pub async fn detect_image_provider_models(provider: ImageProvider) -> AppResult<
             provider_type,
             base_url,
             models: fallback,
-            error: Some("live image model endpoint returned no image models; using built-in catalog".into()),
+            error: Some(
+                "live image model endpoint returned no image models; using built-in catalog".into(),
+            ),
         }),
         Err(error) => Ok(DetectedModelList {
             ok: !fallback.is_empty(),
@@ -1462,9 +1495,7 @@ fn uses_xiaomi_anthropic_model_endpoint(provider: &LlmProvider) -> bool {
         preset,
         provider.base_url.to_ascii_lowercase()
     );
-    haystack.contains("xiaomi")
-        || haystack.contains("mimo")
-        || haystack.contains("xiaomimimo.com")
+    haystack.contains("xiaomi") || haystack.contains("mimo") || haystack.contains("xiaomimimo.com")
 }
 
 fn xiaomi_anthropic_model_base_url(provider: &LlmProvider) -> String {
@@ -1539,29 +1570,48 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
     let (input_modalities, output_modalities) = object_modalities(object);
     let mut partial = PartialModelCapabilities {
         supports_tools: object_bool(object, &["supportsTools", "supports_tools", "tool_call"]),
-        supports_vision: object_bool(object, &[
-            "supportsVision",
-            "supports_vision",
-            "vision",
-            "imageInput",
-            "image_input",
-            "multimodal",
-        ]),
-        supports_reasoning: object_bool(object, &["supportsReasoning", "supports_reasoning", "reasoning"]),
+        supports_vision: object_bool(
+            object,
+            &[
+                "supportsVision",
+                "supports_vision",
+                "vision",
+                "imageInput",
+                "image_input",
+                "multimodal",
+            ],
+        ),
+        supports_reasoning: object_bool(
+            object,
+            &["supportsReasoning", "supports_reasoning", "reasoning"],
+        ),
         supports_pdf: object_bool(object, &["supportsPdf", "supports_pdf"]),
         supports_audio_input: object_bool(object, &["supportsAudioInput", "supports_audio_input"]),
         supports_structured_output: object_bool(
             object,
-            &["supportsStructuredOutput", "supports_structured_output", "structured_output"],
+            &[
+                "supportsStructuredOutput",
+                "supports_structured_output",
+                "structured_output",
+            ],
         ),
         open_weights: object_bool(object, &["openWeights", "open_weights"]),
         input_modalities,
         output_modalities,
-        context_window: object_u64(object, &["contextWindow", "context_window", "inputTokenLimit"]),
-        max_output_tokens: object_u64(object, &["maxOutputTokens", "max_output_tokens", "outputTokenLimit"]),
+        context_window: object_u64(
+            object,
+            &["contextWindow", "context_window", "inputTokenLimit"],
+        ),
+        max_output_tokens: object_u64(
+            object,
+            &["maxOutputTokens", "max_output_tokens", "outputTokenLimit"],
+        ),
         model_family: object_string(object, &["modelFamily", "model_family", "family"]),
         status: object_string(object, &["status"]),
-        knowledge_cutoff: object_string(object, &["knowledgeCutoff", "knowledge_cutoff", "knowledge"]),
+        knowledge_cutoff: object_string(
+            object,
+            &["knowledgeCutoff", "knowledge_cutoff", "knowledge"],
+        ),
     };
     if let Some(nested) = object
         .get("capabilities")
@@ -1573,11 +1623,10 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
     if partial.input_modalities.is_none() {
         let methods = lower_string_vec(object.get("supportedGenerationMethods"));
         if !methods.is_empty() {
-            partial.supports_tools = partial.supports_tools.or(Some(
-                methods
-                    .iter()
-                    .any(|method| matches!(method.as_str(), "generatecontent" | "streamgeneratecontent")),
-            ));
+            partial.supports_tools =
+                partial.supports_tools.or(Some(methods.iter().any(|method| {
+                    matches!(method.as_str(), "generatecontent" | "streamgeneratecontent")
+                })));
         }
     }
     if partial.supports_vision.is_none() {
@@ -1592,7 +1641,8 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
     }
     if partial.supports_audio_input.is_none() {
         if let Some(input_modalities) = partial.input_modalities.as_ref() {
-            partial.supports_audio_input = Some(input_modalities.iter().any(|item| item == "audio"));
+            partial.supports_audio_input =
+                Some(input_modalities.iter().any(|item| item == "audio"));
         }
     }
     let has_any = partial.supports_tools.is_some()
@@ -1612,7 +1662,10 @@ fn partial_capabilities_from_live_item(item: &Value) -> Option<PartialModelCapab
     has_any.then_some(partial)
 }
 
-fn merge_partial_capabilities(base: &mut PartialModelCapabilities, incoming: PartialModelCapabilities) {
+fn merge_partial_capabilities(
+    base: &mut PartialModelCapabilities,
+    incoming: PartialModelCapabilities,
+) {
     base.supports_tools = base.supports_tools.or(incoming.supports_tools);
     base.supports_vision = base.supports_vision.or(incoming.supports_vision);
     base.supports_reasoning = base.supports_reasoning.or(incoming.supports_reasoning);
@@ -1815,11 +1868,7 @@ fn models_from_live_items(provider: &LlmProvider, items: Vec<Value>) -> Vec<Mode
             .or_else(|| item.get("name"))
             .and_then(Value::as_str)
             .map(|value| value.trim_start_matches("models/"));
-        let mut entry = live_model_entry(
-            provider_key,
-            raw_id.trim_start_matches("models/"),
-            name,
-        );
+        let mut entry = live_model_entry(provider_key, raw_id.trim_start_matches("models/"), name);
         if let Some(partial) = partial_capabilities_from_live_item(&item) {
             entry.capabilities =
                 apply_partial_capabilities(entry.capabilities.clone(), partial, "live");
@@ -1929,7 +1978,10 @@ fn image_model_entry(provider_id: &str, model_id: &str, name: Option<&str>) -> M
 
 pub fn list_image_models(provider_type: &str) -> Vec<ModelCatalogEntry> {
     let normalized = provider_type.trim().to_ascii_lowercase();
-    let ids = if matches!(normalized.as_str(), "gemini" | "gemini_image" | "google_gemini") {
+    let ids = if matches!(
+        normalized.as_str(),
+        "gemini" | "gemini_image" | "google_gemini"
+    ) {
         vec![
             (
                 "gemini-2.5-flash-image-preview",

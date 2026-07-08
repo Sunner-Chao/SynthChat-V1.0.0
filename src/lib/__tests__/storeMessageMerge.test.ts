@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { __chatStoreTestUtils } from "../store";
+import { __chatStoreTestUtils, useAppStore } from "../store";
 import type { ChatMessage } from "../types";
+import { testMessage } from "./chatTestHarness";
 
 function message(partial: Partial<ChatMessage> & Pick<ChatMessage, "id" | "role" | "content">): ChatMessage {
   return {
@@ -28,6 +29,12 @@ function merge(
 describe("chat store message merge", () => {
   beforeEach(() => {
     __chatStoreTestUtils.resetPendingIncomingMessagesForTests();
+    useAppStore.setState({
+      activeConversationId: "conv-1",
+      messages: [],
+      streamedAssistantIds: new Set<string>(),
+      conversationMessageLimits: {}
+    });
   });
 
   it("keeps a local desktop user message when a refresh returns a stale backend snapshot", () => {
@@ -127,5 +134,189 @@ describe("chat store message merge", () => {
     });
     const confirmedMerge = merge([backendUser], []);
     expect(confirmedMerge.map((item) => item.id)).toEqual(["backend-wechat-user"]);
+  });
+
+  it("keeps a live assistant stream through stale refresh and converges on the final message", () => {
+    const stream = testMessage({
+      id: "assistant-stream-1",
+      role: "assistant",
+      content: "Partial",
+      source: "desktop"
+    });
+    useAppStore.getState().upsertIncomingMessage(stream, { streaming: true });
+
+    const streamingState = useAppStore.getState();
+    expect(streamingState.messages).toHaveLength(1);
+    expect(streamingState.messages[0]).toMatchObject({
+      id: "assistant-stream-1",
+      content: "Partial",
+      source: "desktop-stream"
+    });
+    expect(streamingState.streamedAssistantIds.has("assistant-stream-1")).toBe(true);
+
+    const staleBackend = [
+      testMessage({
+        id: "backend-user-1",
+        role: "user",
+        content: "Prompt",
+        createdAt: "2026-07-08T03:59:59.000Z"
+      })
+    ];
+    const staleMergeResult = __chatStoreTestUtils.mergeBackendMessagesWithLiveStateResult(
+      staleBackend,
+      streamingState.messages,
+      "conv-1",
+      20,
+      streamingState.streamedAssistantIds,
+      { preserveStreamingAssistantMessages: true }
+    );
+    const staleMerged = staleMergeResult.messages;
+    expect(staleMerged.map((item) => item.id)).toEqual(["backend-user-1", "assistant-stream-1"]);
+    expect(staleMerged.find((item) => item.id === "assistant-stream-1")?.source).toBe("desktop-stream");
+    expect(staleMergeResult.streamedAssistantIds.has("assistant-stream-1")).toBe(true);
+
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-stream-1",
+        role: "assistant",
+        content: "Partial final answer",
+        source: "desktop"
+      }),
+      { final: true }
+    );
+
+    const finalState = useAppStore.getState();
+    expect(finalState.messages.filter((item) => item.id === "assistant-stream-1")).toHaveLength(1);
+    expect(finalState.messages[0]).toMatchObject({
+      id: "assistant-stream-1",
+      content: "Partial final answer",
+      source: "desktop"
+    });
+    expect(finalState.streamedAssistantIds.has("assistant-stream-1")).toBe(false);
+  });
+
+  it("drops an orphan live assistant stream during stale refresh when no active work remains", () => {
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-orphan-stream",
+        role: "assistant",
+        content: "Partial answer from an interrupted run",
+        source: "desktop"
+      }),
+      { streaming: true }
+    );
+
+    const streamingState = useAppStore.getState();
+    expect(streamingState.messages).toMatchObject([
+      {
+        id: "assistant-orphan-stream",
+        role: "assistant",
+        source: "desktop-stream"
+      }
+    ]);
+    expect(streamingState.streamedAssistantIds.has("assistant-orphan-stream")).toBe(true);
+
+    const staleBackend = [
+      testMessage({
+        id: "backend-user-orphan",
+        role: "user",
+        content: "Prompt before interruption",
+        createdAt: "2026-07-08T03:59:59.000Z"
+      })
+    ];
+    const mergeResult = __chatStoreTestUtils.mergeBackendMessagesWithLiveStateResult(
+      staleBackend,
+      streamingState.messages,
+      "conv-1",
+      20,
+      streamingState.streamedAssistantIds,
+      { preserveStreamingAssistantMessages: false }
+    );
+    useAppStore.setState({
+      messages: mergeResult.messages,
+      streamedAssistantIds: mergeResult.streamedAssistantIds
+    });
+
+    const refreshedState = useAppStore.getState();
+    expect(refreshedState.messages.map((item) => item.id)).toEqual(["backend-user-orphan"]);
+    expect(refreshedState.messages.some((item) => item.id === "assistant-orphan-stream")).toBe(false);
+    expect(refreshedState.streamedAssistantIds.has("assistant-orphan-stream")).toBe(false);
+  });
+
+  it("clears a failed assistant stream before stale refresh can preserve a ghost bubble", () => {
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-failed-stream",
+        role: "assistant",
+        content: "Partial answer before provider failure",
+        source: "desktop"
+      }),
+      { streaming: true }
+    );
+
+    const streamingState = useAppStore.getState();
+    expect(streamingState.messages).toMatchObject([
+      {
+        id: "assistant-failed-stream",
+        role: "assistant",
+        source: "desktop-stream"
+      }
+    ]);
+    expect(streamingState.streamedAssistantIds.has("assistant-failed-stream")).toBe(true);
+
+    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
+
+    const clearedState = useAppStore.getState();
+    expect(clearedState.messages.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+    expect(clearedState.streamedAssistantIds.has("assistant-failed-stream")).toBe(false);
+
+    const staleMerged = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+      [],
+      clearedState.messages,
+      "conv-1",
+      20,
+      clearedState.streamedAssistantIds
+    );
+    expect(staleMerged.some((item) => item.id === "assistant-failed-stream")).toBe(false);
+  });
+
+  it("clears a failed pending assistant stream before inactive conversation refresh", () => {
+    useAppStore.setState({ activeConversationId: "other-conv" });
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-pending-failed-stream",
+        role: "assistant",
+        content: "Partial inactive answer before provider failure",
+        source: "desktop"
+      }),
+      { streaming: true }
+    );
+
+    const pendingState = useAppStore.getState();
+    expect(pendingState.messages).toHaveLength(0);
+    expect(pendingState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(true);
+    expect(
+      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+        [],
+        pendingState.messages,
+        "conv-1",
+        20,
+        pendingState.streamedAssistantIds
+      ).map((item) => [item.id, item.source])
+    ).toEqual([["assistant-pending-failed-stream", "desktop-stream"]]);
+
+    useAppStore.getState().clearStreamingAssistantMessages("conv-1");
+
+    const clearedState = useAppStore.getState();
+    expect(clearedState.streamedAssistantIds.has("assistant-pending-failed-stream")).toBe(false);
+    expect(
+      __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+        [],
+        clearedState.messages,
+        "conv-1",
+        20,
+        clearedState.streamedAssistantIds
+      )
+    ).toEqual([]);
   });
 });

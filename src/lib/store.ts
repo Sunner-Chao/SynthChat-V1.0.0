@@ -532,6 +532,38 @@ function pendingIncomingMessagesForConversation(conversationId: string | null | 
   return conversationId ? pendingIncomingMessagesByConversation.get(conversationId) ?? [] : [];
 }
 
+function isStreamingAssistantMessage(
+  message: ChatMessage,
+  conversationId: string,
+  streamedAssistantIds: Set<string>
+) {
+  return message.conversationId === conversationId
+    && message.role === "assistant"
+    && (message.source === "desktop-stream" || streamedAssistantIds.has(message.id));
+}
+
+function clearPendingStreamingAssistantMessages(
+  conversationId: string,
+  streamedAssistantIds: Set<string>
+) {
+  const removedIds = new Set<string>();
+  const pending = pendingIncomingMessagesByConversation.get(conversationId);
+  if (!pending || pending.length === 0) return removedIds;
+  const next = pending.filter((message) => {
+    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
+      return true;
+    }
+    removedIds.add(message.id);
+    return false;
+  });
+  if (next.length > 0) {
+    pendingIncomingMessagesByConversation.set(conversationId, next);
+  } else {
+    pendingIncomingMessagesByConversation.delete(conversationId);
+  }
+  return removedIds;
+}
+
 function mergeUniqueMessagesById(messages: ChatMessage[]) {
   const byId = new Map<string, ChatMessage>();
   for (const message of messages) byId.set(message.id, message);
@@ -723,23 +755,57 @@ function mergeLocalUiMessages(
   );
 }
 
-function mergeBackendMessagesWithLiveState(
+type MergeBackendMessagesOptions = {
+  preserveStreamingAssistantMessages?: boolean;
+};
+
+function pruneStreamingAssistantMessagesFromLiveState(
+  currentMessages: ChatMessage[],
+  conversationId: string | null,
+  streamedAssistantIds: Set<string>
+) {
+  if (!conversationId) {
+    return { messages: currentMessages, streamedAssistantIds };
+  }
+  const removedIds = clearPendingStreamingAssistantMessages(conversationId, streamedAssistantIds);
+  const messages = currentMessages.filter((message) => {
+    if (!isStreamingAssistantMessage(message, conversationId, streamedAssistantIds)) {
+      return true;
+    }
+    removedIds.add(message.id);
+    return false;
+  });
+  if (removedIds.size === 0) {
+    return { messages, streamedAssistantIds };
+  }
+  return {
+    messages,
+    streamedAssistantIds: new Set(Array.from(streamedAssistantIds).filter((id) => !removedIds.has(id)))
+  };
+}
+
+function mergeBackendMessagesWithLiveStateResult(
   backendMessages: ChatMessage[],
   currentMessages: ChatMessage[],
   conversationId: string | null,
   limit: number,
-  streamedAssistantIds: Set<string>
+  streamedAssistantIds: Set<string>,
+  options: MergeBackendMessagesOptions = {}
 ) {
+  const preserveStreamingAssistantMessages = options.preserveStreamingAssistantMessages ?? true;
+  const liveState = preserveStreamingAssistantMessages
+    ? { messages: currentMessages, streamedAssistantIds }
+    : pruneStreamingAssistantMessagesFromLiveState(currentMessages, conversationId, streamedAssistantIds);
   const pending = pendingIncomingMessagesForConversation(conversationId);
   const liveMessages = pending.length > 0
-    ? mergeUniqueMessagesById([...currentMessages, ...pending])
-    : currentMessages;
+    ? mergeUniqueMessagesById([...liveState.messages, ...pending])
+    : liveState.messages;
   let messages = mergeLocalUiMessages(
     backendMessages,
     liveMessages,
     conversationId,
     limit,
-    streamedAssistantIds
+    liveState.streamedAssistantIds
   );
   if (pending.length > 0) {
     const messageIds = new Set(messages.map((message) => message.id));
@@ -754,11 +820,30 @@ function mergeBackendMessagesWithLiveState(
     }
   }
   prunePendingIncomingMessages(conversationId, backendMessages);
-  return messages;
+  return { messages, streamedAssistantIds: liveState.streamedAssistantIds };
+}
+
+function mergeBackendMessagesWithLiveState(
+  backendMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+  conversationId: string | null,
+  limit: number,
+  streamedAssistantIds: Set<string>,
+  options: MergeBackendMessagesOptions = {}
+) {
+  return mergeBackendMessagesWithLiveStateResult(
+    backendMessages,
+    currentMessages,
+    conversationId,
+    limit,
+    streamedAssistantIds,
+    options
+  ).messages;
 }
 
 export const __chatStoreTestUtils = {
   mergeBackendMessagesWithLiveState,
+  mergeBackendMessagesWithLiveStateResult,
   rememberPendingIncomingMessage,
   resetPendingIncomingMessagesForTests: () => pendingIncomingMessagesByConversation.clear()
 };
@@ -779,6 +864,34 @@ function hasPendingAgentWork(state: AppState, conversationId: string | null) {
       && !run.parentRunId
       && !TERMINAL_AGENT_STATES.has(run.state)
     );
+}
+
+function hasActiveConversationWork(state: AppState, conversationId: string | null) {
+  return Boolean(
+    conversationId
+    && (
+      state.processingConversationIds.includes(conversationId)
+      || hasPendingAgentWork(state, conversationId)
+    )
+  );
+}
+
+function mergeBackendMessagesForState(
+  backendMessages: ChatMessage[],
+  state: AppState,
+  conversationId: string | null,
+  limit: number,
+  overrides: Partial<Pick<AppState, "activeAgentRuns" | "agentQueue" | "agentRuns" | "processingConversationIds">> = {}
+) {
+  const mergeState = { ...state, ...overrides };
+  return mergeBackendMessagesWithLiveStateResult(
+    backendMessages,
+    state.messages,
+    conversationId,
+    limit,
+    state.streamedAssistantIds,
+    { preserveStreamingAssistantMessages: hasActiveConversationWork(mergeState, conversationId) }
+  );
 }
 
 function sameConversations(left: Conversation[], right: Conversation[]) {
@@ -1352,6 +1465,7 @@ interface AppState {
   incrementConversationUnread: (conversationId: string, amount?: number) => void;
   markConversationRead: (conversationId: string) => void;
   upsertIncomingMessage: (message: ChatMessage, options?: IncomingMessageUpsertOptions) => void;
+  clearStreamingAssistantMessages: (conversationId: string) => void;
   createConversation: (personaId?: string) => Promise<void>;
   openPersonaConversation: (personaId: string) => Promise<void>;
   deleteConversation: (conversationId: string) => Promise<ConversationDeleteMemorySettlingResult>;
@@ -1579,19 +1693,25 @@ export const useAppStore = create<AppState>((set, get) => ({
         return [];
       }))
       : [];
-    const messages = mergeBackendMessagesWithLiveState(
+    const bootstrapState = get();
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      get().messages,
+      bootstrapState,
       activeConversationId,
       messageLimit,
-      get().streamedAssistantIds
+      {
+        activeAgentRuns: {},
+        agentQueue,
+        agentRuns,
+        processingConversationIds: []
+      }
     );
     set({
       config,
       conversations,
       activeConversationId,
       focusedAgentId: normalizeFocusedAgentId(agents, get().focusedAgentId),
-      messages,
+      messages: mergeResult.messages,
       moments,
       personas: personaMutationVersion === startedPersonaMutationVersion ? personas : get().personas,
       mcpServers,
@@ -1615,6 +1735,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       agents,
       agentQueue,
       agentRuns,
+      streamedAssistantIds: mergeResult.streamedAssistantIds,
       skillBundles,
       activeAgentRuns: {},
       managedProcessEvents: [],
@@ -1654,18 +1775,22 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? visibleChatMessages(await api.listMessages(state.activeConversationId, messageLimit, previewChars))
         : [];
       const liveState = get();
-      const nextMessages = mergeBackendMessagesWithLiveState(
+      const mergeResult = mergeBackendMessagesForState(
         backendMessages,
-        liveState.messages,
+        liveState,
         state.activeConversationId,
         messageLimit,
-        liveState.streamedAssistantIds
+        {
+          agentQueue: nextQueue,
+          agentRuns: nextRuns
+        }
       );
       set({
         agentRuns: nextRuns,
         agentQueue: nextQueue,
         conversations: nextConversations,
-        messages: nextMessages
+        messages: mergeResult.messages,
+        streamedAssistantIds: mergeResult.streamedAssistantIds
       });
     }).catch((error) => {
       console.warn("agent scheduler bootstrap failed", error);
@@ -1700,13 +1825,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars))
       : [];
     const liveState = get();
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesWithLiveStateResult(
       backendMessages,
       liveState.messages,
       activeConversationId,
       messageLimit,
-      liveState.streamedAssistantIds
+      liveState.streamedAssistantIds,
+      {
+        preserveStreamingAssistantMessages: hasActiveConversationWork(
+          { ...liveState, agentQueue },
+          activeConversationId
+        )
+      }
     );
+    const messages = mergeResult.messages;
+    const streamedAssistantIdsChanged = mergeResult.streamedAssistantIds !== liveState.streamedAssistantIds;
     const latestMessage = messages.at(-1);
     const shouldClearProcessing =
       Boolean(activeConversationId && latestMessage?.role === "assistant")
@@ -1715,6 +1848,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       liveState.activeConversationId === activeConversationId
       && sameConversations(liveState.conversations, conversations)
       && sameMessages(liveState.messages, messages)
+      && !streamedAssistantIdsChanged
     ) {
       set((current) => ({
         agentQueue,
@@ -1729,6 +1863,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       agentQueue,
       activeConversationId,
       messages,
+      streamedAssistantIds: mergeResult.streamedAssistantIds,
       conversationUnreadCounts: current.conversationUnreadCounts,
       processingConversationIds: shouldClearProcessing
         ? current.processingConversationIds.filter((id) => id !== activeConversationId)
@@ -1757,12 +1892,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const previewChars = uiMessagePreviewChars(state.config);
     const backendMessages = visibleChatMessages(await api.listMessages(targetConversationId, nextLimit, previewChars));
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      state.messages,
+      state,
       targetConversationId,
-      nextLimit,
-      state.streamedAssistantIds
+      nextLimit
     );
     if (get().activeConversationId === targetConversationId) {
       set((current) => ({
@@ -1770,7 +1904,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           ...current.conversationMessageLimits,
           [targetConversationId]: nextLimit
         },
-        messages
+        messages: mergeResult.messages,
+        streamedAssistantIds: mergeResult.streamedAssistantIds
       }));
     } else {
       set((current) => ({
@@ -1780,7 +1915,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }));
     }
-    return { loadedCount: messages.length, hasMore: backendMessages.length >= nextLimit && nextLimit < MAX_UI_MESSAGE_LIMIT };
+    return { loadedCount: mergeResult.messages.length, hasMore: backendMessages.length >= nextLimit && nextLimit < MAX_UI_MESSAGE_LIMIT };
   },
   setConversationProcessing: (conversationId, processing) => {
     if (!conversationId) return;
@@ -1845,8 +1980,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
-        rememberPendingIncomingMessage(uiMessage);
-        return state;
+        let pendingMessage = uiMessage;
+        let streamedAssistantIds = state.streamedAssistantIds;
+        if (uiMessage.role === "assistant") {
+          if (options?.streaming) {
+            pendingMessage = { ...uiMessage, source: "desktop-stream" };
+            streamedAssistantIds = new Set(streamedAssistantIds);
+            streamedAssistantIds.add(uiMessage.id);
+          } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
+            streamedAssistantIds = new Set(streamedAssistantIds);
+            streamedAssistantIds.delete(uiMessage.id);
+          }
+        }
+        rememberPendingIncomingMessage(pendingMessage);
+        return streamedAssistantIds === state.streamedAssistantIds ? state : { streamedAssistantIds };
       }
       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
@@ -1885,6 +2032,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { messages: displayMessages(messages, messageLimit), streamedAssistantIds };
     });
   },
+  clearStreamingAssistantMessages: (conversationId) => {
+    if (!conversationId) return;
+    set((state) => {
+      const removedIds = clearPendingStreamingAssistantMessages(conversationId, state.streamedAssistantIds);
+      const messages = state.messages.filter((message) => {
+        if (!isStreamingAssistantMessage(message, conversationId, state.streamedAssistantIds)) {
+          return true;
+        }
+        removedIds.add(message.id);
+        return false;
+      });
+      const stillTracked = Array.from(state.streamedAssistantIds)
+        .filter((id) => !removedIds.has(id));
+      const trackedChanged = stillTracked.length !== state.streamedAssistantIds.size;
+      if (removedIds.size === 0 && !trackedChanged) return state;
+      return {
+        messages,
+        streamedAssistantIds: trackedChanged ? new Set(stillTracked) : state.streamedAssistantIds
+      };
+    });
+  },
   createConversation: async (personaId) => {
     const persona = personaId ? get().personas.find((item) => item.id === personaId) : null;
     const conversation = await api.createConversation(persona?.name, personaId);
@@ -1893,17 +2061,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const previewChars = uiMessagePreviewChars(get().config);
     const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
     const liveState = get();
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      liveState.messages,
+      liveState,
       conversation.id,
-      messageLimit,
-      liveState.streamedAssistantIds
+      messageLimit
     );
     set((current) => ({
       conversations,
       activeConversationId: conversation.id,
-      messages,
+      messages: mergeResult.messages,
+      streamedAssistantIds: mergeResult.streamedAssistantIds,
       conversationMessageLimits: {
         ...current.conversationMessageLimits,
         [conversation.id]: messageLimit
@@ -1918,17 +2086,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const previewChars = uiMessagePreviewChars(get().config);
     const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
     const liveState = get();
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      liveState.messages,
+      liveState,
       conversation.id,
-      messageLimit,
-      liveState.streamedAssistantIds
+      messageLimit
     );
     set((current) => ({
       conversations,
       activeConversationId: conversation.id,
-      messages,
+      messages: mergeResult.messages,
+      streamedAssistantIds: mergeResult.streamedAssistantIds,
       conversationMessageLimits: {
         ...current.conversationMessageLimits,
         [conversation.id]: messageLimit
@@ -1946,15 +2114,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const messageLimit = conversationMessageLimit(state.config, activeConversationId, conversationMessageLimits);
     const previewChars = uiMessagePreviewChars(state.config);
     const backendMessages = activeConversationId ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars)) : [];
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      state.messages,
+      state,
       activeConversationId,
-      messageLimit,
-      state.streamedAssistantIds
+      messageLimit
     );
     const { [conversationId]: _unread, ...unreadCounts } = state.conversationUnreadCounts;
-    set({ conversations, activeConversationId, messages, conversationUnreadCounts: unreadCounts, conversationMessageLimits });
+    set({
+      conversations,
+      activeConversationId,
+      messages: mergeResult.messages,
+      streamedAssistantIds: mergeResult.streamedAssistantIds,
+      conversationUnreadCounts: unreadCounts,
+      conversationMessageLimits
+    });
     return settling;
   },
   selectConversation: async (conversationId) => {
@@ -1973,17 +2147,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const previewChars = uiMessagePreviewChars(state.config);
     const backendMessages = visibleChatMessages(await api.listMessages(conversationId, messageLimit, previewChars));
     const liveState = get();
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      liveState.messages,
+      liveState,
       conversationId,
-      messageLimit,
-      liveState.streamedAssistantIds
+      messageLimit
     );
     if (get().activeConversationId === conversationId) {
       set((current) => ({
         activeConversationId: conversationId,
-        messages,
+        messages: mergeResult.messages,
+        streamedAssistantIds: mergeResult.streamedAssistantIds,
         conversationMessageLimits: {
           ...current.conversationMessageLimits,
           [conversationId]: messageLimit
@@ -2004,17 +2178,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       const previewChars = uiMessagePreviewChars(state.config);
       const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
       const liveState = get();
-      const messages = mergeBackendMessagesWithLiveState(
+      const mergeResult = mergeBackendMessagesForState(
         backendMessages,
-        liveState.messages,
+        liveState,
         conversation.id,
-        messageLimit,
-        liveState.streamedAssistantIds
+        messageLimit
       );
       set((current) => ({
         conversations,
         activeConversationId: conversation.id,
-        messages,
+        messages: mergeResult.messages,
+        streamedAssistantIds: mergeResult.streamedAssistantIds,
         processingConversationIds: state.processingConversationIds.filter((id) => id !== state.activeConversationId),
         conversationMessageLimits: {
           ...current.conversationMessageLimits,
@@ -2040,17 +2214,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         delete unreadCounts[conversation.id];
         const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
         const liveState = get();
-        const messages = mergeBackendMessagesWithLiveState(
+        const mergeResult = mergeBackendMessagesForState(
           backendMessages,
-          liveState.messages,
+          liveState,
           conversation.id,
-          messageLimit,
-          liveState.streamedAssistantIds
+          messageLimit
         );
         set((current) => ({
           conversations,
           activeConversationId: conversation.id,
-          messages,
+          messages: mergeResult.messages,
+          streamedAssistantIds: mergeResult.streamedAssistantIds,
           conversationUnreadCounts: unreadCounts,
           processingConversationIds: state.processingConversationIds.filter((id) => id !== state.activeConversationId),
           conversationMessageLimits: {
@@ -2073,17 +2247,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       const previewChars = uiMessagePreviewChars(state.config);
       const backendMessages = visibleChatMessages(await api.listMessages(conversation.id, messageLimit, previewChars));
       const liveState = get();
-      const messages = mergeBackendMessagesWithLiveState(
+      const mergeResult = mergeBackendMessagesForState(
         backendMessages,
-        liveState.messages,
+        liveState,
         conversation.id,
-        messageLimit,
-        liveState.streamedAssistantIds
+        messageLimit
       );
       set((current) => ({
         conversations,
         activeConversationId,
-        messages,
+        messages: mergeResult.messages,
+        streamedAssistantIds: mergeResult.streamedAssistantIds,
         conversationMessageLimits: {
           ...current.conversationMessageLimits,
           [conversation.id]: messageLimit
@@ -2718,12 +2892,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const backendMessages = activeConversationId
       ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars))
       : [];
-    const messages = mergeBackendMessagesWithLiveState(
+    const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      state.messages,
+      state,
       activeConversationId,
-      messageLimit,
-      state.streamedAssistantIds
+      messageLimit
     );
     set({
       agents,
@@ -2731,7 +2904,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       personas,
       conversations,
       activeConversationId,
-      messages
+      messages: mergeResult.messages,
+      streamedAssistantIds: mergeResult.streamedAssistantIds
     });
   },
   refreshSkillsForAgent: async (agentId) => {

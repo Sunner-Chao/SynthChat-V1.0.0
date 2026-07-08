@@ -124,12 +124,9 @@ pub(super) async fn complete_anthropic_compatible(
             status = retry_response.status();
             response_headers = retry_response.headers().clone();
             if !status.is_success() {
-                let text = retry_response
-                    .text()
-                    .await
-                    .map_err(|e| {
-                        AppError::Llm(format!("failed to read recovered llm response: {e}"))
-                    })?;
+                let text = retry_response.text().await.map_err(|e| {
+                    AppError::Llm(format!("failed to read recovered llm response: {e}"))
+                })?;
                 return Err(AppError::Llm(format!(
                     "provider returned {status}: {}",
                     response_preview(&text)
@@ -388,9 +385,7 @@ fn handle_anthropic_sse_line(
     if emit_thinking_deltas {
         if let Some(thinking_delta) = payload
             .get("delta")
-            .filter(|delta| {
-                delta.get("type").and_then(Value::as_str) == Some("thinking_delta")
-            })
+            .filter(|delta| delta.get("type").and_then(Value::as_str) == Some("thinking_delta"))
             .and_then(|delta| delta.get("thinking"))
             .and_then(Value::as_str)
             .filter(|delta| !delta.is_empty())

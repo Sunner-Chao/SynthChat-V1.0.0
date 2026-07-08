@@ -24,7 +24,8 @@ use crate::{
 
 use super::{
     append_parent_phase_event, available_mcp_tool_definitions,
-    decision_parser::PROVIDER_TOOL_CALL_META_KEY, delegation_request::DelegateTaskRequest,
+    decision_parser::PROVIDER_TOOL_CALL_META_KEY,
+    delegation_request::DelegateTaskRequest,
     disk_cleanup_post_tool_call_hook, disk_cleanup_session_end_hook, emit_agent_run_record,
     executor_core::{
         ExecutorApprovalRequestContext, ExecutorCore, ExecutorInternalToolExecutionContext,

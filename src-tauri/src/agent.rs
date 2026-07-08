@@ -110,10 +110,10 @@ mod delegation_synthchat;
 mod diagnostics;
 #[path = "agent/env_probe.rs"]
 mod env_probe;
-#[path = "agent/executor_core.rs"]
-mod executor_core;
 #[path = "agent/execution.rs"]
 mod execution;
+#[path = "agent/executor_core.rs"]
+mod executor_core;
 pub(crate) use execution::decode_terminal_output;
 #[path = "agent/file_tools.rs"]
 mod file_tools;
@@ -261,13 +261,13 @@ use diagnostics::{
     workspace_diagnostics_tool,
 };
 use env_probe::env_probe_tool;
-use executor_core::{
-    ExecutorApprovalPolicyContext, ExecutorApprovalRequestContext, ExecutorCore,
-    ExecutorInternalToolExecutionContext,
-};
 use execution::{
     execute_code_tool, process_tool, reattach_detached_process_watchers,
     sensitive_env_names_to_remove, terminal_tool, tool_env_passthrough,
+};
+use executor_core::{
+    ExecutorApprovalPolicyContext, ExecutorApprovalRequestContext, ExecutorCore,
+    ExecutorInternalToolExecutionContext,
 };
 use file_tools::{
     apply_v4a_hunks_to_content, delete_file_tool, move_file_tool, normalized_replacements,
@@ -278,9 +278,9 @@ use integrations::*;
 pub(crate) use integrations::{
     mattermost_adapter_status, platform_adapter_status, start_configured_platform_adapters,
     start_mattermost_adapter, start_platform_adapter, stop_mattermost_adapter,
-    stop_platform_adapter, text_to_speech_payload_for_desktop, transcribe_audio_payload_for_desktop,
+    stop_platform_adapter, text_to_speech_payload_for_desktop,
+    transcribe_audio_payload_for_desktop,
 };
-pub(crate) use media_tools::{desktop_voice_playback_start_path, desktop_voice_playback_stop};
 use iteration_budget::IterationBudget;
 use kanban::{
     kanban_block_tool, kanban_bulk_update_tool, kanban_comment_tool, kanban_complete_tool,
@@ -294,6 +294,7 @@ use llm_failure::{
 };
 use llm_recovery::*;
 use media_tools::*;
+pub(crate) use media_tools::{desktop_voice_playback_start_path, desktop_voice_playback_stop};
 use memory::{
     execute_manage_memory, external_memory_provider_tool, fact_feedback_tool,
     fact_store_tool_for_run, holographic_memory_prefetch_facts, manage_memory_tool,
@@ -318,13 +319,13 @@ use prompt_builder::{
 };
 use provider_plugins::provider_plugins_tool;
 use redact::{redact_json_value, redact_sensitive_text};
+pub(crate) use run_management::record_agent_queue_workflow_terminal;
 use run_management::*;
 pub use run_management::{
     abort_agent_run, diagnose_agent_run, drain_all_agent_queues, export_agent_run_bundle,
     list_agent_run_artifacts, rerun_agent_run, resume_agent_run,
     spawn_background_chat_turn_for_job,
 };
-pub(crate) use run_management::record_agent_queue_workflow_terminal;
 pub(crate) use runtime_events::emit_pet_assistant_event;
 use runtime_events::{
     append_planner_trace, emit_agent_run_record, push_tool_event_record, record_tool_event_for_run,
@@ -459,10 +460,10 @@ pub(crate) fn snapshot_conversation_memory_before_delete(
     let agent = store.agent(Some(&conversation.agent_id))?;
     Ok(ConversationMemorySettlingPlan::Schedule(
         ConversationMemorySettlingSnapshot {
-        conversation,
-        persona,
-        agent,
-        messages,
+            conversation,
+            persona,
+            agent,
+            messages,
         },
     ))
 }
@@ -475,16 +476,17 @@ pub(crate) async fn settle_conversation_memory_snapshot(
     if transcript.trim().is_empty() {
         return delete_memory_settling_skipped("conversation transcript is empty");
     }
-    let providers = match store.provider_candidates(selected_provider_id(&snapshot.persona, &snapshot.agent)) {
-        Ok(providers) => providers,
-        Err(error) => {
-            return ConversationDeleteMemorySettlingResult {
-                status: "failed".into(),
-                reason: Some(error.to_string()),
-                memory_count: 0,
-            };
-        }
-    };
+    let providers =
+        match store.provider_candidates(selected_provider_id(&snapshot.persona, &snapshot.agent)) {
+            Ok(providers) => providers,
+            Err(error) => {
+                return ConversationDeleteMemorySettlingResult {
+                    status: "failed".into(),
+                    reason: Some(error.to_string()),
+                    memory_count: 0,
+                };
+            }
+        };
     if providers.is_empty() {
         return delete_memory_settling_skipped("no llm provider configured");
     }
@@ -553,7 +555,9 @@ pub(crate) async fn settle_conversation_memory_snapshot(
             .memories(Some(&snapshot.persona.id))
             .unwrap_or_default()
             .iter()
-            .any(|memory| memory.summary.trim() == summary.trim() && memory.target == candidate.target)
+            .any(|memory| {
+                memory.summary.trim() == summary.trim() && memory.target == candidate.target
+            })
         {
             continue;
         }
@@ -630,9 +634,8 @@ fn delete_memory_review_prompt(conversation: &Conversation, transcript: &str) ->
 }
 
 fn parse_delete_memory_candidates(raw: &str) -> AppResult<Vec<DeleteMemoryCandidate>> {
-    let value = parse_json_value_from_model_text(raw).ok_or_else(|| {
-        AppError::BadRequest("memory review did not return valid JSON".into())
-    })?;
+    let value = parse_json_value_from_model_text(raw)
+        .ok_or_else(|| AppError::BadRequest("memory review did not return valid JSON".into()))?;
     let items = value
         .get("memories")
         .and_then(Value::as_array)
@@ -1077,12 +1080,7 @@ pub(crate) async fn synthchat_tools_mcp_call(
         Ok((text, event)) => {
             executor_core.record_tool_event(store, None, &conversation_id, &run_id, event)?;
             let _ = executor_core.continue_planning(store, &run_id, 1, 1, Some(false))?;
-            workflow_graph::record_workflow_planner_to_reviewer(
-                store,
-                &run_id,
-                2,
-                workflow_mode,
-            )?;
+            workflow_graph::record_workflow_planner_to_reviewer(store, &run_id, 2, workflow_mode)?;
             workflow_graph::record_workflow_reviewer_skipped(
                 store,
                 &run_id,

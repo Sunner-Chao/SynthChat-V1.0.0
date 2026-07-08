@@ -306,8 +306,7 @@ fn start_voice_playback_path(path: &Path) -> AppResult<Value> {
         "status": "playing",
         "path": path.to_string_lossy(),
         "processId": process_id
-    })
-    )
+    }))
 }
 
 fn voice_playback_stop() -> AppResult<String> {
@@ -605,7 +604,10 @@ pub(super) fn desktop_local_stt_status() -> Value {
 }
 
 fn python_module_available(module: &str) -> bool {
-    let script = format!("import importlib.util, sys; sys.exit(0 if importlib.util.find_spec({}) else 1)", python_string_literal(module));
+    let script = format!(
+        "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec({}) else 1)",
+        python_string_literal(module)
+    );
     Command::new("python")
         .arg("-c")
         .arg(script)
@@ -991,8 +993,7 @@ fn persona_image_generation_enabled(persona: &Persona) -> bool {
 }
 
 fn image_provider_for_persona(store: &AppStore, persona: &Persona) -> AppResult<ImageProvider> {
-    let configured_provider_id =
-        image_generation_string(persona, "provider").unwrap_or_default();
+    let configured_provider_id = image_generation_string(persona, "provider").unwrap_or_default();
     let providers = store.image_providers()?;
     let provider = if configured_provider_id.is_empty() {
         providers
@@ -1152,7 +1153,11 @@ enum GeneratedImageSource {
 }
 
 fn image_mime_type_from_extension(extension: &str) -> String {
-    match extension.trim_start_matches('.').to_ascii_lowercase().as_str() {
+    match extension
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "jpg" | "jpeg" => "image/jpeg".into(),
         "webp" => "image/webp".into(),
         "gif" => "image/gif".into(),
@@ -1241,7 +1246,14 @@ fn collect_generated_image_sources(value: &Value, sources: &mut Vec<GeneratedIma
                 }
             }
             if !object_has_embedded_image {
-                for key in ["url", "uri", "image_url", "imageUrl", "signedUrl", "signed_url"] {
+                for key in [
+                    "url",
+                    "uri",
+                    "image_url",
+                    "imageUrl",
+                    "signedUrl",
+                    "signed_url",
+                ] {
                     match object.get(key) {
                         Some(Value::String(url)) => {
                             if validate_web_url(url).is_ok() {
@@ -1304,7 +1316,8 @@ async fn save_generated_image_artifacts_from_response(
                 let mime_type = mime_type.unwrap_or_else(|| "image/png".into());
                 let bytes = decode_base64_image(&value)?;
                 let extension = image_extension_from_content_type(&mime_type);
-                let path = store.save_tool_binary_artifact(run_id, tool_name, &extension, &bytes)?;
+                let path =
+                    store.save_tool_binary_artifact(run_id, tool_name, &extension, &bytes)?;
                 artifacts.push(json!({
                     "path": path.to_string_lossy(),
                     "source": "b64_json",
@@ -1318,7 +1331,8 @@ async fn save_generated_image_artifacts_from_response(
                 }
                 validate_web_url(&url)?;
                 let (bytes, extension) = download_image_bytes(client, &url).await?;
-                let path = store.save_tool_binary_artifact(run_id, tool_name, &extension, &bytes)?;
+                let path =
+                    store.save_tool_binary_artifact(run_id, tool_name, &extension, &bytes)?;
                 artifacts.push(json!({
                     "path": path.to_string_lossy(),
                     "source": url,
@@ -1361,8 +1375,10 @@ pub(super) async fn openai_compatible_image_generate(
         .unwrap_or(&provider.model);
     let client = image_http_client(provider)?;
     if is_gpt_image_2_model(model) {
-        return gpt_image_2_generate(store, run_id, provider, &client, url, model, prompt, payload)
-            .await;
+        return gpt_image_2_generate(
+            store, run_id, provider, &client, url, model, prompt, payload,
+        )
+        .await;
     }
     let mut body = json!({
         "model": model,
@@ -1580,9 +1596,16 @@ fn gpt_image_2_task_id(value: &Value) -> Option<String> {
     {
         return Some(task_id.to_string());
     }
-    ["task_id", "taskId", "id", "data.task_id", "data.taskId", "data.id"]
-        .into_iter()
-        .find_map(|path| json_path_string(value, path))
+    [
+        "task_id",
+        "taskId",
+        "id",
+        "data.task_id",
+        "data.taskId",
+        "data.id",
+    ]
+    .into_iter()
+    .find_map(|path| json_path_string(value, path))
 }
 
 async fn poll_gpt_image_2_task(
@@ -1707,12 +1730,10 @@ async fn gemini_image_generate(
         }
     });
     let client = image_http_client(provider)?;
-    let response = client
-        .post(url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|error| AppError::BadRequest(format!("gemini image_generate failed: {error}")))?;
+    let response =
+        client.post(url).json(&body).send().await.map_err(|error| {
+            AppError::BadRequest(format!("gemini image_generate failed: {error}"))
+        })?;
     let status = response.status();
     let text = response.text().await.map_err(|error| {
         AppError::BadRequest(format!("failed to read Gemini image response: {error}"))
@@ -1770,7 +1791,14 @@ fn collect_generated_text_parts(value: &Value, text_parts: &mut Vec<String>) {
                     text_parts.push(text);
                 }
             }
-            for key in ["candidates", "content", "parts", "data", "result", "results"] {
+            for key in [
+                "candidates",
+                "content",
+                "parts",
+                "data",
+                "result",
+                "results",
+            ] {
                 if let Some(child) = object.get(key) {
                     collect_generated_text_parts(child, text_parts);
                 }
@@ -2243,14 +2271,16 @@ pub(super) fn desktop_text_to_speech(
         .filter(|value| !value.trim().is_empty())
         .filter(|_| !explicit_engine || desktop_tts_engine_is_local_command(&engine))
     {
-        let provider = desktop_voice_provider("desktop-local-tts", "local_command", "", &command, 180);
+        let provider =
+            desktop_voice_provider("desktop-local-tts", "local_command", "", &command, 180);
         match local_command_text_to_speech(store, run_id, &provider, text, payload) {
             Ok(value) => return Ok(value),
             Err(error) => errors.push(format!("local command: {error}")),
         }
     }
     if let Some(command) = desktop_chattts_command_template(store, payload) {
-        let provider = desktop_voice_provider("desktop-chattts", "local_command", "", &command, 240);
+        let provider =
+            desktop_voice_provider("desktop-chattts", "local_command", "", &command, 240);
         match local_command_text_to_speech(store, run_id, &provider, text, payload) {
             Ok(value) => return Ok(value),
             Err(error) => errors.push(format!("ChatTTS: {error}")),
@@ -2430,13 +2460,7 @@ fn resolve_desktop_chattts_model_dir(store: &AppStore, payload: &Value) -> Optio
     ]) {
         candidates.push(path);
     }
-    candidates.push(
-        store
-            .data_dir()
-            .join("data")
-            .join("models")
-            .join("ChatTTS"),
-    );
+    candidates.push(store.data_dir().join("data").join("models").join("ChatTTS"));
     for root in roots {
         candidates.push(
             root.join("synthchat-data")
@@ -2467,9 +2491,7 @@ fn resolve_desktop_chattts_model_dir(store: &AppStore, payload: &Value) -> Optio
 fn resolve_desktop_chattts_speaker_embedding(value: &str, model_dir: &Path) -> Option<String> {
     let path = PathBuf::from(value);
     if path.is_absolute() {
-        return path
-            .is_file()
-            .then(|| path.to_string_lossy().to_string());
+        return path.is_file().then(|| path.to_string_lossy().to_string());
     }
 
     let mut roots = Vec::new();
@@ -2553,7 +2575,9 @@ fn resolve_desktop_chattts_venv_python(store: &AppStore) -> Option<String> {
             .join("bin")
             .join("python")
     };
-    python.exists().then(|| python.to_string_lossy().to_string())
+    python
+        .exists()
+        .then(|| python.to_string_lossy().to_string())
 }
 
 fn desktop_chattts_command_template(store: &AppStore, payload: &Value) -> Option<String> {
@@ -6123,10 +6147,8 @@ fn escape_windows_batch_script(command_text: &str) -> String {
 fn run_shell_command_with_timeout(command_text: &str, timeout_seconds: u64) -> AppResult<String> {
     #[cfg(target_os = "windows")]
     let script_path = {
-        let path = std::env::temp_dir().join(format!(
-            "synthchat-local-audio-{}.cmd",
-            timestamp_millis()?
-        ));
+        let path =
+            std::env::temp_dir().join(format!("synthchat-local-audio-{}.cmd", timestamp_millis()?));
         let command_script = escape_windows_batch_script(command_text);
         fs::write(&path, format!("@echo off\r\n{command_script}\r\n"))?;
         Some(path)
@@ -7593,5 +7615,4 @@ mod tests {
             vec!["https://synthapi.asia/f/image/out.png".to_string()]
         );
     }
-
 }

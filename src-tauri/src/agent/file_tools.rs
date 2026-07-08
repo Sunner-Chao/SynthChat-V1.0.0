@@ -972,7 +972,9 @@ pub(super) fn write_file_tool(
         verify_text_write_landed(&full_path, &content)?;
         let mut post_write_warnings = Vec::new();
         if let Err(error) = record_registered_write(store, &full_path, "write_file", payload) {
-            post_write_warnings.push(format!("file registry update failed after write landed: {error}"));
+            post_write_warnings.push(format!(
+                "file registry update failed after write landed: {error}"
+            ));
         }
         let edit_diagnostics = match edit_diagnostics_for_paths_with_baselines(
             agent,
@@ -988,8 +990,9 @@ pub(super) fn write_file_tool(
         ) {
             Ok(value) => value,
             Err(error) => {
-                post_write_warnings
-                    .push(format!("edit diagnostics failed after write landed: {error}"));
+                post_write_warnings.push(format!(
+                    "edit diagnostics failed after write landed: {error}"
+                ));
                 json!({
                     "enabled": false,
                     "postWriteWarning": true,

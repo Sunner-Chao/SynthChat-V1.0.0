@@ -1,0 +1,23 @@
+{
+  "createdAt": "2026-07-08T04:13:36.149Z",
+  "workspace": "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0",
+  "runDir": "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\.multi-agent\\runs\\2026-07-08T04-13-36-147Z-pair-你们正在协作完善-d-pro-sunner-demo-vscode-synthchat-v1-0",
+  "task": "你们正在协作完善 D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0，这是一个 Tauri + React + Rust 的桌面 agent 应用。\n\n当前阶段：阶段 3：对话链路测试设计。\n\n模式意图：\n- Pair read-only。\n- Codex 先产出测试设计草案。\n- Claude 只做复审。\n- Codex 最终综合。\n- 不改代码。\n\n上下文约束：\n- 不要全仓库递归阅读。\n- 必须先读：\n  - D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\.multi-agent\\runs\\2026-07-08T03-25-56-657Z-consensus-你们正在协作完善-d-pro-sunner-demo-vscode-synthchat-v1-0\\stage1-synthesis-codex.md\n  - D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\.multi-agent\\runs\\2026-07-08T03-57-08-402Z-consensus-你们正在协作完善-d-pro-sunner-demo-vscode-synthchat-v1-0\\codex-plan.compact-retry.md\n- 只在需要确认测试落点时 targeted read：\n  - src/App.tsx\n  - src/panels/ChatExperience.tsx\n  - src/lib/store.ts\n  - src/lib/api.ts\n  - src/lib/__tests__/**\n  - src-tauri/src/agent/agent_loop.rs\n  - src-tauri/src/agent/tool_dispatch.rs\n  - src-tauri/src/mcp.rs\n  - src-tauri/src/store.rs\n\n阶段目标：\n为 SynthChat 设计真实可执行的 agent 对话链路测试方案，先不要修 bug。\n\n必须覆盖：\n1. 普通聊天：用户消息 -> assistant 回复。\n2. 流式输出：assistant_stream / assistant_message 合并。\n3. thinking/tool 展示：工具事件进入 UI。\n4. agent 选择：persona / conversation / agentId 绑定。\n5. 工具调用：至少 mock 文件工具、记忆工具、MCP 工具。\n6. 审批/拒绝/取消：approval、abort、timeout。\n7. 错误恢复：provider error、tool error、stream 中断。\n8. 持久化：刷新后 conversation/messages/run 状态一致。\n9. 队列：agent queue 入队、执行、完成、失败。\n10. UI 可见性：MessageList、ToolMessage、ThinkingCards、ManagedProcessMessage。\n\n产物：\n- 测试用例清单。\n- 哪些用 Vitest。\n- 哪些用 Rust cargo test。\n- 哪些需要 Tauri/mock harness。\n- 最小可先通过的 MVP 测试集。\n- 发现、风险、建议、待测清单、下一阶段输入。\n\n验收：\n- 必须引用具体文件路径和函数/模块。\n- 不做大范围重写建议。\n- 输出要能直接作为阶段 4 的输入。",
+  "workflow": "pair",
+  "workflowLabel": "Pair",
+  "lead": "codex",
+  "reviewer": "claude",
+  "claudeModel": "",
+  "codexModel": "gpt-5.5",
+  "codexProvider": "yujianwudi",
+  "effort": "",
+  "claudeEffort": "",
+  "codexEffort": "xhigh",
+  "dryRun": false,
+  "qualityGate": true,
+  "analysisOnly": true,
+  "skipReview": false,
+  "skipCodex": false,
+  "timeoutMin": 60,
+  "rounds": 1
+}

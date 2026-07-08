@@ -155,16 +155,16 @@ pub(super) async fn complete_responses_compatible(
                 &tool_name_map,
                 thinking_cards_enabled,
             )
-                .map(|reply| stamp_responses_provider_data_issuer(reply, &issuer_kind))
-                .map(|reply| {
-                    with_reply_metadata_and_transport(
-                        reply,
-                        provider,
-                        model,
-                        &response_headers,
-                        Some(transport),
-                    )
-                });
+            .map(|reply| stamp_responses_provider_data_issuer(reply, &issuer_kind))
+            .map(|reply| {
+                with_reply_metadata_and_transport(
+                    reply,
+                    provider,
+                    model,
+                    &response_headers,
+                    Some(transport),
+                )
+            });
         }
         if provider_supports_chat_completions_fallback_for_responses(provider)
             && responses_failure_allows_chat_completions_fallback(status.as_u16(), &text)
@@ -182,13 +182,12 @@ pub(super) async fn complete_responses_compatible(
                 options,
             )
             .await?;
-            fallback_reply.transport_diagnostics =
-                merge_responses_fallback_diagnostics(
-                    fallback_reply.transport_diagnostics.take(),
-                    status.as_u16(),
-                    &url,
-                    &text,
-                );
+            fallback_reply.transport_diagnostics = merge_responses_fallback_diagnostics(
+                fallback_reply.transport_diagnostics.take(),
+                status.as_u16(),
+                &url,
+                &text,
+            );
             return Ok(fallback_reply);
         }
         return Err(AppError::Llm(format!(
@@ -239,16 +238,16 @@ pub(super) async fn complete_responses_compatible(
         &tool_name_map,
         thinking_cards_enabled,
     )
-        .map(|reply| stamp_responses_provider_data_issuer(reply, &issuer_kind))
-        .map(|reply| {
-            with_reply_metadata_and_transport(
-                reply,
-                provider,
-                model,
-                &response_headers,
-                Some(transport),
-            )
-        })
+    .map(|reply| stamp_responses_provider_data_issuer(reply, &issuer_kind))
+    .map(|reply| {
+        with_reply_metadata_and_transport(
+            reply,
+            provider,
+            model,
+            &response_headers,
+            Some(transport),
+        )
+    })
 }
 
 async fn read_responses_sse_stream(
@@ -473,14 +472,11 @@ fn handle_responses_sse_line(
 }
 
 fn responses_stream_text_delta(payload: &Value) -> Option<&str> {
-    payload
-        .get("delta")
-        .and_then(Value::as_str)
-        .or_else(|| {
-            payload
-                .pointer("/response/output_text/delta")
-                .and_then(Value::as_str)
-        })
+    payload.get("delta").and_then(Value::as_str).or_else(|| {
+        payload
+            .pointer("/response/output_text/delta")
+            .and_then(Value::as_str)
+    })
 }
 
 fn responses_stream_event_is_reasoning_delta(event_type: &str) -> bool {

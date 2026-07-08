@@ -175,7 +175,11 @@ pub(super) fn emit_agent_run_record(
         return;
     };
     let phase = run.phase_events.last();
-    let tool_event = run.tool_events.last().cloned().map(preview_tool_event_for_ui);
+    let tool_event = run
+        .tool_events
+        .last()
+        .cloned()
+        .map(preview_tool_event_for_ui);
     let detail = phase.map(|item| preview_agent_event_detail(item.detail.clone()));
     let message = message.map(|message| crate::preview_message_for_ui(message.clone(), None));
     let payload = json!({

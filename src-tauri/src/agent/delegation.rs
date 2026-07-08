@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 use crate::{
     error::{AppError, AppResult},
     models::{
-        new_id, now_iso, AgentDefinition, AgentRunRecord, ChatConfig, ChatMessage,
-        SendChatRequest, ToolEvent,
+        new_id, now_iso, AgentDefinition, AgentRunRecord, ChatConfig, ChatMessage, SendChatRequest,
+        ToolEvent,
     },
     store::AppStore,
 };
@@ -324,11 +324,9 @@ fn record_parent_delegation_group_room_started(
         WORKFLOW_REASON_DELEGATE_TASK_STARTED,
         delegation_group_room_transition_detail(&detail),
     )?;
-    WorkflowDriver::new(workflow_mode).group_room().running(
-        store,
-        parent_run_id,
-        detail,
-    )
+    WorkflowDriver::new(workflow_mode)
+        .group_room()
+        .running(store, parent_run_id, detail)
 }
 
 fn record_parent_delegation_group_room_completed(
@@ -401,11 +399,9 @@ fn record_parent_delegation_group_room_failed(
         WORKFLOW_REASON_DELEGATE_TASK_FAILED,
         delegation_group_room_transition_detail(&detail),
     )?;
-    WorkflowDriver::new(workflow_mode).group_room().failed(
-        store,
-        parent_run_id,
-        detail,
-    )
+    WorkflowDriver::new(workflow_mode)
+        .group_room()
+        .failed(store, parent_run_id, detail)
 }
 
 fn delegation_group_room_started_detail(
@@ -561,7 +557,13 @@ fn delegation_group_room_result_summaries(results: &[Value]) -> Vec<Value> {
                     .and_then(Value::as_str)
                     .unwrap_or("unknown"),
             });
-            for key in ["childRunId", "childConversationId", "role", "maxIterations", "transport"] {
+            for key in [
+                "childRunId",
+                "childConversationId",
+                "role",
+                "maxIterations",
+                "transport",
+            ] {
                 if let Some(value) = result.get(key) {
                     summary[key] = value.clone();
                 }
@@ -682,8 +684,10 @@ mod tests {
 
     #[test]
     fn delegation_group_room_started_marks_parent_graph_running() {
-        let dir =
-            std::env::temp_dir().join(format!("synthchat-delegation-room-start-{}", new_id("test")));
+        let dir = std::env::temp_dir().join(format!(
+            "synthchat-delegation-room-start-{}",
+            new_id("test")
+        ));
         fs::create_dir_all(&dir).unwrap();
         let store = AppStore::new(dir.join("state.json")).unwrap();
         let persona = store.persona(None).unwrap();
@@ -745,7 +749,10 @@ mod tests {
         assert_eq!(group_room["detail"]["parentDepth"], 1);
         assert_eq!(group_room["detail"]["strategy"], "planner_executor");
         assert_eq!(group_room["detail"]["children"][0]["childIndex"], 3);
-        assert_eq!(group_room["detail"]["children"][0]["transport"], "synthchat");
+        assert_eq!(
+            group_room["detail"]["children"][0]["transport"],
+            "synthchat"
+        );
         assert_eq!(group_room["detail"]["children"][1]["transport"], "acp");
 
         let _ = fs::remove_dir_all(dir);
@@ -761,7 +768,10 @@ mod tests {
         let store = AppStore::new(dir.join("state.json")).unwrap();
         let persona = store.persona(None).unwrap();
         let conversation = store
-            .create_conversation(Some("delegation room complete".into()), Some(persona.id.clone()))
+            .create_conversation(
+                Some("delegation room complete".into()),
+                Some(persona.id.clone()),
+            )
             .unwrap();
         let parent = store
             .save_agent_run(AgentRunRecord::new(
@@ -855,7 +865,10 @@ mod tests {
         let store = AppStore::new(dir.join("state.json")).unwrap();
         let persona = store.persona(None).unwrap();
         let conversation = store
-            .create_conversation(Some("delegation room fail".into()), Some(persona.id.clone()))
+            .create_conversation(
+                Some("delegation room fail".into()),
+                Some(persona.id.clone()),
+            )
             .unwrap();
         let parent = store
             .save_agent_run(AgentRunRecord::new(
@@ -924,7 +937,10 @@ mod tests {
         assert_eq!(group_room["detail"]["ok"], false);
         assert_eq!(group_room["detail"]["completedChildren"], 1);
         assert_eq!(group_room["detail"]["failedChildren"], 1);
-        assert_eq!(group_room["detail"]["results"][0]["childRunId"], "run-child-ok");
+        assert_eq!(
+            group_room["detail"]["results"][0]["childRunId"],
+            "run-child-ok"
+        );
         assert_eq!(
             group_room["detail"]["results"][1]["errorPreview"],
             "child failed while summarizing runtime"

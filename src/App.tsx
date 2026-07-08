@@ -163,6 +163,7 @@ export function App() {
   const handleAgentRunEvent = useAppStore((state) => state.handleAgentRunEvent);
   const handleManagedProcessEvent = useAppStore((state) => state.handleManagedProcessEvent);
   const upsertIncomingMessage = useAppStore((state) => state.upsertIncomingMessage);
+  const clearStreamingAssistantMessages = useAppStore((state) => state.clearStreamingAssistantMessages);
   const refreshPersonasFromBackend = useCallback(async () => {
     const personas = await api.listPersonas();
     useAppStore.setState({ personas });
@@ -307,6 +308,20 @@ export function App() {
       flushPendingStreamMessages();
     }, 60);
   }, [flushPendingStreamMessages]);
+
+  const discardPendingStreamMessagesForConversation = useCallback((conversationId: string) => {
+    let removed = false;
+    pendingStreamMessagesRef.current.forEach((item, key) => {
+      if (item.message.conversationId === conversationId) {
+        pendingStreamMessagesRef.current.delete(key);
+        removed = true;
+      }
+    });
+    if (removed && pendingStreamMessagesRef.current.size === 0 && streamFlushTimerRef.current !== null) {
+      window.clearTimeout(streamFlushTimerRef.current);
+      streamFlushTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => () => {
     chatRefreshTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -489,6 +504,8 @@ export function App() {
       message?: ChatMessage;
       delta?: string;
       isLast?: boolean;
+      ok?: boolean;
+      error?: string;
     }>("synthchat-chat-event", (event) => {
       const payload = event.payload;
       const eventSource = payload.source ?? "";
@@ -529,6 +546,12 @@ export function App() {
       }
       if (payload.type === "turn_finished" && payload.conversationId) {
         hideConversationProcessing(payload.conversationId);
+        if (payload.ok === false && !isWechatTurnEvent) {
+          discardPendingStreamMessagesForConversation(payload.conversationId);
+          clearStreamingAssistantMessages(payload.conversationId);
+          scheduleChatRefresh(payload.conversationId ?? null, payload.personaId ?? null, 180);
+          return;
+        }
         if (isWechatEvent) {
           if (
             payload.message
@@ -656,6 +679,7 @@ export function App() {
     };
   }, [
     deferWechatTurnMessage,
+    discardPendingStreamMessagesForConversation,
     flushDeferredWechatMessages,
     hideConversationProcessing,
     incrementConversationUnread,
@@ -663,6 +687,7 @@ export function App() {
     scheduleWechatFallbackRefresh,
     scheduleChatRefresh,
     scheduleStreamMessageUpsert,
+    clearStreamingAssistantMessages,
     setConversationProcessing,
     showConversationProcessing,
     upsertIncomingMessage

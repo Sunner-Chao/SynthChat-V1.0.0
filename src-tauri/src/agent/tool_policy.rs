@@ -689,10 +689,9 @@ pub(super) fn semantic_toolsets_for_tool(tool: &ToolDefinition) -> Vec<&'static 
             | "google_chat_typing"
             | "google_chat_update_message" => vec!["messaging"],
             "osv_check" | "security_scan" => vec!["security", "web"],
-            "browser_navigate"
-            | "browser_snapshot"
-            | "browser_back"
-            | "browser_get_images" => vec!["browser", "browser_safe"],
+            "browser_navigate" | "browser_snapshot" | "browser_back" | "browser_get_images" => {
+                vec!["browser", "browser_safe"]
+            }
             "browser_plugins"
             | "browser_provider"
             | "browser_create_session"

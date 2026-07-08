@@ -1538,12 +1538,7 @@ pub(super) async fn execute_recovery_internal_tool(
                         &target_payload,
                         is_risky_tool_call(&target_name, &target_payload),
                     )?;
-                    apply_scheduled_approval_mode(
-                        store,
-                        tool_context,
-                        reason,
-                        &target_name,
-                    )?
+                    apply_scheduled_approval_mode(store, tool_context, reason, &target_name)?
                 };
                 record_tool_call_bridge_target(
                     store,

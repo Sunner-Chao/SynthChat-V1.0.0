@@ -3620,14 +3620,8 @@ async fn mcp_json_rpc_persistent_method(
     let sessions = MCP_PERSISTENT_SESSIONS.get_or_init(|| AsyncMutex::new(HashMap::new()));
     let fingerprint = mcp_persistent_session_fingerprint(server);
     let session_key = mcp_persistent_session_key(store, server, run_id);
-    let session = mcp_persistent_session_for_key(
-        store,
-        server,
-        sessions,
-        &session_key,
-        fingerprint,
-    )
-    .await?;
+    let session =
+        mcp_persistent_session_for_key(store, server, sessions, &session_key, fingerprint).await?;
 
     let mut remove_session = false;
     let result = {
@@ -3642,16 +3636,7 @@ async fn mcp_json_rpc_persistent_method(
         *next_id = (*next_id).saturating_add(1);
         let id = *next_id;
         let result = match write_rpc(stdin, id, method, params).await {
-            Ok(()) => {
-                read_response(
-                    lines,
-                    stdin,
-                    Some(store),
-                    server,
-                    id,
-                )
-                .await
-            }
+            Ok(()) => read_response(lines, stdin, Some(store), server, id).await,
             Err(error) => Err(error),
         };
         match result {
@@ -3801,27 +3786,23 @@ fn mcp_persistent_session_key(
     if !mcp_is_playwright_stdio(&raw) {
         return server.id.clone();
     }
-    if let Some(scope) = store
-        .agent_run(run_id)
-        .ok()
-        .and_then(|run| {
-            let internal_subagent = store
-                .conversation(&run.conversation_id)
-                .ok()
-                .and_then(|conversation| {
-                    conversation
-                        .metadata
-                        .get("internalSubagent")
-                        .and_then(Value::as_bool)
-                })
-                .unwrap_or(false);
-            if run.parent_run_id.is_some() || internal_subagent {
-                Some(run.conversation_id)
-            } else {
-                None
-            }
-        })
-    {
+    if let Some(scope) = store.agent_run(run_id).ok().and_then(|run| {
+        let internal_subagent = store
+            .conversation(&run.conversation_id)
+            .ok()
+            .and_then(|conversation| {
+                conversation
+                    .metadata
+                    .get("internalSubagent")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        if run.parent_run_id.is_some() || internal_subagent {
+            Some(run.conversation_id)
+        } else {
+            None
+        }
+    }) {
         return format!("{}::run:{}", server.id, scope);
     }
     server.id.clone()
@@ -5471,9 +5452,10 @@ fn mcp_persistent_session_status(server_id: &str, raw: &Value) -> Value {
     let scoped_prefix = format!("{server_id}::");
     let mut sessions = Vec::new();
     let mut locked = false;
-    for (key, session) in map.iter().filter(|(key, _)| {
-        key.as_str() == server_id || key.as_str().starts_with(&scoped_prefix)
-    }) {
+    for (key, session) in map
+        .iter()
+        .filter(|(key, _)| key.as_str() == server_id || key.as_str().starts_with(&scoped_prefix))
+    {
         match session.try_lock() {
             Ok(session) => {
                 sessions.push(json!({
@@ -6914,8 +6896,8 @@ mod tests {
             Some(1),
             None,
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         assert!(!result.ok);
         assert!(!result.timed_out);
@@ -7914,12 +7896,18 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
                 "synthchat",
             )
             .unwrap();
-        let first_child =
-            AgentRunRecord::new(first_conversation.id.clone(), "persona".into(), "agent".into());
+        let first_child = AgentRunRecord::new(
+            first_conversation.id.clone(),
+            "persona".into(),
+            "agent".into(),
+        );
         let first_child_id = first_child.run_id.clone();
         store.save_agent_run(first_child).unwrap();
-        let second_child =
-            AgentRunRecord::new(second_conversation.id.clone(), "persona".into(), "agent".into());
+        let second_child = AgentRunRecord::new(
+            second_conversation.id.clone(),
+            "persona".into(),
+            "agent".into(),
+        );
         let second_child_id = second_child.run_id.clone();
         store.save_agent_run(second_child).unwrap();
 

@@ -14,19 +14,19 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     error::AppResult,
+    model_catalog,
     models::{
         AgentCheckpointRecord, AgentDefinition, AgentQueuedRequest, AgentRunPhaseRecord,
         AgentRunRecord, ChatMessage, Conversation, LlmProvider, Persona, SendChatRequest,
     },
-    model_catalog,
     skills as skill_library,
     store::AppStore,
 };
 
-use super::*;
 use super::workflow_graph::{
-    workflow_human_gate_detail, WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT,
+    workflow_human_gate_detail, WorkflowPlannerNode, WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT,
 };
+use super::*;
 
 const PET_WINDOW_LABEL: &str = "pet";
 const DESKTOP_STREAM_EVENT_MIN_INTERVAL: Duration = Duration::from_millis(80);
@@ -387,7 +387,8 @@ fn desktop_visible_stream_callback(
                 message.provider_data = Some(stream_thinking_provider_data(&summary, true));
                 message.clone()
             };
-            let pending_bytes = append_pending_stream_delta(&callback_pending_thinking_delta, delta);
+            let pending_bytes =
+                append_pending_stream_delta(&callback_pending_thinking_delta, delta);
             if !should_emit_desktop_stream_update(
                 is_first_visible_delta,
                 &callback_last_thinking_emit_at,
@@ -438,7 +439,8 @@ fn desktop_visible_stream_callback(
             message.content.push_str(&visible_delta);
             message.clone()
         };
-        let pending_bytes = append_pending_stream_delta(&callback_pending_answer_delta, &visible_delta);
+        let pending_bytes =
+            append_pending_stream_delta(&callback_pending_answer_delta, &visible_delta);
         if !should_emit_desktop_stream_update(
             is_first_visible_delta,
             &callback_last_answer_emit_at,
@@ -557,7 +559,10 @@ fn planner_value_looks_like_tool_call(value: &Value) -> bool {
     };
     if object.get("toolCalls").and_then(Value::as_array).is_some()
         || object.get("tool_calls").and_then(Value::as_array).is_some()
-        || object.get("function_calls").and_then(Value::as_array).is_some()
+        || object
+            .get("function_calls")
+            .and_then(Value::as_array)
+            .is_some()
     {
         return true;
     }
@@ -715,9 +720,7 @@ fn pre_persisted_user_message(
         .messages(conversation_id, None)?
         .into_iter()
         .find(|message| {
-            message.id == message_id
-                && message.role == "user"
-                && message.content.trim() == content
+            message.id == message_id && message.role == "user" && message.content.trim() == content
         }))
 }
 
@@ -737,6 +740,56 @@ fn ensure_turn_user_message_persisted(
         store.merge_conversation_messages_by_id(conversation_id, &[user.clone()])?;
     }
     Ok(())
+}
+
+async fn fail_chat_turn_before_llm(
+    store: &AppStore,
+    conversation: &Conversation,
+    user: &ChatMessage,
+    run_id: &str,
+    workflow_planner: WorkflowPlannerNode,
+    desktop_app: Option<&AppHandle>,
+    silent_pet_vision: bool,
+    error: &str,
+    source: &str,
+) -> AppResult<Vec<ChatMessage>> {
+    workflow_planner.failed(
+        store,
+        run_id,
+        None,
+        WorkflowPlannerErrorKind::LlmError,
+        error,
+    )?;
+    let mut failed_run = store.agent_run(run_id)?;
+    failed_run.state = "failed".into();
+    failed_run.error = Some(error.to_string());
+    failed_run.updated_at = now_iso();
+    failed_run.completed_at = Some(failed_run.updated_at.clone());
+    let saved_failed_run = store.save_agent_run(failed_run)?;
+    run_session_finished_hooks(
+        store,
+        &saved_failed_run,
+        json!({
+            "source": source,
+            "error": error,
+        }),
+    )
+    .await;
+
+    let mut assistant_message = ChatMessage::new(
+        conversation.id.clone(),
+        "assistant",
+        format!("本轮对话无法开始：{error}"),
+        "desktop-agent-error",
+    );
+    if silent_pet_vision {
+        assistant_message.source = "pet-vision".into();
+        mark_message_visible_for_pet_vision(&mut assistant_message);
+    }
+    ensure_turn_user_message_persisted(store, &conversation.id, user)?;
+    let assistant = store.append_message(assistant_message)?;
+    emit_agent_run_record(desktop_app, &saved_failed_run, Some(&assistant));
+    Ok(vec![user.clone(), assistant])
 }
 
 fn request_provider_data_bool(request: &SendChatRequest, key: &str) -> bool {
@@ -1227,8 +1280,8 @@ pub async fn run_chat_turn(
             .config()
             .ok()
             .map(|config| config.chat.ui_message_preview_chars);
-        let assistant_message =
-            assistant_message.map(|message| crate::preview_message_for_ui(message, event_preview_chars));
+        let assistant_message = assistant_message
+            .map(|message| crate::preview_message_for_ui(message, event_preview_chars));
         if let Some(resolved_conversation_id) = resolved_conversation_id {
             let _ = app.emit(
                 "synthchat-chat-event",
@@ -1337,7 +1390,8 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         Some(id) if !id.trim().is_empty() => store.conversation(id)?,
         _ => store.create_conversation(None, request.persona_id.clone())?,
     };
-    let (mut persona, mut agent) = resolve_chat_turn_persona_and_agent(store, &conversation, &request)?;
+    let (mut persona, mut agent) =
+        resolve_chat_turn_persona_and_agent(store, &conversation, &request)?;
     let chat_config = store.config()?.chat;
     let event_preview_chars = Some(chat_config.ui_message_preview_chars);
     let request_source = turn_source_label(&request);
@@ -1347,16 +1401,15 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         "desktop-agent"
     };
     let emit_pet_stream_events = request_source != "wechat";
-    let (stream_delta_callback, desktop_stream_state) =
-        desktop_visible_stream_callback(
-            stream_delta_callback,
-            desktop_app,
-            &conversation.id,
-            &persona.id,
-            assistant_stream_source,
-            emit_pet_stream_events,
-            event_preview_chars,
-        );
+    let (stream_delta_callback, desktop_stream_state) = desktop_visible_stream_callback(
+        stream_delta_callback,
+        desktop_app,
+        &conversation.id,
+        &persona.id,
+        assistant_stream_source,
+        emit_pet_stream_events,
+        event_preview_chars,
+    );
     apply_persona_tool_policy_to_agent(&persona, &mut agent);
     apply_acp_session_mcp_scope(store, &conversation, &mut agent)?;
     if let Some(toolsets) = enabled_toolsets {
@@ -1525,12 +1578,36 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
 
     let mut history = store.messages(&conversation.id, Some(30))?;
     let mut effective_persona = effective_llm_persona(&persona, &agent);
-    let selected_provider = selected_provider_id(&persona, &agent)
-        .ok_or_else(|| AppError::BadRequest("请先在通讯录中为当前角色选择对话服务商。".into()))?;
+    let selected_provider = match selected_provider_id(&persona, &agent) {
+        Some(provider_id) => provider_id,
+        None => {
+            return fail_chat_turn_before_llm(
+                store,
+                &conversation,
+                &user,
+                &saved_run.run_id,
+                workflow_planner,
+                desktop_app,
+                silent_pet_vision,
+                "请先在通讯录中为当前角色选择对话服务商。",
+                "llm_provider_missing",
+            )
+            .await;
+        }
+    };
     if effective_persona.llm_model.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "请先在通讯录中为当前角色选择模型 ID。".into(),
-        ));
+        return fail_chat_turn_before_llm(
+            store,
+            &conversation,
+            &user,
+            &saved_run.run_id,
+            workflow_planner,
+            desktop_app,
+            silent_pet_vision,
+            "请先在通讯录中为当前角色选择模型 ID。",
+            "llm_model_missing",
+        )
+        .await;
     }
     let mut providers = store.provider_candidates(Some(selected_provider))?;
     if let Some(correction) =
@@ -1736,11 +1813,7 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             return Ok(vec![user]);
         }
         drain_agent_steers_into_observations(store, &mut run, &mut observations)?;
-        workflow_planner.running(
-            store,
-            &saved_run.run_id,
-            iteration + 1,
-        )?;
+        workflow_planner.running(store, &saved_run.run_id, iteration + 1)?;
         let prompt_observations = observations_for_prompt(store, &saved_run.run_id, &observations)?;
         let planner_prompt = agent_planner_prompt_for_agent_context_with_store(
             store,
@@ -2265,231 +2338,232 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 )
                                 .await
                             {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                executor_core.record_tool_failed_with_iteration(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    Some(iteration + 1),
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
+                                Ok(reason) => reason,
+                                Err(error) => {
+                                    executor_core.record_tool_failed_with_iteration(
+                                        store,
+                                        desktop_app,
+                                        &conversation.id,
+                                        &saved_run.run_id,
+                                        Some(iteration + 1),
+                                        &tool_name,
+                                        &mcp_tools,
+                                        &guardrail_payload,
+                                        &error,
+                                    )?;
+                                    observations.push(format!(
+                                        "Iteration {} tool {} approval error: {}",
+                                        iteration + 1,
+                                        tool_name,
+                                        error
+                                    ));
+                                    continue;
+                                }
+                            };
+                            if let Some(reason) = approval_reason {
+                                let approval_request = executor_core
+                                    .request_approval(
+                                        store,
+                                        ExecutorApprovalRequestContext {
+                                            conversation_id: &conversation.id,
+                                            persona_id: &persona.id,
+                                            agent_id: &agent.id,
+                                            run_id: &saved_run.run_id,
+                                            tool_context,
+                                        },
+                                        iteration + 1,
+                                        &tool_identity,
+                                        payload,
+                                        reason,
+                                    )
+                                    .await?;
+                                let approval_route = approval_request.route;
+                                let approval = approval_request.approval;
+                                debug_assert!(matches!(
+                                    approval_route,
+                                    WorkflowExecutorRoute::AwaitApproval { .. }
                                 ));
-                                continue;
+                                run = store.agent_run(&saved_run.run_id)?;
+                                run.state = "pendingApproval".into();
+                                run.updated_at = now_iso();
+                                let saved_pending_run = store.save_agent_run(run)?;
+                                emit_agent_run_record(desktop_app, &saved_pending_run, None);
+                                let mut assistant_message = ChatMessage::new(
+                                    conversation.id,
+                                    "assistant",
+                                    format!(
+                                        "工具调用正在等待审批：{} · {}",
+                                        approval.server_id, approval.tool_name
+                                    ),
+                                    "desktop-agent",
+                                );
+                                if silent_pet_vision {
+                                    assistant_message.source = "pet-vision".into();
+                                    mark_message_visible_for_pet_vision(&mut assistant_message);
+                                }
+                                let assistant = store.append_message(assistant_message)?;
+                                return Ok(vec![user, assistant]);
                             }
-                        };
-                        if let Some(reason) = approval_reason {
-                            let approval_request = executor_core.request_approval(
+                            run = executor_core.start_tool_execution(
                                 store,
-                                ExecutorApprovalRequestContext {
-                                    conversation_id: &conversation.id,
-                                    persona_id: &persona.id,
-                                    agent_id: &agent.id,
-                                    run_id: &saved_run.run_id,
-                                    tool_context,
-                                },
-                                iteration + 1,
+                                desktop_app,
+                                &saved_run.run_id,
                                 &tool_identity,
-                                payload,
-                                reason,
+                                &payload,
+                                iteration + 1,
+                            )?;
+                            emit_agent_run_record(desktop_app, &run, None);
+                            let tool_result = await_agent_run_interruptible(
+                                store,
+                                &saved_run.run_id,
+                                run_started_at,
+                                run_timeout_seconds,
+                                post_tool_quiet_timeout_seconds,
+                                desktop_app,
+                                executor_core.execute_internal_tool(
+                                    store,
+                                    ExecutorInternalToolExecutionContext {
+                                        agent: &agent,
+                                        conversation_id: &conversation.id,
+                                        run_id: &saved_run.run_id,
+                                        tool_context,
+                                        app,
+                                        approved_tool_call_replay: false,
+                                    },
+                                    &tool_name,
+                                    payload,
+                                ),
                             )
                             .await?;
-                            let approval_route = approval_request.route;
-                            let approval = approval_request.approval;
-                            debug_assert!(matches!(
-                                approval_route,
-                                WorkflowExecutorRoute::AwaitApproval { .. }
-                            ));
-                            run = store.agent_run(&saved_run.run_id)?;
-                            run.state = "pendingApproval".into();
-                            run.updated_at = now_iso();
-                            let saved_pending_run = store.save_agent_run(run)?;
-                            emit_agent_run_record(desktop_app, &saved_pending_run, None);
-                            let mut assistant_message = ChatMessage::new(
-                                conversation.id,
-                                "assistant",
-                                format!(
-                                    "工具调用正在等待审批：{} · {}",
-                                    approval.server_id, approval.tool_name
-                                ),
-                                "desktop-agent",
-                            );
-                            if silent_pet_vision {
-                                assistant_message.source = "pet-vision".into();
-                                mark_message_visible_for_pet_vision(&mut assistant_message);
-                            }
-                            let assistant = store.append_message(assistant_message)?;
-                            return Ok(vec![user, assistant]);
-                        }
-                        run = executor_core.start_tool_execution(
-                            store,
-                            desktop_app,
-                            &saved_run.run_id,
-                            &tool_identity,
-                            &payload,
-                            iteration + 1,
-                        )?;
-                        emit_agent_run_record(desktop_app, &run, None);
-                        let tool_result = await_agent_run_interruptible(
-                            store,
-                            &saved_run.run_id,
-                            run_started_at,
-                            run_timeout_seconds,
-                            post_tool_quiet_timeout_seconds,
-                            desktop_app,
-                            executor_core.execute_internal_tool(
-                                store,
-                                ExecutorInternalToolExecutionContext {
-                                    agent: &agent,
-                                    conversation_id: &conversation.id,
-                                    run_id: &saved_run.run_id,
-                                    tool_context,
-                                    app,
-                                    approved_tool_call_replay: false,
-                                },
-                                &tool_name,
-                                payload,
-                            ),
-                        )
-                        .await?;
-                        let Some(tool_result) = tool_result else {
-                            return Ok(vec![user]);
-                        };
-                        match tool_result {
-                            Ok((text, mut event)) => {
-                                record_file_mutation_result(
-                                    &mut failed_file_mutations,
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &text,
-                                    false,
-                                );
-                                if check_agent_run_interrupted(
-                                    store,
-                                    &saved_run.run_id,
-                                    run_started_at,
-                                    run_timeout_seconds,
-                                    post_tool_quiet_timeout_seconds,
-                                    desktop_app,
-                                )? {
-                                    return Ok(vec![user]);
-                                }
-                                let context_text = persist_large_tool_result_for_context(
-                                    store,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &text,
-                                    &mut event,
-                                )?;
-                                let mut tool_message = ChatMessage::new(
-                                    conversation.id.clone(),
-                                    "tool",
-                                    json!({"type": "toolEvent", "event": event.clone()})
-                                        .to_string(),
-                                    "desktop-agent-tool",
-                                );
-                                tool_message.provider_data = reply.provider_data.clone();
-                                let _tool_message = store.append_message(tool_message)?;
-                                history.push(_tool_message);
-                                push_tool_event_record(&mut run, &event);
-                                if let Some(assistant) = pause_run_for_clarify_tool(
-                                    store,
-                                    app,
-                                    &mut run,
-                                    &conversation.id,
-                                    WorkflowMode::ChatTurn,
-                                    &text,
-                                    &event,
-                                )? {
-                                    return Ok(vec![user, assistant]);
-                                }
-                                let saved_tool_run = store.save_agent_run(run.clone())?;
-                                run = saved_tool_run.clone();
-                                emit_agent_run_record(desktop_app, &run, None);
-                                let observation_text = append_subdirectory_hints_to_tool_result(
-                                    &agent,
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &context_text,
-                                );
-                                observations.push(tool_result_replay_observation(
-                                    iteration + 1,
-                                    &tool_name,
-                                    &tool_name,
-                                    &observation_text,
-                                ));
-                                if let Some(outcome) = tool_guardrails.after_call(
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &context_text,
-                                    false,
-                                ) {
-                                    observations.push(format!(
-                                        "Iteration {} tool {} guardrail: {}",
+                            let Some(tool_result) = tool_result else {
+                                return Ok(vec![user]);
+                            };
+                            match tool_result {
+                                Ok((text, mut event)) => {
+                                    record_file_mutation_result(
+                                        &mut failed_file_mutations,
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &text,
+                                        false,
+                                    );
+                                    if check_agent_run_interrupted(
+                                        store,
+                                        &saved_run.run_id,
+                                        run_started_at,
+                                        run_timeout_seconds,
+                                        post_tool_quiet_timeout_seconds,
+                                        desktop_app,
+                                    )? {
+                                        return Ok(vec![user]);
+                                    }
+                                    let context_text = persist_large_tool_result_for_context(
+                                        store,
+                                        &saved_run.run_id,
+                                        &tool_name,
+                                        &text,
+                                        &mut event,
+                                    )?;
+                                    let mut tool_message = ChatMessage::new(
+                                        conversation.id.clone(),
+                                        "tool",
+                                        json!({"type": "toolEvent", "event": event.clone()})
+                                            .to_string(),
+                                        "desktop-agent-tool",
+                                    );
+                                    tool_message.provider_data = reply.provider_data.clone();
+                                    let _tool_message = store.append_message(tool_message)?;
+                                    history.push(_tool_message);
+                                    push_tool_event_record(&mut run, &event);
+                                    if let Some(assistant) = pause_run_for_clarify_tool(
+                                        store,
+                                        app,
+                                        &mut run,
+                                        &conversation.id,
+                                        WorkflowMode::ChatTurn,
+                                        &text,
+                                        &event,
+                                    )? {
+                                        return Ok(vec![user, assistant]);
+                                    }
+                                    let saved_tool_run = store.save_agent_run(run.clone())?;
+                                    run = saved_tool_run.clone();
+                                    emit_agent_run_record(desktop_app, &run, None);
+                                    let observation_text = append_subdirectory_hints_to_tool_result(
+                                        &agent,
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &context_text,
+                                    );
+                                    observations.push(tool_result_replay_observation(
                                         iteration + 1,
-                                        tool_name,
-                                        outcome.message
+                                        &tool_name,
+                                        &tool_name,
+                                        &observation_text,
                                     ));
-                                    if outcome.halt {
-                                        assistant_text = outcome.message.clone();
-                                        break;
+                                    if let Some(outcome) = tool_guardrails.after_call(
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &context_text,
+                                        false,
+                                    ) {
+                                        observations.push(format!(
+                                            "Iteration {} tool {} guardrail: {}",
+                                            iteration + 1,
+                                            tool_name,
+                                            outcome.message
+                                        ));
+                                        if outcome.halt {
+                                            assistant_text = outcome.message.clone();
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            Err(error) => {
-                                executor_core.record_tool_failed_with_iteration(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    Some(iteration + 1),
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                record_file_mutation_result(
-                                    &mut failed_file_mutations,
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &error.to_string(),
-                                    true,
-                                );
-                                observations.push(format!(
-                                    "Iteration {} tool {} error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                if let Some(outcome) = tool_guardrails.after_call(
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &error.to_string(),
-                                    true,
-                                ) {
+                                Err(error) => {
+                                    executor_core.record_tool_failed_with_iteration(
+                                        store,
+                                        desktop_app,
+                                        &conversation.id,
+                                        &saved_run.run_id,
+                                        Some(iteration + 1),
+                                        &tool_name,
+                                        &mcp_tools,
+                                        &guardrail_payload,
+                                        &error,
+                                    )?;
+                                    record_file_mutation_result(
+                                        &mut failed_file_mutations,
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &error.to_string(),
+                                        true,
+                                    );
                                     observations.push(format!(
-                                        "Iteration {} tool {} guardrail: {}",
+                                        "Iteration {} tool {} error: {}",
                                         iteration + 1,
                                         tool_name,
-                                        outcome.message
+                                        error
                                     ));
-                                    if outcome.halt {
-                                        assistant_text = outcome.message.clone();
-                                        break;
+                                    if let Some(outcome) = tool_guardrails.after_call(
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &error.to_string(),
+                                        true,
+                                    ) {
+                                        observations.push(format!(
+                                            "Iteration {} tool {} guardrail: {}",
+                                            iteration + 1,
+                                            tool_name,
+                                            outcome.message
+                                        ));
+                                        if outcome.halt {
+                                            assistant_text = outcome.message.clone();
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
-                        },
                         WorkflowExecutorToolResolution::Mcp {
                             identity: tool_identity,
                             definition,
@@ -2512,278 +2586,280 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                                 )
                                 .await
                             {
-                            Ok(reason) => reason,
-                            Err(error) => {
-                                executor_core.record_tool_failed_with_iteration(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    Some(iteration + 1),
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                observations.push(format!(
-                                    "Iteration {} tool {} approval error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
+                                Ok(reason) => reason,
+                                Err(error) => {
+                                    executor_core.record_tool_failed_with_iteration(
+                                        store,
+                                        desktop_app,
+                                        &conversation.id,
+                                        &saved_run.run_id,
+                                        Some(iteration + 1),
+                                        &tool_name,
+                                        &mcp_tools,
+                                        &guardrail_payload,
+                                        &error,
+                                    )?;
+                                    observations.push(format!(
+                                        "Iteration {} tool {} approval error: {}",
+                                        iteration + 1,
+                                        tool_name,
+                                        error
+                                    ));
+                                    continue;
+                                }
+                            };
+                            if let Some(reason) = approval_reason {
+                                let approval_request = executor_core
+                                    .request_approval(
+                                        store,
+                                        ExecutorApprovalRequestContext {
+                                            conversation_id: &conversation.id,
+                                            persona_id: &persona.id,
+                                            agent_id: &agent.id,
+                                            run_id: &saved_run.run_id,
+                                            tool_context,
+                                        },
+                                        iteration + 1,
+                                        &tool_identity,
+                                        payload,
+                                        reason,
+                                    )
+                                    .await?;
+                                let approval_route = approval_request.route;
+                                let approval = approval_request.approval;
+                                debug_assert!(matches!(
+                                    approval_route,
+                                    WorkflowExecutorRoute::AwaitApproval { .. }
                                 ));
-                                continue;
+                                run = store.agent_run(&saved_run.run_id)?;
+                                run.state = "pendingApproval".into();
+                                run.updated_at = now_iso();
+                                let saved_pending_run = store.save_agent_run(run)?;
+                                emit_agent_run_record(desktop_app, &saved_pending_run, None);
+                                let mut assistant_message = ChatMessage::new(
+                                    conversation.id,
+                                    "assistant",
+                                    format!(
+                                        "工具调用正在等待审批：{} · {}",
+                                        approval.server_id, approval.tool_name
+                                    ),
+                                    "desktop-agent",
+                                );
+                                if silent_pet_vision {
+                                    assistant_message.source = "pet-vision".into();
+                                    mark_message_visible_for_pet_vision(&mut assistant_message);
+                                }
+                                let assistant = store.append_message(assistant_message)?;
+                                return Ok(vec![user, assistant]);
                             }
-                        };
-                        if let Some(reason) = approval_reason {
-                            let approval_request = executor_core.request_approval(
+                            run = executor_core.start_tool_execution(
                                 store,
-                                ExecutorApprovalRequestContext {
-                                    conversation_id: &conversation.id,
-                                    persona_id: &persona.id,
-                                    agent_id: &agent.id,
-                                    run_id: &saved_run.run_id,
-                                    tool_context,
-                                },
-                                iteration + 1,
+                                desktop_app,
+                                &saved_run.run_id,
                                 &tool_identity,
-                                payload,
-                                reason,
-                            )
-                            .await?;
-                            let approval_route = approval_request.route;
-                            let approval = approval_request.approval;
-                            debug_assert!(matches!(
-                                approval_route,
-                                WorkflowExecutorRoute::AwaitApproval { .. }
-                            ));
-                            run = store.agent_run(&saved_run.run_id)?;
-                            run.state = "pendingApproval".into();
-                            run.updated_at = now_iso();
-                            let saved_pending_run = store.save_agent_run(run)?;
-                            emit_agent_run_record(desktop_app, &saved_pending_run, None);
-                            let mut assistant_message = ChatMessage::new(
-                                conversation.id,
-                                "assistant",
-                                format!(
-                                    "工具调用正在等待审批：{} · {}",
-                                    approval.server_id, approval.tool_name
-                                ),
-                                "desktop-agent",
-                            );
-                            if silent_pet_vision {
-                                assistant_message.source = "pet-vision".into();
-                                mark_message_visible_for_pet_vision(&mut assistant_message);
-                            }
-                            let assistant = store.append_message(assistant_message)?;
-                            return Ok(vec![user, assistant]);
-                        }
-                        run = executor_core.start_tool_execution(
-                            store,
-                            desktop_app,
-                            &saved_run.run_id,
-                            &tool_identity,
-                            &payload,
-                            iteration + 1,
-                        )?;
-                        emit_agent_run_record(desktop_app, &run, None);
-                        let tool_result = await_agent_run_interruptible(
-                            store,
-                            &saved_run.run_id,
-                            run_started_at,
-                            run_timeout_seconds,
-                            post_tool_quiet_timeout_seconds,
-                            desktop_app,
-                            executor_core.execute_mcp_tool(
+                                &payload,
+                                iteration + 1,
+                            )?;
+                            emit_agent_run_record(desktop_app, &run, None);
+                            let tool_result = await_agent_run_interruptible(
                                 store,
                                 &saved_run.run_id,
-                                &definition,
-                                payload,
-                                Some(&PythonPluginBridgeContext {
-                                    agent: &agent,
-                                    conversation_id: &conversation.id,
-                                    run_id: &saved_run.run_id,
-                                    tool_context,
-                                    app,
-                                    allow_mutating_tools: true,
-                                }),
-                            ),
-                        )
-                        .await?;
-                        let Some(tool_result) = tool_result else {
-                            return Ok(vec![user]);
-                        };
-                        match tool_result {
-                            Ok((text, mut event)) => {
-                                record_file_mutation_result(
-                                    &mut failed_file_mutations,
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &text,
-                                    false,
-                                );
-                                if check_agent_run_interrupted(
+                                run_started_at,
+                                run_timeout_seconds,
+                                post_tool_quiet_timeout_seconds,
+                                desktop_app,
+                                executor_core.execute_mcp_tool(
                                     store,
                                     &saved_run.run_id,
-                                    run_started_at,
-                                    run_timeout_seconds,
-                                    post_tool_quiet_timeout_seconds,
-                                    desktop_app,
-                                )? {
-                                    return Ok(vec![user]);
-                                }
-                                let context_text = persist_large_tool_result_for_context(
-                                    store,
-                                    &saved_run.run_id,
-                                    &tool_name,
-                                    &text,
-                                    &mut event,
-                                )?;
-                                let mut tool_message = ChatMessage::new(
-                                    conversation.id.clone(),
-                                    "tool",
-                                    json!({"type": "toolEvent", "event": event.clone()})
-                                        .to_string(),
-                                    "desktop-agent-tool",
-                                );
-                                tool_message.provider_data = reply.provider_data.clone();
-                                let _tool_message = store.append_message(tool_message)?;
-                                history.push(_tool_message);
-                                push_tool_event_record(&mut run, &event);
-                                if let Some(assistant) = pause_run_for_clarify_tool(
-                                    store,
-                                    app,
-                                    &mut run,
-                                    &conversation.id,
-                                    WorkflowMode::ChatTurn,
-                                    &text,
-                                    &event,
-                                )? {
-                                    return Ok(vec![user, assistant]);
-                                }
-                                let saved_tool_run = store.save_agent_run(run.clone())?;
-                                run = saved_tool_run.clone();
-                                emit_agent_run_record(desktop_app, &run, None);
-                                let tool_source = tool_identity.source_label();
-                                let observation_text = append_subdirectory_hints_to_tool_result(
-                                    &agent,
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &context_text,
-                                );
-                                observations.push(tool_result_replay_observation(
-                                    iteration + 1,
-                                    &tool_name,
-                                    &tool_source,
-                                    &observation_text,
-                                ));
-                                if let Some(outcome) = tool_guardrails.after_call(
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &context_text,
-                                    false,
-                                ) {
-                                    observations.push(format!(
-                                        "Iteration {} tool {} guardrail: {}",
+                                    &definition,
+                                    payload,
+                                    Some(&PythonPluginBridgeContext {
+                                        agent: &agent,
+                                        conversation_id: &conversation.id,
+                                        run_id: &saved_run.run_id,
+                                        tool_context,
+                                        app,
+                                        allow_mutating_tools: true,
+                                    }),
+                                ),
+                            )
+                            .await?;
+                            let Some(tool_result) = tool_result else {
+                                return Ok(vec![user]);
+                            };
+                            match tool_result {
+                                Ok((text, mut event)) => {
+                                    record_file_mutation_result(
+                                        &mut failed_file_mutations,
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &text,
+                                        false,
+                                    );
+                                    if check_agent_run_interrupted(
+                                        store,
+                                        &saved_run.run_id,
+                                        run_started_at,
+                                        run_timeout_seconds,
+                                        post_tool_quiet_timeout_seconds,
+                                        desktop_app,
+                                    )? {
+                                        return Ok(vec![user]);
+                                    }
+                                    let context_text = persist_large_tool_result_for_context(
+                                        store,
+                                        &saved_run.run_id,
+                                        &tool_name,
+                                        &text,
+                                        &mut event,
+                                    )?;
+                                    let mut tool_message = ChatMessage::new(
+                                        conversation.id.clone(),
+                                        "tool",
+                                        json!({"type": "toolEvent", "event": event.clone()})
+                                            .to_string(),
+                                        "desktop-agent-tool",
+                                    );
+                                    tool_message.provider_data = reply.provider_data.clone();
+                                    let _tool_message = store.append_message(tool_message)?;
+                                    history.push(_tool_message);
+                                    push_tool_event_record(&mut run, &event);
+                                    if let Some(assistant) = pause_run_for_clarify_tool(
+                                        store,
+                                        app,
+                                        &mut run,
+                                        &conversation.id,
+                                        WorkflowMode::ChatTurn,
+                                        &text,
+                                        &event,
+                                    )? {
+                                        return Ok(vec![user, assistant]);
+                                    }
+                                    let saved_tool_run = store.save_agent_run(run.clone())?;
+                                    run = saved_tool_run.clone();
+                                    emit_agent_run_record(desktop_app, &run, None);
+                                    let tool_source = tool_identity.source_label();
+                                    let observation_text = append_subdirectory_hints_to_tool_result(
+                                        &agent,
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &context_text,
+                                    );
+                                    observations.push(tool_result_replay_observation(
                                         iteration + 1,
-                                        tool_name,
-                                        outcome.message
+                                        &tool_name,
+                                        &tool_source,
+                                        &observation_text,
                                     ));
-                                    if outcome.halt {
-                                        assistant_text = outcome.message.clone();
-                                        break;
+                                    if let Some(outcome) = tool_guardrails.after_call(
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &context_text,
+                                        false,
+                                    ) {
+                                        observations.push(format!(
+                                            "Iteration {} tool {} guardrail: {}",
+                                            iteration + 1,
+                                            tool_name,
+                                            outcome.message
+                                        ));
+                                        if outcome.halt {
+                                            assistant_text = outcome.message.clone();
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            Err(error) => {
-                                executor_core.record_tool_failed_with_iteration(
-                                    store,
-                                    desktop_app,
-                                    &conversation.id,
-                                    &saved_run.run_id,
-                                    Some(iteration + 1),
-                                    &tool_name,
-                                    &mcp_tools,
-                                    &guardrail_payload,
-                                    &error,
-                                )?;
-                                record_file_mutation_result(
-                                    &mut failed_file_mutations,
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &error.to_string(),
-                                    true,
-                                );
-                                observations.push(format!(
-                                    "Iteration {} tool {} error: {}",
-                                    iteration + 1,
-                                    tool_name,
-                                    error
-                                ));
-                                if let Some(outcome) = tool_guardrails.after_call(
-                                    &tool_name,
-                                    &guardrail_payload,
-                                    &error.to_string(),
-                                    true,
-                                ) {
+                                Err(error) => {
+                                    executor_core.record_tool_failed_with_iteration(
+                                        store,
+                                        desktop_app,
+                                        &conversation.id,
+                                        &saved_run.run_id,
+                                        Some(iteration + 1),
+                                        &tool_name,
+                                        &mcp_tools,
+                                        &guardrail_payload,
+                                        &error,
+                                    )?;
+                                    record_file_mutation_result(
+                                        &mut failed_file_mutations,
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &error.to_string(),
+                                        true,
+                                    );
                                     observations.push(format!(
-                                        "Iteration {} tool {} guardrail: {}",
+                                        "Iteration {} tool {} error: {}",
                                         iteration + 1,
                                         tool_name,
-                                        outcome.message
+                                        error
                                     ));
-                                    if outcome.halt {
-                                        assistant_text = outcome.message.clone();
-                                        break;
+                                    if let Some(outcome) = tool_guardrails.after_call(
+                                        &tool_name,
+                                        &guardrail_payload,
+                                        &error.to_string(),
+                                        true,
+                                    ) {
+                                        observations.push(format!(
+                                            "Iteration {} tool {} guardrail: {}",
+                                            iteration + 1,
+                                            tool_name,
+                                            outcome.message
+                                        ));
+                                        if outcome.halt {
+                                            assistant_text = outcome.message.clone();
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
-                        },
                         WorkflowExecutorToolResolution::Unavailable { requested_name } => {
-                        let error =
-                            AppError::BadRequest(format!("tool is not available: {requested_name}"));
-                        executor_core.record_tool_failed_with_iteration(
-                            store,
-                            desktop_app,
-                            &conversation.id,
-                            &saved_run.run_id,
-                            Some(iteration + 1),
-                            &tool_name,
-                            &mcp_tools,
-                            &guardrail_payload,
-                            &error,
-                        )?;
-                        record_file_mutation_result(
-                            &mut failed_file_mutations,
-                            &tool_name,
-                            &guardrail_payload,
-                            &error.to_string(),
-                            true,
-                        );
-                        observations.push(format!(
-                            "Iteration {} tool {} error: {}",
-                            iteration + 1,
-                            tool_name,
-                            error
-                        ));
-                        if let Some(outcome) = tool_guardrails.after_call(
-                            &tool_name,
-                            &guardrail_payload,
-                            &error.to_string(),
-                            true,
-                        ) {
+                            let error = AppError::BadRequest(format!(
+                                "tool is not available: {requested_name}"
+                            ));
+                            executor_core.record_tool_failed_with_iteration(
+                                store,
+                                desktop_app,
+                                &conversation.id,
+                                &saved_run.run_id,
+                                Some(iteration + 1),
+                                &tool_name,
+                                &mcp_tools,
+                                &guardrail_payload,
+                                &error,
+                            )?;
+                            record_file_mutation_result(
+                                &mut failed_file_mutations,
+                                &tool_name,
+                                &guardrail_payload,
+                                &error.to_string(),
+                                true,
+                            );
                             observations.push(format!(
-                                "Iteration {} tool {} guardrail: {}",
+                                "Iteration {} tool {} error: {}",
                                 iteration + 1,
                                 tool_name,
-                                outcome.message
+                                error
                             ));
-                            if outcome.halt {
-                                assistant_text = outcome.message.clone();
-                                break;
+                            if let Some(outcome) = tool_guardrails.after_call(
+                                &tool_name,
+                                &guardrail_payload,
+                                &error.to_string(),
+                                true,
+                            ) {
+                                observations.push(format!(
+                                    "Iteration {} tool {} guardrail: {}",
+                                    iteration + 1,
+                                    tool_name,
+                                    outcome.message
+                                ));
+                                if outcome.halt {
+                                    assistant_text = outcome.message.clone();
+                                    break;
+                                }
                             }
                         }
-                        },
                     }
                     if !assistant_text.trim().is_empty() {
                         break;
@@ -4061,25 +4137,29 @@ pub(super) fn clarification_response_context_for_turn(
             "checkpoint_id".into(),
             json!(checkpoint.checkpoint_id.clone()),
         );
-        human_gate.insert("responsePreview".into(), json!(truncate_for_prompt(response, 500)));
-        human_gate.insert("response_preview".into(), json!(truncate_for_prompt(response, 500)));
+        human_gate.insert(
+            "responsePreview".into(),
+            json!(truncate_for_prompt(response, 500)),
+        );
+        human_gate.insert(
+            "response_preview".into(),
+            json!(truncate_for_prompt(response, 500)),
+        );
         let human_gate = Value::Object(human_gate);
-        WorkflowDriver::new(workflow_mode)
-            .checkpoint()
-            .completed(
-                store,
-                &run.run_id,
-                &checkpoint.state,
-                &checkpoint.summary,
-                json!({
-                    "kind": "clarification_response",
-                    "checkpointId": checkpoint.checkpoint_id.clone(),
-                    "checkpoint_id": checkpoint.checkpoint_id.clone(),
-                    "iteration": checkpoint.iteration,
-                    "humanGate": human_gate.clone(),
-                    "human_gate": human_gate,
-                }),
-            )?;
+        WorkflowDriver::new(workflow_mode).checkpoint().completed(
+            store,
+            &run.run_id,
+            &checkpoint.state,
+            &checkpoint.summary,
+            json!({
+                "kind": "clarification_response",
+                "checkpointId": checkpoint.checkpoint_id.clone(),
+                "checkpoint_id": checkpoint.checkpoint_id.clone(),
+                "iteration": checkpoint.iteration,
+                "humanGate": human_gate.clone(),
+                "human_gate": human_gate,
+            }),
+        )?;
     }
     Ok(Some(format!(
         "Continue the user's original task after a clarification exchange.\n\nOriginal request:\n{}\n\nClarification question:\n{}\n\nUser clarification response:\n{}\n\nUse this response to continue the original task. Do not ask the same clarification again unless the response is still insufficient.",
@@ -4160,7 +4240,10 @@ pub(super) fn pause_run_for_clarify_tool(
     if let Some(checkpoint) = run.checkpoints.last() {
         let mut human_gate = workflow_human_gate_detail("clarification", "waiting", &run.run_id);
         human_gate.insert("question".into(), json!(question));
-        human_gate.insert("reason".into(), json!(WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT));
+        human_gate.insert(
+            "reason".into(),
+            json!(WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT),
+        );
         human_gate.insert("requiresUserInput".into(), json!(true));
         human_gate.insert("requires_user_input".into(), json!(true));
         human_gate.insert(

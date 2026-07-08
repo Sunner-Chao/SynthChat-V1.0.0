@@ -205,13 +205,20 @@ pub(super) async fn terminal_tool(
 }
 
 pub(super) fn terminal_background_requested(payload: &Value) -> bool {
-    value_bool_like(payload, &["background", "backgroundProcess", "background_process", "bg"])
-        .unwrap_or(false)
+    value_bool_like(
+        payload,
+        &[
+            "background",
+            "backgroundProcess",
+            "background_process",
+            "bg",
+        ],
+    )
+    .unwrap_or(false)
 }
 
 pub(super) fn terminal_timeout_seconds(payload: &Value) -> AppResult<u64> {
-    let explicit_timeout =
-        value_u64_like(payload, &["timeoutSeconds", "timeout"]);
+    let explicit_timeout = value_u64_like(payload, &["timeoutSeconds", "timeout"]);
     let max_foreground = env_u64("TERMINAL_MAX_FOREGROUND_TIMEOUT", 600).max(1);
     if let Some(timeout) = explicit_timeout {
         if terminal_background_requested(payload) {
@@ -4653,8 +4660,8 @@ pub(super) struct ProcessNotificationOptions {
 }
 
 pub(super) fn process_notification_options(payload: &Value) -> ProcessNotificationOptions {
-    let notify_on_complete = value_bool_like(payload, &["notifyOnComplete", "notify_on_complete"])
-        .unwrap_or(false);
+    let notify_on_complete =
+        value_bool_like(payload, &["notifyOnComplete", "notify_on_complete"]).unwrap_or(false);
     let mut watch_patterns = value_string_list_like(payload, &["watchPatterns", "watch_patterns"]);
     let conflict_note = if notify_on_complete && !watch_patterns.is_empty() {
         watch_patterns.clear();
@@ -7473,14 +7480,14 @@ fn sync_ssh_remote_files(
             scp_remote_target_path(&remote_path)
         ));
         let output = hidden_std_command_output(&scp, &args)?;
-    if !output.status.success() {
-        return Err(AppError::BadRequest(format!(
-            "ssh sync scp failed for {} -> {}: {}",
-            host_path.display(),
-            remote_path,
-            decode_terminal_output(&output.stderr)
-        )));
-    }
+        if !output.status.success() {
+            return Err(AppError::BadRequest(format!(
+                "ssh sync scp failed for {} -> {}: {}",
+                host_path.display(),
+                remote_path,
+                decode_terminal_output(&output.stderr)
+            )));
+        }
         uploaded += 1;
     }
     set_ssh_synced_paths(&sync_key, current_remote_paths);

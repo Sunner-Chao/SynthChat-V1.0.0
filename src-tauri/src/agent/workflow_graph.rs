@@ -9,11 +9,11 @@ use crate::{
 
 use super::{
     decision_parser::{
-        validated_tool_calls_from_decision_with_error, AgentToolCall,
-        ToolCallValidationErrorKind,
+        validated_tool_calls_from_decision_with_error, AgentToolCall, ToolCallValidationErrorKind,
     },
     tool_policy::is_internal_tool,
-    tool_registry::resolve_mcp_tool, ToolExecutionContext,
+    tool_registry::resolve_mcp_tool,
+    ToolExecutionContext,
 };
 
 pub(super) const SYNTHGRAPH_WORKFLOW_SCHEMA: &str = "synthgraph_workflow_v1";
@@ -35,17 +35,13 @@ pub(super) const WORKFLOW_REASON_DIRECT_TURN: &str = "direct_turn";
 pub(super) const WORKFLOW_REASON_GROUP_CONTEXT_READY: &str = "group_context_ready";
 pub(super) const WORKFLOW_REASON_NO_GROUP_ROOM_CONTEXT: &str = "no_group_room_context";
 pub(super) const WORKFLOW_REASON_TOOL_CALLS: &str = "tool_calls";
-pub(super) const WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED: &str =
-    "tool_observations_recorded";
+pub(super) const WORKFLOW_REASON_TOOL_OBSERVATIONS_RECORDED: &str = "tool_observations_recorded";
 pub(super) const WORKFLOW_REASON_APPROVAL_REQUIRED: &str = "approval_required";
 pub(super) const WORKFLOW_REASON_APPROVAL_RESUMED: &str = "approval_resumed";
-pub(super) const WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT: &str =
-    "clarify_requires_user_input";
+pub(super) const WORKFLOW_REASON_CLARIFY_REQUIRES_USER_INPUT: &str = "clarify_requires_user_input";
 pub(super) const WORKFLOW_REASON_FUTURE_CHECKPOINT_WAIT: &str = "future_checkpoint_wait";
-pub(super) const WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED: &str =
-    "resume_checkpoint_requested";
-pub(super) const WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED: &str =
-    "resume_checkpoint_continued";
+pub(super) const WORKFLOW_REASON_RESUME_CHECKPOINT_REQUESTED: &str = "resume_checkpoint_requested";
+pub(super) const WORKFLOW_REASON_RESUME_CHECKPOINT_CONTINUED: &str = "resume_checkpoint_continued";
 pub(super) const WORKFLOW_REASON_FINAL_ANSWER_CANDIDATE: &str = "final_answer_candidate";
 pub(super) const WORKFLOW_REASON_COMPLETION_GATE_PASSED: &str = "completion_gate_passed";
 pub(super) const WORKFLOW_REASON_DELEGATE_TASK_STARTED: &str = "delegate_task_started";
@@ -80,8 +76,15 @@ pub(super) const WORKFLOW_NODE_ORDER: &[&str] = &[
     "completion_gate",
     "reviewer",
 ];
-pub(super) const WORKFLOW_STATUS_ORDER: &[&str] =
-    &["failed", "canceled", "waiting", "running", "pending", "completed", "skipped"];
+pub(super) const WORKFLOW_STATUS_ORDER: &[&str] = &[
+    "failed",
+    "canceled",
+    "waiting",
+    "running",
+    "pending",
+    "completed",
+    "skipped",
+];
 pub(super) const WORKFLOW_DETAIL_ALIAS_PAIRS: &[(&str, &str)] = &[
     ("requestSource", "request_source"),
     ("toolContext", "tool_context"),
@@ -642,12 +645,7 @@ impl WorkflowDriver {
         record_workflow_planner_failed(store, run_id, iteration, self.mode, error_kind, error)
     }
 
-    fn queue_completed(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        queue_item_id: &str,
-    ) -> AppResult<()> {
+    fn queue_completed(self, store: &AppStore, run_id: &str, queue_item_id: &str) -> AppResult<()> {
         record_workflow_queue_completed(store, run_id, self.mode, queue_item_id)
     }
 
@@ -666,30 +664,15 @@ impl WorkflowDriver {
         record_workflow_queue_terminal(store, run_id, self.mode, queue_item_id, status, error)
     }
 
-    fn group_room_completed(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        context: Value,
-    ) -> AppResult<()> {
+    fn group_room_completed(self, store: &AppStore, run_id: &str, context: Value) -> AppResult<()> {
         record_workflow_group_room_completed(store, run_id, self.mode, context)
     }
 
-    fn group_room_running(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        context: Value,
-    ) -> AppResult<()> {
+    fn group_room_running(self, store: &AppStore, run_id: &str, context: Value) -> AppResult<()> {
         record_workflow_group_room_running(store, run_id, self.mode, context)
     }
 
-    fn group_room_failed(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        context: Value,
-    ) -> AppResult<()> {
+    fn group_room_failed(self, store: &AppStore, run_id: &str, context: Value) -> AppResult<()> {
         record_workflow_group_room_failed(store, run_id, self.mode, context)
     }
 
@@ -1120,30 +1103,15 @@ impl WorkflowQueueNode {
 }
 
 impl WorkflowGroupRoomNode {
-    pub(super) fn running(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        context: Value,
-    ) -> AppResult<()> {
+    pub(super) fn running(self, store: &AppStore, run_id: &str, context: Value) -> AppResult<()> {
         self.driver.group_room_running(store, run_id, context)
     }
 
-    pub(super) fn completed(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        context: Value,
-    ) -> AppResult<()> {
+    pub(super) fn completed(self, store: &AppStore, run_id: &str, context: Value) -> AppResult<()> {
         self.driver.group_room_completed(store, run_id, context)
     }
 
-    pub(super) fn failed(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        context: Value,
-    ) -> AppResult<()> {
+    pub(super) fn failed(self, store: &AppStore, run_id: &str, context: Value) -> AppResult<()> {
         self.driver.group_room_failed(store, run_id, context)
     }
 
@@ -1153,12 +1121,7 @@ impl WorkflowGroupRoomNode {
 }
 
 impl WorkflowPlannerNode {
-    pub(super) fn running(
-        self,
-        store: &AppStore,
-        run_id: &str,
-        iteration: u32,
-    ) -> AppResult<()> {
+    pub(super) fn running(self, store: &AppStore, run_id: &str, iteration: u32) -> AppResult<()> {
         self.driver.planner_running(store, run_id, iteration)
     }
 
@@ -1619,11 +1582,19 @@ pub(super) fn push_workflow_graph_bootstrap(
             group_room_detail.insert("context".into(), context);
         }
         None => {
-            group_room_detail.insert("reason".into(), json!(WORKFLOW_REASON_NO_GROUP_ROOM_CONTEXT));
+            group_room_detail.insert(
+                "reason".into(),
+                json!(WORKFLOW_REASON_NO_GROUP_ROOM_CONTEXT),
+            );
         }
     }
-    let pending_detail =
-        || Value::Object(workflow_bootstrap_node_detail(mode, request_source, tool_context_label));
+    let pending_detail = || {
+        Value::Object(workflow_bootstrap_node_detail(
+            mode,
+            request_source,
+            tool_context_label,
+        ))
+    };
     let queue_status = if request.queue_item_id.is_some() {
         WorkflowNodeStatus::Completed
     } else {
@@ -2809,8 +2780,14 @@ pub(super) fn record_workflow_executor_tool_call_bridge_target(
         "requires_approval",
         json!(requires_approval),
     );
-    detail.insert("approvedToolCallReplay".into(), json!(approved_replay_context));
-    detail.insert("approved_tool_call_replay".into(), json!(approved_replay_context));
+    detail.insert(
+        "approvedToolCallReplay".into(),
+        json!(approved_replay_context),
+    );
+    detail.insert(
+        "approved_tool_call_replay".into(),
+        json!(approved_replay_context),
+    );
     detail.insert("bridgeStatus".into(), json!(bridge_status));
     detail.insert("bridge_status".into(), json!(bridge_status));
     if let Some(reason) = bridge_rejection_reason.filter(|reason| !reason.trim().is_empty()) {
@@ -3245,27 +3222,36 @@ impl TaskContract {
 
         if text_contains_any(
             request,
-            &["搜索", "查询", "查找", "联网", "网上", "最新", "今天", "新闻", "价格"],
+            &[
+                "搜索", "查询", "查找", "联网", "网上", "最新", "今天", "新闻", "价格",
+            ],
         ) || ascii_contains_any(
             &normalized,
-            &["search", "web", "look up", "latest", "today", "news", "price"],
+            &[
+                "search", "web", "look up", "latest", "today", "news", "price",
+            ],
         ) {
             contract.require(TaskRequirement::WebResult);
         }
 
         if text_contains_any(request, &["生图", "生成图片", "画一张", "绘制", "图片生成"])
-            || ascii_contains_any(&normalized, &["generate image", "draw an image", "image generation"])
+            || ascii_contains_any(
+                &normalized,
+                &["generate image", "draw an image", "image generation"],
+            )
         {
             contract.require(TaskRequirement::ImageArtifact);
         }
 
-        let asks_for_file = text_contains_any(
-            request,
-            &["生成", "创建", "导出", "保存", "写入", "下载"],
-        ) && text_contains_any(
-            request,
-            &["文件", "文档", "桌面", "报告", "Word", "PDF", "Excel", "PPT", "docx", "xlsx", "pptx"],
-        );
+        let asks_for_file =
+            text_contains_any(request, &["生成", "创建", "导出", "保存", "写入", "下载"])
+                && text_contains_any(
+                    request,
+                    &[
+                        "文件", "文档", "桌面", "报告", "Word", "PDF", "Excel", "PPT", "docx",
+                        "xlsx", "pptx",
+                    ],
+                );
         if asks_for_file
             || ascii_contains_any(
                 &normalized,
@@ -3283,10 +3269,9 @@ impl TaskContract {
             contract.require(TaskRequirement::FileArtifact);
         }
 
-        let asks_for_delivery = text_contains_any(
-            request,
-            &["发送", "发给", "通知", "转发", "推送"],
-        ) || ascii_contains_any(&normalized, &["send", "deliver", "notify", "message"]);
+        let asks_for_delivery =
+            text_contains_any(request, &["发送", "发给", "通知", "转发", "推送"])
+                || ascii_contains_any(&normalized, &["send", "deliver", "notify", "message"]);
         let mentions_wechat = text_contains_any(request, &["微信", "企微", "微信群"])
             || ascii_contains_any(&normalized, &["wechat", "weixin", "wecom"]);
         let mentions_messaging = mentions_wechat
@@ -3362,11 +3347,15 @@ impl EvidenceRegistry {
             let tool_name = tool_event_name(event);
             let status = tool_event_status(event);
             if matches!(status, Some("running" | "pending")) {
-                evidence.running_tools.push(tool_event_label(event, &tool_name));
+                evidence
+                    .running_tools
+                    .push(tool_event_label(event, &tool_name));
                 continue;
             }
             if matches!(status, Some("failed")) {
-                evidence.failed_tools.push(tool_event_label(event, &tool_name));
+                evidence
+                    .failed_tools
+                    .push(tool_event_label(event, &tool_name));
                 continue;
             }
             if !tool_event_completed_ok(event) {
@@ -3374,8 +3363,10 @@ impl EvidenceRegistry {
             }
 
             let name = tool_name.as_str();
-            if matches!(name, "web_search" | "x_search" | "web_extract" | "web_request")
-                || name.starts_with("browser_")
+            if matches!(
+                name,
+                "web_search" | "x_search" | "web_extract" | "web_request"
+            ) || name.starts_with("browser_")
             {
                 evidence.web_result = true;
             }
@@ -3393,13 +3384,19 @@ impl EvidenceRegistry {
             {
                 evidence.artifact_ready = true;
             }
-            if tool_event_has_path(event) && matches!(name, "write_file" | "patch" | "artifact" | "document") {
+            if tool_event_has_path(event)
+                && matches!(name, "write_file" | "patch" | "artifact" | "document")
+            {
                 evidence.file_created = true;
             }
             if name == "send_message" {
                 evidence.message_sent = true;
                 let blob = tool_event_text_blob(event).to_ascii_lowercase();
-                if blob.contains("wechat") || blob.contains("weixin") || blob.contains("wecom") || blob.contains("微信") {
+                if blob.contains("wechat")
+                    || blob.contains("weixin")
+                    || blob.contains("wecom")
+                    || blob.contains("微信")
+                {
                     evidence.wechat_delivered = true;
                 }
             }
@@ -3477,7 +3474,7 @@ fn final_answer_completion_gate_decision(
         return Ok(CompletionGateDecision {
             assessment,
             observation: Some(
-            "final answer is empty; continue planning or report a concrete blocker".into(),
+                "final answer is empty; continue planning or report a concrete blocker".into(),
             ),
         });
     }
@@ -3593,7 +3590,10 @@ fn tool_event_status(event: &Value) -> Option<&str> {
 
 fn tool_event_completed_ok(event: &Value) -> bool {
     let status_completed = matches!(tool_event_status(event), Some("completed" | "success"));
-    let ok = event.get("ok").and_then(Value::as_bool).unwrap_or(status_completed);
+    let ok = event
+        .get("ok")
+        .and_then(Value::as_bool)
+        .unwrap_or(status_completed);
     status_completed && ok
 }
 
@@ -3665,7 +3665,10 @@ fn final_answer_reports_blocker(content: &str) -> bool {
         "阻塞",
         "已达到",
     ];
-    if chinese_markers.iter().any(|marker| content.contains(marker)) {
+    if chinese_markers
+        .iter()
+        .any(|marker| content.contains(marker))
+    {
         return true;
     }
     [
@@ -3710,7 +3713,10 @@ fn final_answer_looks_like_intermediate_progress(content: &str) -> bool {
         "我来搜",
         "我再试",
     ];
-    if chinese_markers.iter().any(|marker| content.contains(marker)) {
+    if chinese_markers
+        .iter()
+        .any(|marker| content.contains(marker))
+    {
         return true;
     }
     [
@@ -3830,20 +3836,17 @@ fn final_answer_looks_like_tool_or_transport_leak(content: &str) -> bool {
                 "\"stderr\"",
             ],
         )
-        && (
-            ascii_contains_any(
-                &normalized,
-                &[
-                    "\"tool\"",
-                    "\"toolname\"",
-                    "\"tool_name\"",
-                    "\"name\"",
-                    "\"function\"",
-                    "\"tool_calls\"",
-                ],
-            )
-            || ascii_contains_any(&normalized, &["\"stdout\"", "\"stderr\""])
-        )
+        && (ascii_contains_any(
+            &normalized,
+            &[
+                "\"tool\"",
+                "\"toolname\"",
+                "\"tool_name\"",
+                "\"name\"",
+                "\"function\"",
+                "\"tool_calls\"",
+            ],
+        ) || ascii_contains_any(&normalized, &["\"stdout\"", "\"stderr\""]))
     {
         return true;
     }
@@ -3984,32 +3987,30 @@ pub(super) fn resolve_workflow_planner_route(
         .unwrap_or("final")
     {
         "tool" => {
-            let tool_calls = match validated_tool_calls_from_decision_with_error(
-                decision,
-                available_tools,
-            ) {
-                Ok(tool_calls) => tool_calls,
-                Err(error) => {
-                    let error_kind =
-                        WorkflowPlannerErrorKind::from_tool_validation_error_kind(error.kind());
-                    record_workflow_planner_failed(
-                        store,
-                        run_id,
-                        Some(iteration),
-                        mode,
-                        error_kind,
-                        error.message(),
-                    )?;
-                    return Ok(WorkflowPlannerRoute::Recover {
-                        observation: format!(
-                            "{} {}: {}",
-                            workflow_iteration_label(mode, iteration),
-                            error_kind.observation_label(),
-                            error.message()
-                        ),
-                    });
-                }
-            };
+            let tool_calls =
+                match validated_tool_calls_from_decision_with_error(decision, available_tools) {
+                    Ok(tool_calls) => tool_calls,
+                    Err(error) => {
+                        let error_kind =
+                            WorkflowPlannerErrorKind::from_tool_validation_error_kind(error.kind());
+                        record_workflow_planner_failed(
+                            store,
+                            run_id,
+                            Some(iteration),
+                            mode,
+                            error_kind,
+                            error.message(),
+                        )?;
+                        return Ok(WorkflowPlannerRoute::Recover {
+                            observation: format!(
+                                "{} {}: {}",
+                                workflow_iteration_label(mode, iteration),
+                                error_kind.observation_label(),
+                                error.message()
+                            ),
+                        });
+                    }
+                };
             if tool_calls.is_empty() {
                 let error_message =
                     "planner requested tool action without a valid tool name".to_string();
@@ -4336,7 +4337,8 @@ pub(super) fn workflow_graph_runtime_summary(graph: Option<&Value>) -> Value {
 
 pub(super) fn workflow_graph_run_response_values(graph: Option<&Value>) -> (Value, Value) {
     (
-        graph.map(workflow_graph_with_runtime_aliases)
+        graph
+            .map(workflow_graph_with_runtime_aliases)
             .unwrap_or(Value::Null),
         workflow_graph_runtime_summary(graph),
     )
@@ -4365,10 +4367,7 @@ fn workflow_graph_runtime_status_counts(nodes: Option<&[Value]>) -> Value {
     Value::Object(counts)
 }
 
-fn workflow_graph_runtime_human_gate(
-    nodes: Option<&[Value]>,
-    current_node: Option<&str>,
-) -> Value {
+fn workflow_graph_runtime_human_gate(nodes: Option<&[Value]>, current_node: Option<&str>) -> Value {
     let Some(nodes) = nodes else {
         return Value::Null;
     };
@@ -4480,25 +4479,32 @@ pub(super) fn workflow_graph_with_runtime_aliases(graph: &Value) -> Value {
         "current_status",
         inferred_current_status,
     );
-    insert_workflow_graph_alias_pair(&mut object, "lastEventSequence", "last_event_sequence", None);
+    insert_workflow_graph_alias_pair(
+        &mut object,
+        "lastEventSequence",
+        "last_event_sequence",
+        None,
+    );
     insert_workflow_graph_alias_pair(&mut object, "updatedAt", "updated_at", None);
 
-    if let Some(nodes) = object
-        .get("nodes")
-        .and_then(Value::as_array)
-        .map(|nodes| nodes.iter().map(workflow_graph_node_with_aliases).collect::<Vec<_>>())
-    {
+    if let Some(nodes) = object.get("nodes").and_then(Value::as_array).map(|nodes| {
+        nodes
+            .iter()
+            .map(workflow_graph_node_with_aliases)
+            .collect::<Vec<_>>()
+    }) {
         object.insert("nodes".into(), Value::Array(nodes));
     }
-    if let Some(transitions) = object
-        .get("transitions")
-        .and_then(Value::as_array)
-        .map(|transitions| {
-            transitions
-                .iter()
-                .map(workflow_graph_transition_with_aliases)
-                .collect::<Vec<_>>()
-        })
+    if let Some(transitions) =
+        object
+            .get("transitions")
+            .and_then(Value::as_array)
+            .map(|transitions| {
+                transitions
+                    .iter()
+                    .map(workflow_graph_transition_with_aliases)
+                    .collect::<Vec<_>>()
+            })
     {
         object.insert("transitions".into(), Value::Array(transitions));
     }
@@ -4515,7 +4521,10 @@ fn workflow_graph_node_with_aliases(node: &Value) -> Value {
         .or_insert_with(|| workflow_graph_node_role_value(node));
     insert_workflow_graph_alias_pair(&mut object, "eventSequence", "event_sequence", None);
     insert_workflow_graph_alias_pair(&mut object, "updatedAt", "updated_at", None);
-    if let Some(detail) = object.get("detail").map(workflow_detail_with_runtime_aliases) {
+    if let Some(detail) = object
+        .get("detail")
+        .map(workflow_detail_with_runtime_aliases)
+    {
         object.insert("detail".into(), detail);
     }
     Value::Object(object)
@@ -4539,23 +4548,28 @@ fn workflow_graph_transition_with_aliases(transition: &Value) -> Value {
         &mut object,
         "topologyReasonKnown",
         "topology_reason_known",
-        topology.as_ref().map(|metadata| json!(metadata.reason_known)),
+        topology
+            .as_ref()
+            .map(|metadata| json!(metadata.reason_known)),
     );
     insert_workflow_graph_alias_pair(
         &mut object,
         "topologyEdgeSource",
         "topology_edge_source",
-        topology
-            .as_ref()
-            .map(|metadata| metadata.source.clone()),
+        topology.as_ref().map(|metadata| metadata.source.clone()),
     );
     insert_workflow_graph_alias_pair(
         &mut object,
         "topologyEdgeLabel",
         "topology_edge_label",
-        topology.as_ref().map(|metadata| json!(metadata.label.clone())),
+        topology
+            .as_ref()
+            .map(|metadata| json!(metadata.label.clone())),
     );
-    if let Some(detail) = object.get("detail").map(workflow_detail_with_runtime_aliases) {
+    if let Some(detail) = object
+        .get("detail")
+        .map(workflow_detail_with_runtime_aliases)
+    {
         object.insert("detail".into(), detail);
     }
     Value::Object(object)
@@ -4573,9 +4587,7 @@ fn insert_workflow_graph_alias_pair(
         .cloned()
         .or(fallback);
     if let Some(value) = value {
-        object
-            .entry(camel_key)
-            .or_insert_with(|| value.clone());
+        object.entry(camel_key).or_insert_with(|| value.clone());
         object.entry(snake_key).or_insert(value);
     }
 }
@@ -4674,7 +4686,11 @@ pub(super) fn workflow_graph_transition_runtime_payload(
         .get("topologyReasonKnown")
         .or_else(|| transition.get("topology_reason_known"))
         .cloned()
-        .or_else(|| topology.as_ref().map(|metadata| json!(metadata.reason_known)))
+        .or_else(|| {
+            topology
+                .as_ref()
+                .map(|metadata| json!(metadata.reason_known))
+        })
         .unwrap_or(Value::Null);
     let topology_edge_source = transition
         .get("topologyEdgeSource")
@@ -4686,7 +4702,11 @@ pub(super) fn workflow_graph_transition_runtime_payload(
         .get("topologyEdgeLabel")
         .or_else(|| transition.get("topology_edge_label"))
         .cloned()
-        .or_else(|| topology.as_ref().map(|metadata| json!(metadata.label.clone())))
+        .or_else(|| {
+            topology
+                .as_ref()
+                .map(|metadata| json!(metadata.label.clone()))
+        })
         .unwrap_or(Value::Null);
     json!({
         "from": transition.get("from").cloned().unwrap_or(Value::Null),
@@ -4800,9 +4820,24 @@ fn append_workflow_tool_identity_detail(
         "requested_name",
         json!(identity.requested_name()),
     );
-    insert_workflow_detail_alias_value(detail, "serverId", "server_id", json!(identity.server_id()));
-    insert_workflow_detail_alias_value(detail, "toolName", "tool_name", json!(identity.tool_name()));
-    insert_workflow_detail_alias_value(detail, "toolKind", "tool_kind", json!(identity.kind().as_str()));
+    insert_workflow_detail_alias_value(
+        detail,
+        "serverId",
+        "server_id",
+        json!(identity.server_id()),
+    );
+    insert_workflow_detail_alias_value(
+        detail,
+        "toolName",
+        "tool_name",
+        json!(identity.tool_name()),
+    );
+    insert_workflow_detail_alias_value(
+        detail,
+        "toolKind",
+        "tool_kind",
+        json!(identity.kind().as_str()),
+    );
     insert_workflow_detail_alias_value(
         detail,
         "sourceLabel",
@@ -4856,7 +4891,10 @@ fn ensure_workflow_graph_root<'a>(run: &'a mut AgentRunRecord, updated_at: &str)
             "updated_at": updated_at,
         }));
     }
-    let root = run.workflow_graph.as_mut().expect("workflow graph initialized");
+    let root = run
+        .workflow_graph
+        .as_mut()
+        .expect("workflow graph initialized");
     if let Some(object) = root.as_object_mut() {
         object.insert("updatedAt".into(), json!(updated_at));
         object.insert("updated_at".into(), json!(updated_at));
@@ -5163,15 +5201,20 @@ fn workflow_group_room_context(
             "target_type",
         ],
     );
-    let room_id =
-        workflow_string_arg(provider_data, &["roomId", "room_id", "chatRoomId", "chat_room_id"]);
-    let channel_id =
-        workflow_string_arg(provider_data, &["channelId", "channel_id", "channel"]);
+    let room_id = workflow_string_arg(
+        provider_data,
+        &["roomId", "room_id", "chatRoomId", "chat_room_id"],
+    );
+    let channel_id = workflow_string_arg(provider_data, &["channelId", "channel_id", "channel"]);
     let chat_id = workflow_string_arg(provider_data, &["chatId", "chat_id"]);
-    let thread_id =
-        workflow_string_arg(provider_data, &["threadId", "thread_id", "message_thread_id"]);
-    let group_id =
-        workflow_string_arg(provider_data, &["groupId", "group_id", "groupCode", "group_code"]);
+    let thread_id = workflow_string_arg(
+        provider_data,
+        &["threadId", "thread_id", "message_thread_id"],
+    );
+    let group_id = workflow_string_arg(
+        provider_data,
+        &["groupId", "group_id", "groupCode", "group_code"],
+    );
     let groupish_kind = conversation_kind
         .as_deref()
         .map(|kind| {
