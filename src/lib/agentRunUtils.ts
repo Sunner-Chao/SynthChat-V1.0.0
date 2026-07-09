@@ -8,6 +8,7 @@ export function formatTime(value?: string | number | null) {
 }
 
 export function formatDurationMs(value: number) {
+  if (!Number.isFinite(value)) return "–";
   const ms = Math.max(0, Math.floor(value));
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;

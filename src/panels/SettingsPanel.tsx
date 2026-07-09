@@ -548,9 +548,12 @@ function ChatSettings({
 }) {
   // Single state object — all form fields live here.
   const [form, setForm] = useState<ChatFormState>(() => formStateFromConfig(config));
+  const isDirtyRef = useRef(false);
   const patchForm = useCallback(
-    <K extends keyof ChatFormState>(key: K, value: ChatFormState[K]) =>
-      setForm(prev => ({ ...prev, [key]: value })),
+    <K extends keyof ChatFormState>(key: K, value: ChatFormState[K]) => {
+      isDirtyRef.current = true;
+      setForm(prev => ({ ...prev, [key]: value }));
+    },
     [],
   );
 
@@ -644,10 +647,18 @@ function ChatSettings({
   const setStoredRuns = (v: number) => patchForm("storedRuns", v);
   const setStoredTraces = (v: number) => patchForm("storedTraces", v);
 
-  // Reset form state whenever the config prop changes atomically.
-  useEffect(() => { setForm(formStateFromConfig(config)); }, [config]);
+  // Reset form state whenever config changes, but skip if the user has
+  // unsaved edits so bootstrap refreshes don't wipe in-progress changes.
+  useEffect(() => {
+    if (isDirtyRef.current) return;
+    setForm(formStateFromConfig(config));
+  }, [config]);
 
-  const save = () => void onSave({
+  const save = () => {
+    // Mark as clean so the config useEffect won't reset the form when
+    // the saved value echoes back through the store.
+    isDirtyRef.current = false;
+    void onSave({
     busyInputMode: busyInputMode,
     messageDedupEnabled: dedupEnabled,
     messageDedupWindowSeconds: dedupWindow,
@@ -717,6 +728,7 @@ function ChatSettings({
     maxStoredAgentRuns: storedRuns,
     maxStoredToolTraces: storedTraces
   });
+  };
 
   const addTrustedToolPattern = async () => {
     const pattern = trustedToolPatternDraft.trim();
@@ -1064,10 +1076,10 @@ function ChatSettings({
             </div>
           </div>
           <div className="form-row">
-            <label>Responses reasoning 回放</label>
+            <label>推理内容回放</label>
             <input checked={responsesReasoningReplayEnabled} onChange={(event) => setResponsesReasoningReplayEnabled(event.target.checked)} type="checkbox" />
           </div>
-          <div className="form-hint">关闭后不会向 Responses 请求附带历史 encrypted reasoning item，也不会请求新的 encrypted reasoning 内容。</div>
+          <div className="form-hint">关闭后不会向推理模型请求附带历史加密推理项，也不会请求新的加密推理内容。</div>
           <div className="form-row">
             <label>工具重试次数</label>
             <div className="stepper">

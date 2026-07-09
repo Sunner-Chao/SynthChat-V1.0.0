@@ -150,10 +150,21 @@ pub(super) async fn execute_synthchat_delegate_task_request(
         Ok(messages) => Ok(messages),
     };
 
-    let child_run = latest_run_for_conversation(store, &child_conversation.id);
+    // Resolve the child run record before branching on the result so that a
+    // transient store read error in the Ok path cannot silently discard a
+    // successfully completed subagent result.
+    let child_run_result = latest_run_for_conversation(store, &child_conversation.id);
     match result {
         Ok(messages) => {
-            let child_run = child_run?;
+            // If the run record is transiently unreadable, propagate a clear
+            // error rather than silently discarding the subagent's output.
+            let child_run = child_run_result.map_err(|e| {
+                crate::error::AppError::BadRequest(format!(
+                    "subagent run record unreadable after successful completion \
+                     (childConversation={}): {e}",
+                    child_conversation.id
+                ))
+            })?;
             let reply_content = messages
                 .iter()
                 .rev()
@@ -270,7 +281,17 @@ pub(super) async fn execute_synthchat_delegate_task_request(
         }
         Err(error) => {
             let error_text = error.to_string();
-            let child_run = child_run.ok();
+            let child_run = match child_run_result {
+                Ok(run) => Some(run),
+                Err(ref e) => {
+                    // Log but do not fail — the run task itself already
+                    // errored; losing the run record is a secondary issue.
+                    eprintln!(
+                        "SynthChat: failed to read child run record after subagent error: {e}"
+                    );
+                    None
+                }
+            };
             let saved = match child_run {
                 Some(run) => Some(mark_run_as_subagent(
                     store,

@@ -85,7 +85,11 @@ export function terminalCommandLabel(command: string) {
 
 export function compactSteps(events: ToolEvent[]): CompactStep[] {
   const result: CompactStep[] = [];
+  // Hard cap so very long agent runs (hundreds of tool calls) don't flood the
+  // DOM with unvirtualized nodes and make the UI unresponsive.
+  const MAX_COMPACT_STEPS = 200;
   for (const event of events.filter((item) => !isCanceledToolEvent(item))) {
+    if (result.length >= MAX_COMPACT_STEPS) break;
     const title = event.title || `${event.serverId}.${event.toolName}`;
     const prev = result[result.length - 1];
     if (prev && prev.title === title && !prev.anyRunning && !event.status) {
@@ -96,7 +100,11 @@ export function compactSteps(events: ToolEvent[]): CompactStep[] {
       prev.lastEvent = event;
     } else {
       result.push({
-        key: `${event.serverId}:${event.toolName}:${event.elapsedMs}:${result.length}`,
+        // Use a stable key that does NOT include elapsedMs — that value
+        // changes on every streaming update while a tool is running, which
+        // causes the TimelineStep component to unmount/remount on every tick,
+        // resetting expanded state and the elapsed-time baseline ref.
+        key: `${event.serverId}:${event.toolName}:${event.callId ?? event.referenceId ?? result.length}`,
         title,
         count: 1,
         allOk: event.ok,

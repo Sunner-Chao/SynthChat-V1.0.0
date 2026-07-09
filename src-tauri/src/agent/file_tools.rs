@@ -324,6 +324,17 @@ pub(super) fn read_file_tool(
     let start = offset.saturating_sub(1).min(total_lines);
     let end = (start + limit).min(total_lines);
     let body = render_numbered_lines(&lines[start..end], offset, max_line_length);
+    // Hard cap: max_lines(2000) × max_line_length(2000) = 4M chars uncapped,
+    // far beyond any provider context window. Align with raw mode's 500k limit.
+    const LINE_MODE_MAX_TOTAL_CHARS: usize = 500_000;
+    let body = if body.len() > LINE_MODE_MAX_TOTAL_CHARS {
+        format!(
+            "{}\n[line-mode output hard-capped at {LINE_MODE_MAX_TOTAL_CHARS} chars]",
+            &body[..LINE_MODE_MAX_TOTAL_CHARS]
+        )
+    } else {
+        body
+    };
     let truncated = end < total_lines;
     let next = if truncated {
         format!("\nnextOffset: {}", end + 1)
@@ -521,6 +532,15 @@ fn read_pdf_file_tool(store: &AppStore, full_path: &Path, payload: &Value) -> Ap
     let start = offset.saturating_sub(1).min(total_lines);
     let end = (start + limit).min(total_lines);
     let body = render_numbered_lines(&lines[start..end], offset, max_line_length);
+    const LINE_MODE_MAX_TOTAL_CHARS: usize = 500_000;
+    let body = if body.len() > LINE_MODE_MAX_TOTAL_CHARS {
+        format!(
+            "{}\n[line-mode output hard-capped at {LINE_MODE_MAX_TOTAL_CHARS} chars]",
+            &body[..LINE_MODE_MAX_TOTAL_CHARS]
+        )
+    } else {
+        body
+    };
     let truncated = end < total_lines;
     let next = if truncated {
         format!("\nnextOffset: {}", end + 1)

@@ -2609,7 +2609,12 @@ pub async fn list_tools(
 ) -> AppResult<McpListToolsResult> {
     let server = get_server(store, &server_id)?;
     let started = Instant::now();
-    let timeout_secs = timeout_seconds.unwrap_or(server.timeout_seconds).max(1);
+    let timeout_secs = timeout_seconds
+        .unwrap_or(server.timeout_seconds)
+        // 0 means "no explicit limit configured" — fall back to a safe default
+        // rather than clamping to 1s, which would time out virtually every real
+        // MCP call.  Use 60s as the minimum meaningful timeout.
+        .max(60);
     let result = timeout(Duration::from_secs(timeout_secs), async {
         if server
             .url
@@ -2688,7 +2693,12 @@ pub async fn call_tool(
 ) -> AppResult<McpCallResult> {
     let server = get_server(store, &server_id)?;
     let started = Instant::now();
-    let timeout_secs = timeout_seconds.unwrap_or(server.timeout_seconds).max(1);
+    let timeout_secs = timeout_seconds
+        .unwrap_or(server.timeout_seconds)
+        // 0 means "no explicit limit configured" — fall back to a safe default
+        // rather than clamping to 1s, which would time out virtually every real
+        // MCP call.  Use 60s as the minimum meaningful timeout.
+        .max(60);
     let circuit_error = mcp_circuit_breaker_error(&server.id);
     let filter_error = mcp_tool_call_filter_error(store, &server.id, &tool_name)?;
     let result = if circuit_error.is_some() {

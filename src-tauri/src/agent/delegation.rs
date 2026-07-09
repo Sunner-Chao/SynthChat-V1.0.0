@@ -1,4 +1,7 @@
-use std::sync::{Mutex, OnceLock};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 use futures::future::join_all;
 use serde_json::{json, Value};
@@ -52,6 +55,26 @@ pub(super) use super::acp_subprocess::{
 };
 
 static DELEGATION_SPAWN_PAUSED: OnceLock<Mutex<bool>> = OnceLock::new();
+
+// Per-run lock that serializes all delegate_task calls for the same parent run.
+// Without this, two parallel tool calls in the same agent batch can both read
+// the same child_count, both pass the max_subagents check, and then both spawn
+// their full child sets — exceeding the limit and producing duplicate child_index
+// values.
+static DELEGATION_RUN_LOCKS: OnceLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
+    OnceLock::new();
+
+fn delegation_run_lock(parent_run_id: &str) -> Arc<tokio::sync::Mutex<()>> {
+    let locks = DELEGATION_RUN_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut map = locks.lock().unwrap_or_else(|e| e.into_inner());
+    // LRU-style eviction: remove entries that have no external holders.
+    if map.len() >= 512 {
+        map.retain(|_, arc| Arc::strong_count(arc) > 1);
+    }
+    map.entry(parent_run_id.to_string())
+        .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+        .clone()
+}
 
 pub(super) use super::acp_child_events::{
     acp_session_update_kind, acp_session_update_record, acp_session_update_text,
@@ -117,6 +140,14 @@ pub(super) async fn delegate_task_tool(
             agent.max_subagent_depth
         )));
     }
+    // Serialize concurrent delegate_task calls for the same parent run so that
+    // child_count is read and the subagent limit is checked atomically with
+    // respect to other batches on this run.  Without this lock, two parallel
+    // tool calls in the same agent batch can both read the same child_count,
+    // both pass the max_subagents check, and each spawn their full child set —
+    // exceeding the limit and producing colliding child_index values.
+    let run_lock = delegation_run_lock(parent_run_id);
+    let _run_guard = run_lock.lock().await;
     let child_count = store
         .agent_runs()?
         .into_iter()
@@ -163,20 +194,32 @@ pub(super) async fn delegate_task_tool(
         });
         let resolved = join_all(futures).await;
         let mut results = Vec::with_capacity(resolved.len());
-        let mut first_error = None;
+        let mut errors: Vec<String> = Vec::new();
         for result in resolved {
             match result {
                 Ok(value) => results.push(value),
                 Err(error) => {
-                    if first_error.is_none() {
-                        first_error = Some(error);
-                    }
+                    // Collect ALL infrastructure errors so none are silently
+                    // discarded. Only the first is used as the primary error
+                    // returned to the caller, but additional errors are merged
+                    // into the message so diagnostics capture the full picture.
+                    errors.push(error.to_string());
                 }
             }
         }
-        match first_error {
-            Some(error) => Err((error, results)),
-            None => Ok(results),
+        if errors.is_empty() {
+            Ok(results)
+        } else {
+            let combined = if errors.len() == 1 {
+                errors.remove(0)
+            } else {
+                format!(
+                    "{} subagent infrastructure errors: {}",
+                    errors.len(),
+                    errors.join(" | ")
+                )
+            };
+            Err((AppError::Agent(combined), results))
         }
     } else {
         execute_delegate_task_request(

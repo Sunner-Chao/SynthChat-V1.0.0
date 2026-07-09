@@ -1542,6 +1542,7 @@ pub(super) async fn execute_recovery_mcp_tool(
                 Some(redact_sensitive_text(&error.to_string())),
             ),
         };
+        let timed_out = !ok && error.as_deref().map(|e| e.contains("timed out")).unwrap_or(false);
         text = run_transform_tool_result_hooks(
             store,
             run_id,
@@ -1562,7 +1563,7 @@ pub(super) async fn execute_recovery_mcp_tool(
             server_id: definition.server_id.clone(),
             tool_name: definition.tool_name.clone(),
             ok,
-            timed_out: false,
+            timed_out,
             elapsed_ms,
             kind: tool_event_kind(&definition.server_id, &definition.tool_name, None),
             title: format!("python-plugin · {}", definition.tool_name),

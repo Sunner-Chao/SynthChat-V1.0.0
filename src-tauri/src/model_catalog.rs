@@ -299,30 +299,52 @@ pub async fn fetch_models_dev_catalog(force_refresh: bool) -> AppResult<Value> {
         }
     }
 
-    let response = reqwest::Client::new()
-        .get(MODELS_DEV_URL)
-        .timeout(Duration::from_secs(15))
-        .send()
-        .await
-        .map_err(|err| AppError::BadRequest(format!("cannot fetch models.dev catalog: {err}")))?;
-    let status = response.status();
-    if !status.is_success() {
-        return Err(AppError::BadRequest(format!(
-            "models.dev catalog returned HTTP {status}"
-        )));
+    let network_result = async {
+        let response = reqwest::Client::new()
+            .get(MODELS_DEV_URL)
+            .timeout(Duration::from_secs(15))
+            .send()
+            .await
+            .map_err(|err| AppError::BadRequest(format!("cannot fetch models.dev catalog: {err}")))?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(AppError::BadRequest(format!(
+                "models.dev catalog returned HTTP {status}"
+            )));
+        }
+        let data = response
+            .json::<Value>()
+            .await
+            .map_err(|err| AppError::BadRequest(format!("cannot parse models.dev catalog: {err}")))?;
+        if !data.is_object() {
+            return Err(AppError::BadRequest(
+                "models.dev catalog did not return an object".into(),
+            ));
+        }
+        Ok(data)
     }
-    let data = response
-        .json::<Value>()
-        .await
-        .map_err(|err| AppError::BadRequest(format!("cannot parse models.dev catalog: {err}")))?;
-    if !data.is_object() {
-        return Err(AppError::BadRequest(
-            "models.dev catalog did not return an object".into(),
-        ));
+    .await;
+
+    match network_result {
+        Ok(data) => {
+            save_disk_catalog(&data)?;
+            set_memory_cache(data.clone());
+            Ok(data)
+        }
+        Err(err) => {
+            // Network or HTTP failure: fall back to stale disk cache so the
+            // caller still gets usable data rather than a hard error.
+            if let Some(stale) = load_disk_catalog() {
+                eprintln!(
+                    "SynthChat: models.dev catalog fetch failed ({err}); \
+                     using stale disk cache"
+                );
+                set_memory_cache(stale.clone());
+                return Ok(stale);
+            }
+            Err(err)
+        }
     }
-    save_disk_catalog(&data)?;
-    set_memory_cache(data.clone());
-    Ok(data)
 }
 
 fn catalog_for_lookup() -> Option<Value> {

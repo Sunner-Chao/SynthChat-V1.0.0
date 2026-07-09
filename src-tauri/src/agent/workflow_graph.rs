@@ -3159,13 +3159,52 @@ pub(super) fn record_workflow_timeout(
     detail.insert("errorKind".into(), json!("agent_run_timeout"));
     detail.insert("reason".into(), json!(reason));
     detail.insert("timeoutSeconds".into(), json!(timeout_seconds));
+    // Mark the active node as failed.
     append_workflow_node_event(
         store,
         run_id,
         node,
         WorkflowNodeStatus::Failed,
-        Value::Object(detail),
-    )
+        Value::Object(detail.clone()),
+    )?;
+    // Mark every other node that is still pending/waiting as canceled so that
+    // observers do not see dangling "pending" nodes after the run terminates.
+    // A node stuck in "waiting" state (e.g. Approval awaiting human input)
+    // is especially misleading if left uncleaned after a timeout.
+    let all_nodes = [
+        WorkflowNodeName::Planner,
+        WorkflowNodeName::Executor,
+        WorkflowNodeName::Approval,
+        WorkflowNodeName::Checkpoint,
+        WorkflowNodeName::Reviewer,
+    ];
+    let cancel_detail = {
+        let mut d = workflow_turn_detail(mode, None);
+        d.insert("canceledBy".into(), json!("run_timeout"));
+        d
+    };
+    let graph_map = run
+        .workflow_graph
+        .as_ref()
+        .and_then(Value::as_object);
+    for other in all_nodes {
+        if other == node {
+            continue;
+        }
+        let other_status = graph_map
+            .map(|m| workflow_current_status_for_target(m, other.as_str()))
+            .and_then(|v| v.as_str().map(str::to_string));
+        if matches!(other_status.as_deref(), Some("pending") | Some("waiting") | None) {
+            let _ = append_workflow_node_event(
+                store,
+                run_id,
+                other,
+                WorkflowNodeStatus::Canceled,
+                Value::Object(cancel_detail.clone()),
+            );
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -23,6 +23,43 @@ use super::{
     validate_web_url, workspace_root,
 };
 
+/// Build a `reqwest::Client` with the given timeout.
+/// A `timeout_seconds` value of **0** means "no timeout" (unlimited).
+/// Any non-zero value is used directly. `.max(1)` would incorrectly
+/// treat 0 as a 1-second timeout, hiding misconfiguration with silent failures.
+fn media_http_client(timeout_seconds: u64) -> AppResult<reqwest::Client> {
+    let mut builder = reqwest::Client::builder().user_agent("SynthChat-agent/1.0");
+    if timeout_seconds > 0 {
+        builder = builder.timeout(Duration::from_secs(timeout_seconds));
+    }
+    builder
+        .build()
+        .map_err(|e| AppError::BadRequest(format!("failed to build media client: {e}")))
+}
+
+/// Build a `reqwest::Client` with the given timeout and no-proxy setting.
+fn media_http_client_no_proxy(timeout_seconds: u64) -> AppResult<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
+        .user_agent("SynthChat-agent/1.0")
+        .no_proxy();
+    if timeout_seconds > 0 {
+        builder = builder.timeout(Duration::from_secs(timeout_seconds));
+    }
+    builder
+        .build()
+        .map_err(|e| AppError::BadRequest(format!("failed to build media client: {e}")))
+}
+
+/// Compute the effective timeout duration for a provider timeout value.
+/// Returns `None` when `timeout_seconds == 0` (unlimited), otherwise `Some(duration)`.
+fn provider_timeout(timeout_seconds: u64) -> Option<Duration> {
+    if timeout_seconds == 0 {
+        None
+    } else {
+        Some(Duration::from_secs(timeout_seconds))
+    }
+}
+
 static VOICE_PLAYBACK_PROCESS: OnceLock<Mutex<Option<Child>>> = OnceLock::new();
 static VOICE_RECORDING_PROCESS: OnceLock<Mutex<Option<VoiceRecordingProcess>>> = OnceLock::new();
 
@@ -1132,9 +1169,10 @@ fn image_provider_uses_openai_compatible_image_endpoint(provider: &ImageProvider
 }
 
 fn image_http_client(provider: &ImageProvider) -> AppResult<reqwest::Client> {
-    let mut builder = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
-        .user_agent("SynthChat-agent/1.0");
+    let mut builder = reqwest::Client::builder().user_agent("SynthChat-agent/1.0");
+    if let Some(d) = provider_timeout(provider.timeout_seconds) {
+        builder = builder.timeout(d);
+    }
     if !provider.use_system_proxy {
         builder = builder.no_proxy();
     }
@@ -1820,7 +1858,7 @@ pub(super) async fn video_generate_tool(
         .enabled_video_provider()?
         .ok_or_else(|| AppError::BadRequest("no enabled video provider configured".into()))?;
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("SynthChat-agent/1.0")
         .build()
         .map_err(|error| AppError::BadRequest(format!("failed to build video client: {error}")))?;
@@ -2799,7 +2837,13 @@ pub(super) async fn openai_compatible_text_to_speech(
     }
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        // 0 means "no explicit timeout configured" — use media_http_client semantics
+        // where 0 = unlimited.  Passing 0 directly to reqwest causes instant failure.
+        .timeout(if provider.timeout_seconds > 0 {
+            Duration::from_secs(provider.timeout_seconds)
+        } else {
+            Duration::from_secs(300) // 5-minute safe default for TTS
+        })
         .user_agent("SynthChat-agent/1.0")
         .build()
         .map_err(|error| AppError::BadRequest(format!("failed to build TTS client: {error}")))?;
@@ -2818,10 +2862,25 @@ pub(super) async fn openai_compatible_text_to_speech(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("")
         .to_string();
+    // Cap TTS response body so a misbehaving provider cannot exhaust memory.
+    const MAX_TTS_BYTES: usize = 50 * 1024 * 1024; // 50 MB — generous for audio
+    if let Some(len) = response.content_length() {
+        if len as usize > MAX_TTS_BYTES {
+            return Err(AppError::BadRequest(format!(
+                "TTS response too large ({} bytes > {MAX_TTS_BYTES} byte limit)",
+                len
+            )));
+        }
+    }
     let bytes = response
         .bytes()
         .await
         .map_err(|error| AppError::BadRequest(format!("failed to read TTS response: {error}")))?;
+    if bytes.len() > MAX_TTS_BYTES {
+        return Err(AppError::BadRequest(format!(
+            "TTS response too large ({} bytes)", bytes.len()
+        )));
+    }
     if !status.is_success() {
         let text = String::from_utf8_lossy(&bytes);
         return Err(AppError::BadRequest(format!(
@@ -2896,7 +2955,7 @@ pub(super) async fn xai_text_to_speech(
     }
     let url = xai_tts_url(provider)?;
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("Hermes-Agent-SynthChat/1.0")
         .build()
         .map_err(|error| {
@@ -3020,7 +3079,7 @@ pub(super) async fn mistral_text_to_speech(
     }
     let url = mistral_audio_speech_url(&credential.base_url)?;
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("Hermes-Agent-SynthChat/1.0")
         .build()
         .map_err(|error| {
@@ -3169,7 +3228,7 @@ pub(super) async fn gemini_text_to_speech(
     url.query_pairs_mut()
         .append_pair("key", &credential.api_key);
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("Hermes-Agent-SynthChat/1.0")
         .build()
         .map_err(|error| {
@@ -3451,7 +3510,7 @@ pub(super) async fn minimax_text_to_speech(
         })
     };
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("Hermes-Agent-SynthChat/1.0")
         .build()
         .map_err(|error| {
@@ -3713,7 +3772,7 @@ pub(super) async fn elevenlabs_text_to_speech(
         }
     }
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("Hermes-Agent-SynthChat/1.0")
         .build()
         .map_err(|error| {
@@ -4421,9 +4480,9 @@ fn hermes_agent_tools_dir_candidates() -> Vec<PathBuf> {
                 .join("tools"),
         );
     }
-    roots.push(PathBuf::from(
-        "D:\\pro_sunner\\demo_vscode\\hermes-agent\\tools",
-    ));
+    // Intentionally no hardcoded developer-machine path here — the previous
+    // "D:\pro_sunner\..." fallback leaked internal directory structure and was
+    // a no-op on any machine other than the original developer's workstation.
 
     let mut seen = HashSet::new();
     roots
@@ -6305,7 +6364,7 @@ async fn openai_compatible_transcribe_audio_part(
         form = form.text("temperature", temperature.to_string());
     }
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("SynthChat-agent/1.0")
         .build()
         .map_err(|error| {
@@ -7032,7 +7091,7 @@ pub(super) async fn openai_compatible_vision_analyze(
         "max_tokens": max_tokens
     });
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds))
         .user_agent("SynthChat-agent/1.0")
         .build()
         .map_err(|error| AppError::BadRequest(format!("failed to build vision client: {error}")))?;

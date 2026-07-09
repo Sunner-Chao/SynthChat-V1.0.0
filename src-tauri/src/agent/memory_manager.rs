@@ -183,7 +183,9 @@ pub(super) fn builtin_memory_prefetch(
     persona: &Persona,
     query: &str,
 ) -> AppResult<Vec<MemoryEntry>> {
-    let _ = import_builtin_memory_markdown(store, persona);
+    // Propagate import errors instead of silently discarding them — a failed
+    // import leaves the in-memory DB stale, so callers should know.
+    import_builtin_memory_markdown(store, persona)?;
     let enabled = persona
         .memory
         .get("enabled")

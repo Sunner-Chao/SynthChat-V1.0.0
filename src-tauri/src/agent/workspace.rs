@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use crate::{error::AppResult, models::AgentDefinition};
+use crate::{
+    error::{AppError, AppResult},
+    models::AgentDefinition,
+};
 
 pub(super) fn workspace_root(agent: &AgentDefinition) -> AppResult<PathBuf> {
     let root = if agent.workspace_dir.trim().is_empty() {
@@ -9,6 +12,17 @@ pub(super) fn workspace_root(agent: &AgentDefinition) -> AppResult<PathBuf> {
         PathBuf::from(agent.workspace_dir.trim())
     };
     Ok(root.canonicalize()?)
+}
+
+fn assert_within_root(canonical: &Path, root: &Path) -> AppResult<()> {
+    if !canonical.starts_with(root) {
+        return Err(AppError::BadRequest(format!(
+            "path '{}' resolves outside the workspace root '{}'",
+            canonical.display(),
+            root.display()
+        )));
+    }
+    Ok(())
 }
 
 pub(super) fn resolve_workspace_path(root: &Path, input: &str) -> AppResult<PathBuf> {
@@ -20,7 +34,13 @@ pub(super) fn resolve_workspace_path(root: &Path, input: &str) -> AppResult<Path
             root.join(path)
         }
     };
-    Ok(candidate.canonicalize()?)
+    let canonical = candidate.canonicalize()?;
+    // Guard against path traversal via `..` segments or symlinks that point
+    // outside the workspace root.  Without this check a path like
+    // "../../etc/passwd" or a workspace-internal symlink to "/" would bypass
+    // the workspace boundary silently.
+    assert_within_root(&canonical, root)?;
+    Ok(canonical)
 }
 
 pub(super) fn resolve_workspace_target_path(root: &Path, input: &str) -> AppResult<PathBuf> {
@@ -33,21 +53,45 @@ pub(super) fn resolve_workspace_target_path(root: &Path, input: &str) -> AppResu
         }
     };
     if candidate.exists() {
-        return Ok(candidate.canonicalize()?);
+        let canonical = candidate.canonicalize()?;
+        assert_within_root(&canonical, root)?;
+        return Ok(canonical);
     }
     let mut existing_ancestor = candidate.as_path();
     while !existing_ancestor.exists() {
         if let Some(parent) = existing_ancestor.parent() {
             existing_ancestor = parent;
         } else {
+            // Whole path is new; check the candidate itself (not yet canonical).
+            // Strip any `..` components before the guard so the comparison is
+            // still meaningful for paths that don't exist yet.
+            let normalized = normalize_non_existent_path(&candidate);
+            assert_within_root(&normalized, root)?;
             return Ok(candidate);
         }
     }
     let ancestor_canonical = existing_ancestor.canonicalize()?;
+    assert_within_root(&ancestor_canonical, root)?;
     let relative_target = candidate
         .strip_prefix(existing_ancestor)
         .unwrap_or_else(|_| Path::new(""));
     Ok(ancestor_canonical.join(relative_target))
+}
+
+/// Collapse `.` and `..` components in a path that may not exist on disk,
+/// so we can verify it stays within the workspace root before creating it.
+fn normalize_non_existent_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 pub(super) fn should_skip_dir(name: &str) -> bool {

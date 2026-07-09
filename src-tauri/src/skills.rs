@@ -1185,9 +1185,20 @@ fn read_skill_curator_state(store: &AppStore) -> AppResult<SkillCuratorState> {
     if !path.exists() {
         return Ok(default_skill_curator_state());
     }
-    let raw = fs::read_to_string(path)?;
-    let mut state = serde_json::from_str::<SkillCuratorState>(&raw)
-        .unwrap_or_else(|_| default_skill_curator_state());
+    let raw = fs::read_to_string(&path)?;
+    // Log the error instead of silently resetting — a corrupt state file would
+    // wipe pinned_skill_ids, causing the curator to delete user-protected skills.
+    let mut state = match serde_json::from_str::<SkillCuratorState>(&raw) {
+        Ok(s) => s,
+        Err(err) => {
+            eprintln!(
+                "SynthChat: skill curator state at {} is corrupt ({err}); using defaults. \
+                 Pinned skill protection is inactive until the file is repaired or regenerated.",
+                path.display()
+            );
+            default_skill_curator_state()
+        }
+    };
     state.pinned_skill_ids.sort();
     state.pinned_skill_ids.dedup();
     Ok(state)
@@ -1636,15 +1647,25 @@ pub fn prompt_blocks_for_request(
         .take(6)
         .collect::<Vec<_>>();
     let mut selected = Vec::new();
+    // Cap total injected chars to prevent 6 × 16k = 96k characters from
+    // overwhelming the context window.
+    const MAX_TOTAL_SKILL_PROMPT_CHARS: usize = 40_000;
+    let mut total_chars = 0usize;
     for skill in selected_skills {
+        if total_chars >= MAX_TOTAL_SKILL_PROMPT_CHARS {
+            break;
+        }
         let Ok(content) = fs::read_to_string(&skill.path) else {
             continue;
         };
         let _ = record_skill_usage(store, &skill, "prompt", Some("foreground"));
+        let allowed = (MAX_TOTAL_SKILL_PROMPT_CHARS - total_chars).min(MAX_SKILL_PROMPT_CHARS);
+        let truncated = truncate_chars(content, allowed);
+        total_chars += truncated.len();
         selected.push(SkillPromptBlock {
             id: skill.id,
             name: skill.name,
-            content: truncate_chars(content, MAX_SKILL_PROMPT_CHARS),
+            content: truncated,
         });
     }
     Ok(selected)
@@ -2189,7 +2210,8 @@ fn frontmatter(raw: &str) -> HashMap<String, String> {
         if line.trim() == "---" {
             break;
         }
-        if let Some((key, value)) = line.split_once(':') {
+        // splitn(2) keeps the full value when it contains colons (e.g. URLs).
+        if let [key, value] = line.splitn(2, ':').collect::<Vec<_>>().as_slice() {
             map.insert(key.trim().to_string(), clean_meta_value(value.trim()));
         }
     }

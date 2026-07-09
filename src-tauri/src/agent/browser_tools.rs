@@ -1376,7 +1376,14 @@ async fn browser_cdp_navigate_tool(
         AppError::BadRequest("browser_cdp action=navigate requires payload.url".into())
     })?;
     validate_web_url(url)?;
-    let navigate = send_cdp_message(cdp_url, "Page.navigate", json!({"url": url})).await?;
+    // Wrap Page.navigate in a timeout so a hanging CDP endpoint cannot block
+    // the entire agent turn indefinitely.  30s is generous for any real page load.
+    let navigate = tokio::time::timeout(
+        Duration::from_secs(30),
+        send_cdp_message(cdp_url, "Page.navigate", json!({"url": url})),
+    )
+    .await
+    .map_err(|_| AppError::BadRequest("browser navigate timed out after 30s".into()))??;
     let wait_ms = payload
         .get("waitMs")
         .or_else(|| payload.get("wait_ms"))
@@ -1552,7 +1559,9 @@ async fn browser_cdp_screenshot_tool(
         "base64Length": data_len,
         "sizeBytes": screenshot_path.as_ref().map(|(_, size)| *size).unwrap_or(0),
         "screenshotPath": screenshot_path.as_ref().map(|(path, _)| path.to_string_lossy().to_string()).unwrap_or_default(),
-        "data": result.get("data").cloned().unwrap_or(Value::Null)
+        // "data" (raw base64) intentionally omitted: screenshotPath is already
+        // saved to disk and available via vision_analyze. Including multi-MB
+        // base64 here would bloat the LLM context window on every screenshot.
     }))?)
 }
 

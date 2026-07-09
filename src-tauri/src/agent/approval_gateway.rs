@@ -92,6 +92,16 @@ async fn continue_agent_run_after_approval(
         .as_deref()
         .ok_or_else(|| AppError::BadRequest("approved tool call missing runId".into()))?;
     let mut run = store.agent_run(run_id)?;
+    // Guard: do not revive a run that was aborted or failed while the user
+    // was reviewing the approval dialog. Proceeding would silently re-execute
+    // a tool inside a run the user (or system) already terminated.
+    let terminal_states = ["completed", "failed", "aborted"];
+    if terminal_states.contains(&run.state.as_str()) {
+        return Err(AppError::BadRequest(format!(
+            "cannot resume run {run_id}: run is already in terminal state '{}'",
+            run.state
+        )));
+    }
     let conversation = store.conversation(&run.conversation_id)?;
     let persona = store.persona(Some(&run.persona_id))?;
     let mut agent = store.agent(Some(&run.agent_id))?;
@@ -1209,7 +1219,12 @@ pub async fn approve_tool_call_always_and_resume(
     app: Option<&AppHandle>,
 ) -> AppResult<ToolApprovalRequest> {
     let approval = store.tool_approval(&approval_id)?;
-    store.trust_tool_pattern(format!("{}.{}", approval.server_id, approval.tool_name))?;
+    // Guard: only persist the trust pattern when the approval is actually pending.
+    // Writing trust before the status check allows replaying a non-pending
+    // approval_id to permanently escalate tool trust without executing the tool.
+    if approval.status == "pending" {
+        store.trust_tool_pattern(format!("{}.{}", approval.server_id, approval.tool_name))?;
+    }
     approve_tool_call_and_resume(store, approval_id, timeout_seconds, app).await
 }
 
@@ -1220,7 +1235,9 @@ pub async fn approve_tool_call_server_and_resume(
     app: Option<&AppHandle>,
 ) -> AppResult<ToolApprovalRequest> {
     let approval = store.tool_approval(&approval_id)?;
-    store.trust_tool_pattern(format!("{}.*", approval.server_id))?;
+    if approval.status == "pending" {
+        store.trust_tool_pattern(format!("{}.*", approval.server_id))?;
+    }
     approve_tool_call_and_resume(store, approval_id, timeout_seconds, app).await
 }
 
@@ -1507,7 +1524,8 @@ pub fn deny_tool_call_and_update_run(
                 updated.error.as_deref(),
             )?;
     }
-    spawn_post_approval_response_hooks(store, updated.clone());
+    // Abort the run BEFORE firing post-approval hooks so that hooks reading
+    // run.state see the terminal "aborted" state, not the stale "pendingApproval".
     if let Some(run_id) = approval.run_id.as_deref() {
         if let Ok(aborted) = store.abort_agent_run(
             run_id,
@@ -1542,5 +1560,7 @@ pub fn deny_tool_call_and_update_run(
             }
         }
     }
+    // Fire post-approval hooks after abort so hooks read the correct terminal state.
+    spawn_post_approval_response_hooks(store, updated.clone());
     Ok(updated)
 }

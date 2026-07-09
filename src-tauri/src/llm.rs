@@ -225,7 +225,16 @@ pub async fn complete_chat_with_options(
 
 pub fn provider_request_timeout_duration(provider: &LlmProvider, model: &str) -> Duration {
     let seconds = provider_request_timeout_seconds(provider, model)
-        .unwrap_or(provider.timeout_seconds as f64)
+        // Fall back to timeout_seconds if >0; otherwise use a safe 300s default.
+        // Clamping a serde-default 0 to 1.0 broke all reasoning/long-output
+        // models that need more than 1 second to respond.
+        .unwrap_or_else(|| {
+            if provider.timeout_seconds > 0 {
+                provider.timeout_seconds as f64
+            } else {
+                300.0
+            }
+        })
         .max(1.0);
     Duration::from_secs_f64(seconds)
 }

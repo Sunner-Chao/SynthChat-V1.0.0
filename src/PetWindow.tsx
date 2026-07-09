@@ -77,10 +77,29 @@ function PetLocalAssetImage({
 }) {
   const [renderSrc, setRenderSrc] = useState(src ? convertFileSrc(src) : "");
   const [fallbackTried, setFallbackTried] = useState(false);
+
   useEffect(() => {
-    setRenderSrc(src ? convertFileSrc(src) : "");
+    if (!src) {
+      setRenderSrc("");
+      setFallbackTried(false);
+      return;
+    }
+    const isLocalPath = !/^(data:|blob:|https?:)/i.test(src);
     setFallbackTried(false);
+    if (isTauri() && isLocalPath) {
+      setRenderSrc(convertFileSrc(src));
+      let cancelled = false;
+      void api.localAssetDataUrl(src)
+        .then((dataUrl: string) => {
+          if (!cancelled && dataUrl) setRenderSrc(dataUrl);
+        })
+        .catch(() => { /* keep convertFileSrc fallback */ });
+      return () => { cancelled = true; };
+    } else {
+      setRenderSrc(convertFileSrc(src));
+    }
   }, [src]);
+
   if (!renderSrc) return null;
   return (
     <img
@@ -699,6 +718,10 @@ export function PetWindow() {
   const hideTimeoutRef = useRef<number | null>(null);
   const lastNativeDropRef = useRef<{ signature: string; at: number } | null>(null);
   const assistantCloudDurationMsRef = useRef(DEFAULT_PET_ASSISTANT_CLOUD_DURATION_SECONDS * 1000);
+  // When a tap/poke/drag interaction interrupts an active thinking cloud, this
+  // ref stores the conversationId so the cloud can be restored automatically
+  // after the short interaction bubble expires.
+  const interruptedThinkingConvIdRef = useRef<string | null>(null);
   const isNearModelRef = useRef(false);
   const modelMenuOpenRef = useRef(false);
   const showInputRef = useRef(false);
@@ -707,6 +730,9 @@ export function PetWindow() {
   const inputDraftActiveRef = useRef(false);
   const [brokenCloudImages, setBrokenCloudImages] = useState<Record<string, true>>({});
   const [emojiGroups, setEmojiGroups] = useState<EmojiGroup[]>([]);
+  // Avatar awareness: persona = pet's own avatar, profile = user's avatar
+  const [personaAvatarSrc, setPersonaAvatarSrc] = useState<string>("");
+  const [profileAvatarSrc, setProfileAvatarSrc] = useState<string>("");
   const [visionEnabled, setVisionEnabled] = useState(false);
   const [visionIntervalSeconds, setVisionIntervalSeconds] = useState(readStoredPetVisionIntervalSeconds);
   const [petVoiceReplyEnabled, setPetVoiceReplyEnabled] = useState(readStoredPetVoiceReplyEnabled);
@@ -932,6 +958,47 @@ export function PetWindow() {
   useEffect(() => {
     void refreshPetVoiceReplyState();
   }, [activeContext?.personaId, activeContext?.conversationId]);
+
+  // Load persona avatar (pet's own face) and profile avatar (user's face)
+  // whenever the active persona changes, so both sides of the conversation
+  // have a visual identity in the bubble and input areas.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [personas, profile] = await Promise.all([
+          listPetPersonas(),
+          api.getProfile()
+        ]);
+        if (cancelled) return;
+        const personaId = activeContext?.personaId ?? null;
+        const persona = (personaId ? personas.find((p) => p.id === personaId) : null) ?? personas[0] ?? null;
+
+        async function resolveAvatarSrc(path: string | null | undefined): Promise<string> {
+          if (!path) return "";
+          if (/^(data:|blob:|https?:)/i.test(path)) return path;
+          if (isTauri()) {
+            try {
+              const dataUrl = await api.localAssetDataUrl(path);
+              if (dataUrl) return dataUrl;
+            } catch { /* fall through */ }
+          }
+          return convertFileSrc(path);
+        }
+
+        const [pSrc, uSrc] = await Promise.all([
+          resolveAvatarSrc(persona?.avatarPath),
+          resolveAvatarSrc(profile?.avatarPath)
+        ]);
+        if (cancelled) return;
+        setPersonaAvatarSrc(pSrc);
+        setProfileAvatarSrc(uSrc);
+      } catch {
+        // ignore — avatars are decorative, failures are silent
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeContext?.personaId]);
 
   useEffect(() => {
     if (modelMenuOpen) void refreshPetVoiceReplyState();
@@ -1591,7 +1658,7 @@ export function PetWindow() {
       }
       if (message.type === "model_drag_start") {
         if (petWindowModeRef.current === "orb") return;
-        showCloud("带我换个位置吗？我会跟上。", "active", 2200);
+        showCloud("带我换个位置吗？我会跟上。", "active", 2200, undefined, true);
         void startModelDrag(message.screenX, message.screenY);
         return;
       }
@@ -1613,13 +1680,13 @@ export function PetWindow() {
         const now = Date.now();
         pokeCountRef.current = now - lastPokeAtRef.current < 2500 ? pokeCountRef.current + 1 : 1;
         lastPokeAtRef.current = now;
-        showCloud(touchAreaCloudText(message.area, pokeCountRef.current), "soft", 2600);
+        showCloud(touchAreaCloudText(message.area, pokeCountRef.current), "soft", 2600, undefined, true);
         inputRef.current?.focus();
         return;
       }
       if (message.type === "poke") {
         if (isPetStartupUiSuppressed()) return;
-        showCloud(touchAreaCloudText(message.area ?? message.areas?.[0], 1), "active", 3000);
+        showCloud(touchAreaCloudText(message.area ?? message.areas?.[0], 1), "active", 3000, undefined, true);
         inputRef.current?.focus();
         return;
       }
@@ -1881,10 +1948,26 @@ export function PetWindow() {
     });
   }
 
-  function showCloud(text: string, tone: PetCloudBubble["tone"] = "soft", durationMs = 4200, attachments?: PetCloudBubble["attachments"]) {
+  function showCloud(
+    text: string,
+    tone: PetCloudBubble["tone"] = "soft",
+    durationMs = 4200,
+    attachments?: PetCloudBubble["attachments"],
+    restoreThinkingAfter = false
+  ) {
     if (isPetStartupUiSuppressed()) return;
     const formatted = formatCloudText(text);
     if (!formatted && !attachments?.length) return;
+
+    // When a user interaction (tap/poke/drag) interrupts an active thinking
+    // cloud, remember the conversationId so we can restore it once the short
+    // interaction bubble auto-dismisses.
+    if (restoreThinkingAfter && thinkingCloudRef.current) {
+      interruptedThinkingConvIdRef.current = thinkingCloudRef.current.conversationId;
+    } else {
+      interruptedThinkingConvIdRef.current = null;
+    }
+
     assistantStreamRef.current = null;
     thinkingCloudRef.current = null;
     clearCloudTimer();
@@ -1902,6 +1985,14 @@ export function PetWindow() {
       setCloudBubble(null);
       cloudTextDraftsRef.current.delete(bubbleId);
       cloudTimerRef.current = null;
+
+      // Restore the thinking cloud if it was only temporarily interrupted and
+      // the desktop is still indicating thinking for that conversation.
+      const savedConvId = interruptedThinkingConvIdRef.current;
+      interruptedThinkingConvIdRef.current = null;
+      if (savedConvId && desktopUiThinkingRef.current.get(savedConvId) === true) {
+        showThinkingCloud(savedConvId);
+      }
     }, durationMs);
   }
 
@@ -3393,6 +3484,14 @@ export function PetWindow() {
             {cloudBubble.text ? (
               <span className="pet-cloud-text" title={cloudBubble.text}>{cloudBubble.text}</span>
             ) : null}
+            {personaAvatarSrc ? (
+              <img
+                className="pet-cloud-persona-avatar"
+                src={personaAvatarSrc}
+                alt="角色头像"
+                aria-hidden="true"
+              />
+            ) : null}
             <span className="pet-cloud-tail" aria-hidden="true">
               <span />
               <span />
@@ -3441,6 +3540,12 @@ export function PetWindow() {
           >
             <Menu size={15} strokeWidth={2.4} aria-hidden="true" />
           </button>
+          {/* User avatar slot — always rendered to keep grid columns stable */}
+          <span className="pet-input-user-avatar-slot" aria-hidden="true">
+            {profileAvatarSrc ? (
+              <img className="pet-input-user-avatar" src={profileAvatarSrc} alt="" />
+            ) : null}
+          </span>
           <input
             ref={inputRef}
             autoComplete="off"

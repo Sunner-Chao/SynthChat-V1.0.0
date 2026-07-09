@@ -4909,7 +4909,17 @@ fn write_hermes_auth_store_path(path: &PathBuf, store: &Value) -> AppResult<()> 
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(path, serde_json::to_string_pretty(store)?)?;
+    // Use atomic tmp→rename so a crash mid-write cannot truncate auth.json.
+    // A truncated file causes JSON parse failure on the next startup, making
+    // all hermes credential operations unavailable until manually repaired.
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_string_pretty(store)?)?;
+    std::fs::rename(&tmp, path).or_else(|_| -> AppResult<()> {
+        // Cross-partition fallback: copy + remove tmp.
+        std::fs::copy(&tmp, path)?;
+        let _ = std::fs::remove_file(&tmp);
+        Ok(())
+    })?;
     Ok(())
 }
 

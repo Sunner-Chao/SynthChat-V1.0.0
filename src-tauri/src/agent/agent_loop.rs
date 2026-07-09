@@ -33,6 +33,14 @@ use super::*;
 // chat_turn_lock that the parent turn already holds.
 static WECHAT_DRAIN_ACTIVE: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
+// Task-local flag set only inside drain_wechat_queue_this_turn's async scope.
+// The admission-guard bypass requires BOTH the global flag AND this task-local
+// to be true, ensuring that a concurrent external turn arriving while a drain
+// is in progress cannot skip the lock — only the drain task itself can.
+tokio::task_local! {
+    static WECHAT_DRAIN_TASK_ACTIVE: bool;
+}
+
 fn mark_wechat_drain(conversation_id: &str) {
     WECHAT_DRAIN_ACTIVE
         .get_or_init(|| Mutex::new(HashSet::new()))
@@ -1421,7 +1429,16 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         .map(str::trim)
         .filter(|conversation_id| !conversation_id.is_empty())
     {
-        Some(conversation_id) if is_wechat_drain_active(conversation_id) => None,
+        // Skip the lock only when this is the internal WeChat drain task AND
+        // the global drain flag confirms the parent turn holds the lock. A
+        // concurrent external turn sees is_drain_task=false even if the global
+        // flag is set, so it always acquires the lock.
+        Some(conversation_id)
+            if WECHAT_DRAIN_TASK_ACTIVE.try_with(|v| *v).unwrap_or(false)
+                && is_wechat_drain_active(conversation_id) =>
+        {
+            None
+        }
         Some(conversation_id) => Some(chat_turn_lock(conversation_id).lock_owned().await),
         None => None,
     };
@@ -1819,15 +1836,21 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         emit_agent_run_record(desktop_app, &saved_failed_run, Some(&assistant));
         return Ok(vec![user, assistant]);
     }
-    if let Some(note) = preflight_compact_context_for_agent_run(
+    // Preflight compression is an optimisation step — a storage or DB error
+    // must not abort the entire agent run. Degrade gracefully instead.
+    match preflight_compact_context_for_agent_run(
         store,
         &saved_run.run_id,
         &conversation.id,
         &mut history,
         &mut short_context,
         &chat_config,
-    )? {
-        observations.push(note);
+    ) {
+        Ok(Some(note)) => observations.push(note),
+        Ok(None) => {}
+        Err(err) => {
+            eprintln!("SynthChat: preflight compaction failed (skipping): {err}");
+        }
     }
     for iteration in 0..iteration_budget.max_total() {
         if !iteration_budget.consume() {
@@ -1885,7 +1908,37 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                 &providers,
                 &effective_persona,
                 planner_prompt.clone(),
-                history.clone(),
+                {
+                    // Cap the in-memory history passed to the LLM to a rolling
+                    // window.  The store-side short-context compaction keeps the
+                    // persisted record small, but tool messages pushed in the
+                    // loop would let the in-memory Vec grow without bound (up to
+                    // 90 iterations × N tools per iteration).  Trimming here
+                    // keeps each LLM request manageable while preserving the
+                    // most recent context that the model actually needs.
+                    const HISTORY_WINDOW: usize = 60;
+                    if history.len() > HISTORY_WINDOW {
+                        let mut cut = history.len() - HISTORY_WINDOW;
+                        while cut < history.len() && history[cut].role == "tool" {
+                            cut += 1;
+                        }
+                        history.drain(..cut);
+                    }
+                    // Strip base64 image payloads from older messages so every
+                    // iteration does not redundantly re-send historical image data.
+                    // strip_historical_media_payloads is only called on the
+                    // compression path; applying it here prevents each turn from
+                    // carrying large inline images that the model no longer needs.
+                    let history_for_llm: Vec<_> = history.iter().map(|msg| {
+                        let stripped = strip_historical_media_payloads(&msg.content);
+                        if stripped == msg.content {
+                            msg.clone()
+                        } else {
+                            crate::models::ChatMessage { content: stripped, ..msg.clone() }
+                        }
+                    }).collect();
+                    history_for_llm
+                },
                 &llm_user_content,
                 Some(&visible_tools),
                 stream_delta_callback.clone(),
@@ -2059,6 +2112,11 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
                         "model": reply.model.clone(),
                     }),
                 )?;
+                // Recovery exhausted and reply is empty — further iterations
+                // would parse an empty response and make no progress, burning the
+                // full iteration budget before failing.  Break immediately so the
+                // post-loop error path can report LlmRecoveryExhausted.
+                break;
             }
         }
         let decision = parse_agent_decision(&reply.content);
@@ -2082,9 +2140,19 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
             &available_tools_for_validation,
         )? {
             WorkflowPlannerRoute::ExecuteTools {
-                requests,
+                mut requests,
                 request_count,
             } => {
+                // Cap tool calls per turn so a misbehaving or adversarial LLM
+                // response cannot spawn dozens of parallel tool executions at once.
+                const MAX_TOOL_CALLS_PER_TURN: usize = 20;
+                if requests.len() > MAX_TOOL_CALLS_PER_TURN {
+                    eprintln!(
+                        "SynthChat: LLM returned {} tool calls; capping at {MAX_TOOL_CALLS_PER_TURN}",
+                        requests.len()
+                    );
+                    requests.truncate(MAX_TOOL_CALLS_PER_TURN);
+                }
                 desktop_stream_state.emit_provider_thinking_if_idle(
                     desktop_app,
                     &persona.id,
@@ -3259,13 +3327,17 @@ async fn drain_wechat_queue_this_turn(
             provider_data: item.request_provider_data(),
             queue_item_id: Some(item.id.clone()),
         };
-        let status = match Box::pin(run_chat_turn_with_app(
-            store,
-            request,
-            ToolExecutionContext::Interactive,
-            app,
-        ))
-        .await
+        // Wrap in the task-local scope so the admission guard bypass in
+        // run_chat_turn_with_toolset_policy_and_iteration_limit only activates
+        // for this task — concurrent external turns cannot observe it.
+        let status = match WECHAT_DRAIN_TASK_ACTIVE
+            .scope(true, Box::pin(run_chat_turn_with_app(
+                store,
+                request,
+                ToolExecutionContext::Interactive,
+                app,
+            )))
+            .await
         {
             Ok(messages) => {
                 let _ = crate::wechat_settings::finalize_queued_wechat_turn(
@@ -4233,6 +4305,16 @@ pub(super) fn clarification_response_context_for_turn(
     run.error = None;
     run.completed_at = Some(now.clone());
     run.updated_at = now;
+    // Optimistic-lock: re-read the run immediately before saving to detect a
+    // concurrent clarification response that beat us to this state transition.
+    // If the stored state is no longer "needsClarification", another request
+    // already consumed it — return None so this caller is silently discarded.
+    let current_state = store.agent_run(&run.run_id)
+        .map(|r| r.state)
+        .unwrap_or_default();
+    if current_state != "needsClarification" {
+        return Ok(None);
+    }
     store.save_agent_run(run.clone())?;
     if let Some(checkpoint) = run.checkpoints.last() {
         let mut human_gate = workflow_human_gate_detail("clarification", "completed", &run.run_id);
@@ -4629,8 +4711,14 @@ fn agent_run_idle_for_timeout(
         .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
         .map(|value| value.with_timezone(&Utc))
     {
-        return Utc::now().signed_duration_since(activity_at).num_seconds()
-            >= timeout_seconds as i64;
+        let elapsed = Utc::now().signed_duration_since(activity_at).num_seconds();
+        // Guard against NTP clock step-backs (VM migrations, snapshot restores):
+        // a negative elapsed means the wall clock was adjusted backward — fall back
+        // to the monotonic `started_at` path so the timeout cannot be evaded.
+        if elapsed < 0 {
+            return started_at.elapsed() >= Duration::from_secs(timeout_seconds);
+        }
+        return elapsed >= timeout_seconds as i64;
     }
     started_at.elapsed() >= Duration::from_secs(timeout_seconds)
 }

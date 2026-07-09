@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use serde_json::Value;
 
 use crate::{
-    error::AppResult,
+    error::{AppError, AppResult},
     models::{ChatMessage, LlmProvider, Persona},
     store::AppStore,
 };
@@ -56,18 +58,30 @@ pub(super) async fn judge_goal_completion(
         user_prompt.clone(),
         "goal_judge",
     )];
-    let reply = complete_chat_with_provider_failover(
-        store,
-        None,
-        &providers,
-        &persona,
-        GOAL_JUDGE_SYSTEM_PROMPT.to_string(),
-        history,
-        &user_prompt,
-        None,
-        None,
+    // Wrap with a timeout so a stalled goal-judge provider cannot block the
+    // entire chat turn from finishing. 30s is generous for a simple yes/no
+    // verdict but keeps the agent loop from hanging indefinitely.
+    const GOAL_JUDGE_TIMEOUT_SECONDS: u64 = 30;
+    let reply = tokio::time::timeout(
+        Duration::from_secs(GOAL_JUDGE_TIMEOUT_SECONDS),
+        complete_chat_with_provider_failover(
+            store,
+            None,
+            &providers,
+            &persona,
+            GOAL_JUDGE_SYSTEM_PROMPT.to_string(),
+            history,
+            &user_prompt,
+            None,
+            None,
+        ),
     )
-    .await?;
+    .await
+    .map_err(|_| {
+        AppError::BadRequest(format!(
+            "goal judge timed out after {GOAL_JUDGE_TIMEOUT_SECONDS}s"
+        ))
+    })??;
     let mut verdict = parse_goal_judge_response(&reply.content);
     verdict.model = model_label;
     Ok(verdict)

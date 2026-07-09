@@ -332,6 +332,12 @@ async fn read_gemini_stream(
         let chunk =
             chunk.map_err(|e| AppError::Llm(format!("failed to read gemini stream: {e}")))?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
+        const MAX_SSE_BUFFER_BYTES: usize = 64 * 1024 * 1024;
+        if buffer.len() > MAX_SSE_BUFFER_BYTES {
+            return Err(AppError::Llm(format!(
+                "gemini stream SSE buffer exceeded {MAX_SSE_BUFFER_BYTES} bytes"
+            )));
+        }
         while let Some(newline) = buffer.find('\n') {
             let mut line = buffer[..newline].trim().to_string();
             buffer.replace_range(..=newline, "");

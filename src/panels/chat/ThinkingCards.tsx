@@ -32,13 +32,15 @@ export const ThinkingCards = memo(function ThinkingCards({ cards }: { cards: Thi
 export const ThinkingCardView = memo(function ThinkingCardView({ card }: { card: ThinkingCard }) {
   const [expanded, setExpanded] = useState(card.streaming);
   useEffect(() => {
-    setExpanded(card.streaming);
+    // Only auto-expand when streaming starts — never force-collapse when it ends.
+    // Collapsing on streaming=false overrides the user's manual expand action.
+    if (card.streaming) setExpanded(true);
   }, [card.streaming, card.key]);
   const providerLabel = card.provider === "anthropic"
-    ? "Anthropic"
+    ? "深度思考"
     : card.provider === "openai_responses"
-      ? "Responses"
-      : "Reasoning";
+      ? "推理链路"
+      : "推理过程";
   const statusLabel = card.streaming ? "思考中" : card.redacted ? "已隐藏" : "思考完成";
   const detail = card.summary
     ? formatThinkingSummary(card.summary, card.provider)

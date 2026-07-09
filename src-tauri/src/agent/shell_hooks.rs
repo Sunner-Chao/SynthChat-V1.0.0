@@ -856,11 +856,23 @@ pub(super) async fn run_pre_tool_call_hooks(
         if !spec.matches_tool(tool_name) {
             continue;
         }
-        if let Some(response) = run_shell_hook(&spec, run_id, tool_name, payload, None).await? {
-            if let Some(message) = shell_hook_block_message(&response) {
-                return Err(AppError::BadRequest(format!(
-                    "blocked by shell hook: {message}"
-                )));
+        // Match post_tool_call behavior: spawn/IO errors (command not found,
+        // permissions) are warnings, not hard blocks. Only an explicit block
+        // message from a successfully-run hook should stop the tool call.
+        match run_shell_hook(&spec, run_id, tool_name, payload, None).await {
+            Ok(Some(response)) => {
+                if let Some(message) = shell_hook_block_message(&response) {
+                    return Err(AppError::BadRequest(format!(
+                        "blocked by shell hook: {message}"
+                    )));
+                }
+            }
+            Ok(None) => {}
+            Err(err) => {
+                eprintln!(
+                    "SynthChat: pre_tool_call hook '{}' failed to run (skipping): {err}",
+                    spec.description.as_deref().unwrap_or(tool_name)
+                );
             }
         }
     }
@@ -2478,9 +2490,10 @@ fn hermes_context_engine_plugins_dir() -> PathBuf {
     {
         return PathBuf::from(root).join("plugins").join("context_engine");
     }
-    PathBuf::from(r"D:\pro_sunner\demo_vscode\hermes-agent")
-        .join("plugins")
-        .join("context_engine")
+    // No fallback to a hardcoded developer path — silently return a path that
+    // will produce an empty list, which is the correct behavior for users who
+    // have not configured HERMES_AGENT_REPO.
+    PathBuf::new()
 }
 
 fn python_plugin_spec_from_summary(

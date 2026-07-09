@@ -2407,15 +2407,31 @@ async fn download_wechat_cdn_media(
         .map_err(|error| wechat_http_error("failed to download wechat CDN media", error))?
         .error_for_status()
         .map_err(|error| wechat_http_error("wechat CDN download returned an error", error))?;
-    let cipher = response
-        .bytes()
-        .await
-        .map_err(|error| wechat_http_error("failed to read wechat CDN media body", error))?;
-    if cipher.len() as u64 > max_bytes {
-        return Err(AppError::BadRequest(format!(
-            "wechat media exceeds {} MiB",
-            max_bytes / 1024 / 1024
-        )));
+    // Pre-check via Content-Length header to reject obviously oversized
+    // responses before reading any body bytes.
+    if let Some(content_length) = response.content_length() {
+        if content_length > max_bytes {
+            return Err(AppError::BadRequest(format!(
+                "wechat media exceeds {} MiB (Content-Length: {})",
+                max_bytes / 1024 / 1024,
+                content_length
+            )));
+        }
+    }
+    // Read body bytes with a hard cap: abort as soon as accumulated bytes
+    // exceed the limit so a response without Content-Length cannot OOM.
+    use futures::StreamExt;
+    let mut body = response.bytes_stream();
+    let mut cipher: Vec<u8> = Vec::new();
+    while let Some(chunk) = body.next().await {
+        let chunk = chunk.map_err(|e| wechat_http_error("failed to read wechat CDN media body", e))?;
+        cipher.extend_from_slice(&chunk);
+        if cipher.len() as u64 > max_bytes {
+            return Err(AppError::BadRequest(format!(
+                "wechat media exceeds {} MiB",
+                max_bytes / 1024 / 1024
+            )));
+        }
     }
     aes_128_ecb_pkcs7_decrypt(&cipher, &key)
 }
@@ -2975,6 +2991,11 @@ pub fn get_wechat_config() -> AppResult<WechatConfig> {
         }
         config.timeout_seconds = config.timeout_seconds.max(5);
         write_json("wechat.json", &config)?;
+    } else {
+        // Apply the same minimum floor even when the base URL is valid, so a
+        // manually-edited wechat.json with timeout_seconds: 0 cannot bypass the
+        // protection that save_wechat_config() applies unconditionally.
+        config.timeout_seconds = config.timeout_seconds.max(5);
     }
     Ok(config)
 }

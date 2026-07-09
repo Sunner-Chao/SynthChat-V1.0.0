@@ -514,14 +514,27 @@ pub(super) fn apply_cron_schedule_input(
         job.schedule_display = schedule.into();
         job.run_at = None;
         job.interval_minutes = None;
+        // Set next_run_at to now so the scheduler picks this job up on the
+        // very next tick and computes the actual next fire time from the
+        // cron expression. Without this, next_run_at stays None and the job
+        // never appears in status queries or gets triggered.
+        if job.next_run_at.is_none() {
+            job.next_run_at = Some(Utc::now().to_rfc3339());
+        }
         return Ok(());
     }
     if let Some(rest) = schedule.strip_prefix("every ") {
+        let interval_minutes = parse_duration_minutes(rest)?;
         job.schedule_kind = "interval".into();
-        job.interval_minutes = Some(parse_duration_minutes(rest)?);
+        job.interval_minutes = Some(interval_minutes);
         job.schedule_display = schedule.into();
         job.run_at = None;
         job.cron_expr = None;
+        if job.next_run_at.is_none() {
+            job.next_run_at = Some(
+                (Utc::now() + ChronoDuration::minutes(interval_minutes as i64)).to_rfc3339(),
+            );
+        }
         return Ok(());
     }
     if let Ok(timestamp) = DateTime::parse_from_rfc3339(schedule) {

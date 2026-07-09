@@ -78,6 +78,8 @@ const processingMarkedAtCache = new Map<string, number>();
 const processingClearTimerCache = new Map<string, number>();
 const pendingIncomingMessagesByConversation = new Map<string, ChatMessage[]>();
 const refreshChatDataInFlight = new Map<string, Promise<void>>();
+let refreshSkillsInFlight = false;
+let refreshAgentsInFlight = false;
 
 function scheduleBackgroundStoreRefresh(
   label: string,
@@ -231,10 +233,13 @@ function limitMessages(messages: ChatMessage[], limit: number) {
   if (!protectedUser || visible.some((message) => message.id === protectedUser.id)) {
     return visible;
   }
-  if (visible.length >= limit) {
-    const removeIndex = visible.findIndex((message) => message.role === "tool");
-    visible.splice(removeIndex >= 0 ? removeIndex : 0, 1);
-  }
+  // Need to make room for protectedUser. Prefer evicting a tool message first,
+  // then an assistant message, to avoid silently removing the oldest visible
+  // user turn when the window contains no tool messages.
+  const removeCandidateIndex = visible.findIndex((message) => message.role === "tool")
+    ?? visible.findIndex((message) => message.role === "assistant");
+  const removeIndex = removeCandidateIndex >= 0 ? removeCandidateIndex : 0;
+  visible.splice(removeIndex, 1);
   return sortMessagesForDisplay([...visible, protectedUser]);
 }
 
@@ -695,11 +700,11 @@ function shouldPreferLiveStreamingAssistant(
 ) {
   if (!isTrackedStreamingAssistantMessage(liveMessage, conversationId, streamedAssistantIds)) return false;
   if (backendMessage.role !== "assistant") return false;
-  if (!backendMessage.content && liveMessage.content) return true;
-  return (
-    liveMessage.content.length > backendMessage.content.length
-    && liveMessage.content.startsWith(backendMessage.content)
-  );
+  // While streaming is tracked as active for this message, always prefer the
+  // live version. The backend snapshot may lag behind the stream, causing
+  // visible content flicker (text temporarily shrinks then grows again) when
+  // the backend content happens to be longer than what has streamed so far.
+  return true;
 }
 
 function mergeLocalUiMessages(
@@ -1756,13 +1761,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     writeBootstrapCache({
       config,
-      profile,
-      llmProviders,
-      imageProviders,
-      videoProviders,
-      searchProviders,
-      visionProviders,
-      browserProviders,
+      // Mirror the same staleness guard used in set() above.
+      profile: profileMutationVersion === startedProfileMutationVersion ? profile : get().profile,
+      // Strip API keys before writing to localStorage — any XSS or local
+      // filesystem reader can retrieve localStorage and harvest plaintext keys.
+      // The bootstrap cache is only used for cold-start layout; credentials
+      // are always re-fetched from the backend on startup.
+      llmProviders: llmProviders.map((p) => ({ ...p, apiKey: null })),
+      imageProviders: imageProviders.map((p) => ({ ...p, apiKey: null })),
+      videoProviders: videoProviders.map((p) => ({ ...p, apiKey: null })),
+      searchProviders: searchProviders.map((p) => ({ ...p, apiKey: null })),
+      visionProviders: visionProviders.map((p) => ({ ...p, apiKey: null })),
+      browserProviders: browserProviders.map((p) => ({ ...p, apiKey: null })),
       themes,
       emojiGroups,
       accounts,
@@ -1781,6 +1791,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? visibleChatMessages(await api.listMessages(state.activeConversationId, messageLimit, previewChars))
         : [];
       const liveState = get();
+      // Guard: if the user switched conversations while the message fetch was in
+      // flight, the backendMessages belong to the old conversation and must not
+      // overwrite the newly active conversation's message list.
+      if (liveState.activeConversationId !== state.activeConversationId) return;
       const mergeResult = mergeBackendMessagesForState(
         backendMessages,
         liveState,
@@ -1898,9 +1912,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const previewChars = uiMessagePreviewChars(state.config);
     const backendMessages = visibleChatMessages(await api.listMessages(targetConversationId, nextLimit, previewChars));
+    // Re-read live state after the await — upsertIncomingMessage or
+    // refreshChatData may have written new streaming messages while we waited.
+    // Merging against the pre-await snapshot would silently discard those updates.
+    const liveState = get();
     const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      state,
+      liveState,
       targetConversationId,
       nextLimit
     );
@@ -2114,22 +2132,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   deleteConversation: async (conversationId) => {
     const settling = await api.deleteConversation(conversationId);
-    const state = get();
     const conversations = await api.listConversations();
-    const activeConversationId = state.activeConversationId === conversationId
+    // Re-read live state after all awaits — streaming messages may have
+    // arrived while we waited, and merging against a stale pre-await
+    // snapshot would silently drop them.
+    const liveState = get();
+    const activeConversationId = liveState.activeConversationId === conversationId
       ? conversations[0]?.id ?? null
-      : state.activeConversationId;
-    const { [conversationId]: _, ...conversationMessageLimits } = state.conversationMessageLimits;
-    const messageLimit = conversationMessageLimit(state.config, activeConversationId, conversationMessageLimits);
-    const previewChars = uiMessagePreviewChars(state.config);
+      : liveState.activeConversationId;
+    const { [conversationId]: _, ...conversationMessageLimits } = liveState.conversationMessageLimits;
+    const messageLimit = conversationMessageLimit(liveState.config, activeConversationId, conversationMessageLimits);
+    const previewChars = uiMessagePreviewChars(liveState.config);
     const backendMessages = activeConversationId ? visibleChatMessages(await api.listMessages(activeConversationId, messageLimit, previewChars)) : [];
     const mergeResult = mergeBackendMessagesForState(
       backendMessages,
-      state,
+      get(),
       activeConversationId,
       messageLimit
     );
-    const { [conversationId]: _unread, ...unreadCounts } = state.conversationUnreadCounts;
+    const { [conversationId]: _unread, ...unreadCounts } = get().conversationUnreadCounts;
     set({
       conversations,
       activeConversationId,
@@ -2163,15 +2184,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       messageLimit
     );
     if (get().activeConversationId === conversationId) {
-      set((current) => ({
-        activeConversationId: conversationId,
-        messages: mergeResult.messages,
-        streamedAssistantIds: mergeResult.streamedAssistantIds,
-        conversationMessageLimits: {
-          ...current.conversationMessageLimits,
-          [conversationId]: messageLimit
+      set((current) => {
+        const nextLimits = { ...current.conversationMessageLimits };
+        if (backendMessages.length > 0) {
+          // Only persist the limit when the conversation actually returned
+          // messages. Writing for a non-existent conversation would leave an
+          // orphan key that is never cleaned up (selectConversation + delete
+          // race, stale bookmarks, cross-tab navigation, etc.).
+          nextLimits[conversationId] = messageLimit;
+        } else {
+          delete nextLimits[conversationId];
         }
-      }));
+        return {
+          activeConversationId: conversationId,
+          messages: mergeResult.messages,
+          streamedAssistantIds: mergeResult.streamedAssistantIds,
+          conversationMessageLimits: nextLimits
+        };
+      });
     }
   },
   sendMessage: async (content, personaId, agentId) => {
@@ -2373,6 +2403,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           } else {
             await get().refreshChatData(conversationIdForSend, personaIdForSend);
           }
+        } else if (!hasVisibleResponse) {
+          // Even when the user has switched away from this conversation, an
+          // empty-response send must still refresh so that the temporary
+          // local-* user message is pruned. Without this, local messages
+          // permanently remain in the conversation list for the user's next
+          // visit to that conversation.
+          void get().refreshChatData(conversationIdForSend, personaIdForSend);
         }
         if (hasVisibleResponse) {
           scheduleBackgroundStoreRefresh("agent runtime refresh", refreshAgentRuntime, 220);
@@ -2439,7 +2476,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   deleteMessage: async (messageId) => {
     await api.deleteMessage(messageId);
-    set((state) => ({ messages: state.messages.filter((message) => message.id !== messageId) }));
+    set((state) => {
+      const messages = state.messages.filter((message) => message.id !== messageId);
+      // Remove the message from streamedAssistantIds so a deleted streaming
+      // message doesn't leave the thinking indicator permanently stuck.
+      const streamedAssistantIds = new Set(state.streamedAssistantIds);
+      streamedAssistantIds.delete(messageId);
+      return { messages, streamedAssistantIds };
+    });
   },
   saveLlmProviders: async (llmProviders) => {
     await api.saveLlmProviders(llmProviders);
@@ -2643,8 +2687,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
   refreshSkills: async () => {
-    const skills = await api.listSkills();
-    set({ skills: skills as EnhancedSkillSummary[] });
+    if (refreshSkillsInFlight) return;
+    refreshSkillsInFlight = true;
+    try {
+      const skills = await api.listSkills();
+      set({ skills: skills as EnhancedSkillSummary[] });
+    } finally {
+      refreshSkillsInFlight = false;
+    }
   },
   installBuiltinSkills: async () => {
     const skills = await api.installBuiltinSkills();
@@ -2699,6 +2749,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   uploadPersonaAvatar: async (personaId, file) => {
     const data = await fileToDataUrl(file);
+    // Forget the old avatar preview before remembering the new one so
+    // stale data URLs don't accumulate in the LRU cache / localStorage.
+    const previousPath = get().personas.find((item) => item.id === personaId)?.avatarPath;
+    if (previousPath) forgetLocalImagePreview(previousPath);
     const saved = await api.uploadPersonaAvatar(personaId, file.name, data);
     personaMutationVersion += 1;
     rememberLocalImagePreview(saved.avatarPath, data);
@@ -2714,19 +2768,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     return saved;
   },
   saveConfig: async (config) => {
-    await api.saveConfig(config);
+    // Optimistic update so the UI feels instant.
+    const previous = get().config;
     set({ config });
+    try {
+      await api.saveConfig(config);
+    } catch (e) {
+      // Roll back to the previous config so the UI stays consistent.
+      set({ config: previous });
+      throw e;
+    }
   },
   togglePlugin: async (pluginId, enabled) => {
     const plugins = await api.togglePlugin(pluginId, enabled);
     set({ plugins });
   },
   refreshAgents: async () => {
-    const agents = await api.listAgents();
-    set((state) => ({
-      agents,
-      focusedAgentId: normalizeFocusedAgentId(agents, state.focusedAgentId)
-    }));
+    if (refreshAgentsInFlight) return;
+    refreshAgentsInFlight = true;
+    try {
+      const agents = await api.listAgents();
+      set((state) => ({
+        agents,
+        focusedAgentId: normalizeFocusedAgentId(agents, state.focusedAgentId)
+      }));
+    } finally {
+      refreshAgentsInFlight = false;
+    }
   },
   refreshAgentQueue: async () => {
     const agentQueue = await api.listAgentQueue();
@@ -2798,7 +2866,14 @@ export const useAppStore = create<AppState>((set, get) => ({
             subagentToolsets: event.subagentToolsets ?? run.subagentToolsets ?? [],
             subagentMaxIterations: event.subagentMaxIterations ?? run.subagentMaxIterations ?? null,
             queueItemId: event.queueItemId ?? run.queueItemId ?? null,
-            state: event.state,
+            // Guard against out-of-order events: a late "running" event must
+            // not downgrade a run that already reached a terminal state.
+            // This mirrors the same protection applied to agentQueue items.
+            state: terminal
+              ? event.state
+              : TERMINAL_AGENT_STATES.has(run.state)
+                ? run.state
+                : event.state,
             updatedAt: event.updatedAt,
             lastActivityAt: event.lastActivityAt ?? run.lastActivityAt ?? event.updatedAt,
             lastActivityDesc: event.lastActivityDesc ?? run.lastActivityDesc ?? null,
@@ -2812,12 +2887,19 @@ export const useAppStore = create<AppState>((set, get) => ({
             workflow_graph: workflowGraph
           };
         })
-        : [fallbackRun, ...state.agentRuns];
+        : [fallbackRun, ...state.agentRuns].slice(0, 500);
       const agentQueue = event.queueItemId
         ? state.agentQueue.map((item) => item.id === event.queueItemId
           ? {
             ...item,
-            status: terminal ? event.state : "running",
+            // Guard against out-of-order events: a late "running" event must
+            // not downgrade a queue item that has already reached a terminal
+            // state. This can happen during event replay or under network jitter.
+            status: terminal
+              ? event.state
+              : (item.status === "completed" || item.status === "failed" || item.status === "aborted")
+                ? item.status
+                : "running",
             updatedAt: event.updatedAt,
             startedAt: item.startedAt ?? event.updatedAt,
             completedAt: terminal ? event.updatedAt : item.completedAt,

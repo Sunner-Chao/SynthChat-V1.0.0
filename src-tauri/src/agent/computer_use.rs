@@ -24,9 +24,11 @@ static COMPUTER_USE_ELEMENTS: OnceLock<Mutex<HashMap<String, Vec<Value>>>> = Onc
 static CUA_MCP_LIFECYCLE: OnceLock<Mutex<CuaMcpLifecycle>> = OnceLock::new();
 // Cache computer_use status — it never changes within a process run.
 static COMPUTER_USE_STATUS_CACHE: OnceLock<Value> = OnceLock::new();
+// Pending-kill flag: set when reset is requested while the session mutex is held.
+// The next call that acquires the mutex will check this flag and kill the session.
 #[cfg(target_os = "macos")]
-static CUA_MCP_SESSION: OnceLock<tokio::sync::Mutex<Option<CuaMcpPersistentSession>>> =
-    OnceLock::new();
+static CUA_MCP_PENDING_KILL: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 const COMPUTER_USE_DEFAULT_MAX_ELEMENTS: u64 = 100;
 const COMPUTER_USE_MAX_ALLOWED_ELEMENTS: u64 = 1000;
 
@@ -316,11 +318,16 @@ fn computer_use_cua_mcp_reset_persistent_session() -> bool {
         return false;
     };
     if let Ok(mut guard) = session.try_lock() {
-        if let Some(mut session) = guard.take() {
-            let _ = session.child.start_kill();
+        if let Some(mut s) = guard.take() {
+            let _ = s.child.start_kill();
+            CUA_MCP_PENDING_KILL.store(false, std::sync::atomic::Ordering::Relaxed);
             return true;
         }
+        return false;
     }
+    // Mutex is held by an active tool call. Mark the pending-kill flag so
+    // that the next code path that acquires the lock will clean up the session.
+    CUA_MCP_PENDING_KILL.store(true, std::sync::atomic::Ordering::Relaxed);
     false
 }
 

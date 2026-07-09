@@ -311,6 +311,19 @@ export const ChatExperience = memo(function ChatExperience() {
   // to revoke blob preview URLs without capturing a stale closure value.
   const attachmentsRef = useRef<ComposerAttachment[]>([]);
   useEffect(() => { attachmentsRef.current = attachments; }, [attachments]);
+
+  // Clear attachments (and revoke blob URLs) when the active conversation
+  // switches so staged files from one conversation don't bleed into another.
+  useEffect(() => {
+    for (const a of attachmentsRef.current) {
+      if (a.preview?.startsWith("blob:")) URL.revokeObjectURL(a.preview);
+    }
+    setAttachments([]);
+    // Also reset the sending guard so a pending request in the old conversation
+    // doesn't block the first send in the new one.
+    sendingRef.current = false;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversationId]);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [pickerEmojiGroups, setPickerEmojiGroups] = useState(emojiGroups);
   const [dragActive, setDragActive] = useState(false);
@@ -336,6 +349,9 @@ export const ChatExperience = memo(function ChatExperience() {
   const lastPollingRunRefreshAtRef = useRef(0);
   const lastRuntimeEventsPollAtRef = useRef(0);
   const runtimeCursorRef = useRef(0);
+  const isStoppingRunRef = useRef(false);
+  const copiedMessageTimerRef = useRef<number | null>(null);
+  const postSubmitScrollTimerRef = useRef<number | null>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -343,6 +359,9 @@ export const ChatExperience = memo(function ChatExperience() {
   const seenMessageContentRef = useRef<Map<string, string>>(new Map());
   const [animatedMessageIds, setAnimatedMessageIds] = useState<Set<string>>(() => new Set());
   const [settlingConversationId, setSettlingConversationId] = useState<string | null>(null);
+  // Sync ref mirror so deleteConversationWithMemorySettling can guard re-entry
+  // without relying on the async React state update cycle.
+  const settlingConversationIdRef = useRef<string | null>(null);
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false);
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
   const [artifactsCollapsed, setArtifactsCollapsed] = useState(true);
@@ -485,17 +504,28 @@ export const ChatExperience = memo(function ChatExperience() {
           }
         }
       }).catch(() => {
-        // fallback: full count
+        // fallback: full count (used when getShortContextState IPC call fails)
         if (cancelled) return;
         if (mode === "tokens") {
           const total = dialogueMessages.reduce((t, m) => t + estimateMessageTokens(visibleMessageText(m)), 0);
           if (total >= budget) {
             setCompactionTipVisible(true);
             setCompactionRoundTokens(total);
+          } else {
+            // Ensure the tip is hidden when below threshold even in the
+            // fallback path — without this else, a prior true value sticks
+            // if the API call fails on a subsequent poll.
+            setCompactionTipVisible(false);
+            setCompactionRoundTokens(0);
           }
-        } else if (dialogueMessages.length >= messageLimit) {
-          setCompactionTipVisible(true);
-          setCompactionRoundTokens(dialogueMessages.length);
+        } else {
+          if (dialogueMessages.length >= messageLimit) {
+            setCompactionTipVisible(true);
+            setCompactionRoundTokens(dialogueMessages.length);
+          } else {
+            setCompactionTipVisible(false);
+            setCompactionRoundTokens(0);
+          }
         }
       });
     }, 220);
@@ -550,7 +580,7 @@ export const ChatExperience = memo(function ChatExperience() {
   );
   const activeQueueItems = useMemo(() => agentQueue
     .filter((item) => item.conversationId === activeConversationId)
-    .filter((item) => item.status !== "completed")
+    .filter((item) => item.status !== "completed" && item.status !== "failed" && item.status !== "aborted")
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [activeConversationId, agentQueue]);
   const availableMcpServers = useMemo(
     () => mcpServers.filter((server) => server.enabled),
@@ -908,7 +938,13 @@ export const ChatExperience = memo(function ChatExperience() {
     seenMessageContentRef.current = next;
     if (changedAssistantIds.length === 0) return;
     setAnimatedMessageIds((current) => {
-      const updated = new Set(current);
+      // Prune ids for messages that no longer exist in the list (deleted, context-
+      // trimmed, etc.) so orphan ids don't accumulate indefinitely in the Set.
+      const liveIds = new Set(messages.map((m) => m.id));
+      const updated = new Set<string>();
+      for (const id of current) {
+        if (liveIds.has(id)) updated.add(id);
+      }
       for (const id of changedAssistantIds) updated.add(id);
       return updated;
     });
@@ -936,8 +972,9 @@ export const ChatExperience = memo(function ChatExperience() {
 
   const filteredConversations = useMemo(() => {
     const needle = deferredQuery.toLowerCase();
+    if (!needle) return conversations;
     return conversations.filter((item) =>
-      `${item.title} ${item.lastMessage}`.toLowerCase().includes(needle)
+      `${item.title ?? ""} ${item.lastMessage ?? ""}`.toLowerCase().includes(needle)
     );
   }, [conversations, deferredQuery]);
   const enabledMcpCount = useMemo(
@@ -994,6 +1031,17 @@ export const ChatExperience = memo(function ChatExperience() {
   }, []);
 
   useEffect(() => () => stopVoicePlayback(), [stopVoicePlayback]);
+
+  useEffect(() => () => {
+    if (copiedMessageTimerRef.current !== null) {
+      window.clearTimeout(copiedMessageTimerRef.current);
+      copiedMessageTimerRef.current = null;
+    }
+    if (postSubmitScrollTimerRef.current !== null) {
+      window.clearTimeout(postSubmitScrollTimerRef.current);
+      postSubmitScrollTimerRef.current = null;
+    }
+  }, []);
 
   // Revoke all blob preview URLs when the component unmounts so the browser
   // can free the memory without waiting for GC. attachmentsRef always holds
@@ -1148,7 +1196,12 @@ export const ChatExperience = memo(function ChatExperience() {
   }, [activeConversationId, saveCurrentScrollPosition, selectConversation]);
 
   const deleteConversationWithMemorySettling = useCallback(async (conversationId: string) => {
-    if (settlingConversationId) return;
+    // Use a ref for the guard so double-clicks are rejected synchronously —
+    // the state-based `settlingConversationId` can't guard re-entry because
+    // setSettlingConversationId is asynchronous and the old value stays in the
+    // closure until the next render.
+    if (settlingConversationIdRef.current) return;
+    settlingConversationIdRef.current = conversationId;
     setSettlingConversationId(conversationId);
     try {
       const result = await deleteConversation(conversationId);
@@ -1160,9 +1213,12 @@ export const ChatExperience = memo(function ChatExperience() {
         void refreshMemories();
       }
     } finally {
+      if (settlingConversationIdRef.current === conversationId) {
+        settlingConversationIdRef.current = null;
+      }
       setSettlingConversationId((current) => current === conversationId ? null : current);
     }
-  }, [deleteConversation, refreshMemories, settlingConversationId]);
+  }, [deleteConversation, refreshMemories]);
 
   // Mark conversation switch for instant scroll
   useEffect(() => {
@@ -1264,11 +1320,16 @@ export const ChatExperience = memo(function ChatExperience() {
     if (element.scrollTop <= 48 && messages.length >= renderLimit && !historyLoading && !historyExhausted) {
       void loadMoreHistory();
     }
-    // Save scroll position for current conversation
-    saveCurrentScrollPosition(activeConversationId);
+    // Save scroll position for current conversation — debounced to 150ms
+    // to avoid triggering querySelectorAll DOM traversal on every scroll event.
+    if (saveScrollPositionTimerRef.current !== null) window.clearTimeout(saveScrollPositionTimerRef.current);
+    saveScrollPositionTimerRef.current = window.setTimeout(() => {
+      saveScrollPositionTimerRef.current = null;
+      saveCurrentScrollPosition(activeConversationId);
+    }, 150);
     if (near) {
       setUnreadCount(0);
-      markConversationRead(activeConversationId ?? "");
+      if (activeConversationId) markConversationRead(activeConversationId);
     }
   }, [activeConversationId, bottomFollowThresholdPx, historyExhausted, historyLoading, loadMoreHistory, markConversationRead, messages.length, renderLimit, saveCurrentScrollPosition]);
 
@@ -1311,15 +1372,26 @@ export const ChatExperience = memo(function ChatExperience() {
     saveCurrentScrollPosition(activeConversationId);
   }, [activeConversationId, saveCurrentScrollPosition]);
 
+  // Throttle ref for streaming auto-scroll — one RAF per token causes
+  // excessive layout reads and scroll jitter at high streaming rates.
+  const autoScrollThrottleRef = useRef<number | null>(null);
+  // Debounce ref for saveCurrentScrollPosition inside handleScroll.
+  // querySelectorAll("[data-message-id]") traverses all message nodes on every
+  // scroll event; debouncing limits it to at most once per 150 ms.
+  const saveScrollPositionTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (activeSection !== "chat") return;
     if (!latestMessageKey) return;
     const element = scrollRef.current;
     if (!element) return;
     const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-    if (nearBottomRef.current || distanceFromBottom <= bottomFollowThresholdPx) {
+    if (!(nearBottomRef.current || distanceFromBottom <= bottomFollowThresholdPx)) return;
+    if (autoScrollThrottleRef.current !== null) return;
+    autoScrollThrottleRef.current = window.requestAnimationFrame(() => {
+      autoScrollThrottleRef.current = null;
       scrollToBottom();
-    }
+    });
   }, [activeSection, bottomFollowThresholdPx, latestMessageKey, scrollToBottom]);
 
   useEffect(() => {
@@ -1347,16 +1419,26 @@ export const ChatExperience = memo(function ChatExperience() {
       const messageRefresh = shouldRefreshChat
         ? refreshChatData(activeConversationId, selectedPersonaIdRef.current)
         : Promise.resolve();
+      // Capture the conversation id at dispatch time so we can discard the
+      // response if the user switches conversations before it arrives.
+      const runtimePollConversationId = activeConversationId;
       void Promise.allSettled([
         messageRefresh,
         shouldRefreshRuns ? refreshAgentRuns() : Promise.resolve(),
-        shouldPollRuntimeEvents && activeConversationId
-          ? api.listAgentRuntimeEvents({ conversationId: activeConversationId, since: runtimeCursorRef.current, limit: 80 })
+        shouldPollRuntimeEvents && runtimePollConversationId
+          ? api.listAgentRuntimeEvents({ conversationId: runtimePollConversationId, since: runtimeCursorRef.current, limit: 80 })
               .then((stream) => {
-                runtimeCursorRef.current = stream.cursor;
-                setRuntimeCursor(stream.cursor);
-                if (stream.events.length > 0) {
-                  setRuntimeEvents((current) => [...current, ...stream.events].slice(-80));
+                // Discard stale responses from a previous conversation to
+                // prevent cursor/events leaking into the newly active one.
+                // Using only conversationId equality as the guard — the previous
+                // check also allowed `cursor !== 0`, which let in-flight responses
+                // from the old conversation contaminate the new one.
+                if (runtimePollConversationId === activeConversationId) {
+                  runtimeCursorRef.current = stream.cursor;
+                  setRuntimeCursor(stream.cursor);
+                  if (stream.events.length > 0) {
+                    setRuntimeEvents((current) => [...current, ...stream.events].slice(-80));
+                  }
                 }
               })
           : Promise.resolve()
@@ -1370,7 +1452,14 @@ export const ChatExperience = memo(function ChatExperience() {
   const stageFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files);
     if (list.length === 0) return;
+    const MAX_ATTACHMENT_COUNT = 20;
+    const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50 MB per file
     for (const file of list) {
+      if (attachmentsRef.current.length >= MAX_ATTACHMENT_COUNT) break;
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        console.warn(`Attachment "${file.name}" skipped: size ${file.size} exceeds ${MAX_ATTACHMENT_BYTES} byte limit`);
+        continue;
+      }
       const temporaryId = crypto.randomUUID();
       const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
       setAttachments((current) => [...current, {
@@ -1387,7 +1476,9 @@ export const ChatExperience = memo(function ChatExperience() {
         const saved = await api.uploadChatAttachment(file.name, file.type || "application/octet-stream", Array.from(new Uint8Array(buffer)));
         setAttachments((current) => current.map((item) => item.id === temporaryId ? { ...saved, preview, status: "ready" } : item));
       } catch (error) {
-        setAttachments((current) => current.map((item) => item.id === temporaryId ? { ...item, status: "error", error: String(error) } : item));
+        // Revoke the preview blob URL so it doesn't accumulate in error state
+        if (preview) URL.revokeObjectURL(preview);
+        setAttachments((current) => current.map((item) => item.id === temporaryId ? { ...item, preview: null, status: "error", error: String(error) } : item));
       }
     }
   }, []);
@@ -1395,7 +1486,10 @@ export const ChatExperience = memo(function ChatExperience() {
   const stageFilePaths = useCallback(async (paths: string[]) => {
     const list = paths.map((path) => path.trim()).filter(Boolean);
     if (list.length === 0) return;
+    const MAX_ATTACHMENT_COUNT = 20;
     for (const path of list) {
+      // Read count from ref (sync) rather than state (stale inside loop)
+      if (attachmentsRef.current.length >= MAX_ATTACHMENT_COUNT) break;
       const temporaryId = crypto.randomUUID();
       setAttachments((current) => [...current, {
         id: temporaryId,
@@ -1546,11 +1640,17 @@ export const ChatExperience = memo(function ChatExperience() {
     window.addEventListener("dragover", handleDrag, true);
     window.addEventListener("dragleave", handleDragLeave, true);
     window.addEventListener("drop", handleDrop, true);
+    // dragend fires when the user cancels a drag (Esc key, drops outside the
+    // window, etc.) and is not guaranteed to be followed by dragleave in Tauri
+    // WebView. Without this, dragActive can be permanently stuck at true.
+    const handleDragEnd = () => setDragActive(false);
+    window.addEventListener("dragend", handleDragEnd, true);
     return () => {
       window.removeEventListener("dragenter", handleDrag, true);
       window.removeEventListener("dragover", handleDrag, true);
       window.removeEventListener("dragleave", handleDragLeave, true);
       window.removeEventListener("drop", handleDrop, true);
+      window.removeEventListener("dragend", handleDragEnd, true);
     };
   }, [activeSection, isPointInsideChatDropTarget, rememberDomDrop, stageFiles]);
 
@@ -1664,6 +1764,12 @@ export const ChatExperience = memo(function ChatExperience() {
       setComposerError("当前 WebView 不支持语音输入。");
       return;
     }
+    // Re-entry guard: if a recording is already in progress (stream exists),
+    // stop the old one before starting a new one to prevent mic stream leaks.
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      stopVoiceInput();
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const preferredMimeType = [
@@ -1726,9 +1832,24 @@ export const ChatExperience = memo(function ChatExperience() {
             : "";
           appendVoiceTranscript(transcript);
         };
-        recognition.onerror = () => {
+        recognition.onerror = (event: unknown) => {
+          const errorType = (event as { error?: string }).error ?? "";
           speechRecognitionRef.current = null;
           setVoiceInputState("idle");
+          // Only fall back to MediaRecorder for transient errors.
+          // For permission-denied or aborted, show a clear message instead
+          // of silently starting a second getUserMedia that will also fail.
+          if (errorType === "not-allowed" || errorType === "permission-denied") {
+            setComposerError("麦克风权限被拒绝，请在浏览器设置中授权后重试。");
+            return;
+          }
+          if (errorType === "aborted") {
+            return;
+          }
+          if (errorType === "no-speech") {
+            setComposerError("未检测到语音输入，请重试。");
+            return;
+          }
           void startRecordedVoiceInput();
         };
         recognition.onend = () => {
@@ -1754,26 +1875,34 @@ export const ChatExperience = memo(function ChatExperience() {
     const fixedProviderId = toolbarPersona.llmProvider.trim();
     if (!fixedProviderId || option.providerId !== fixedProviderId || currentProvider.id !== fixedProviderId) return;
     if (toolbarPersona.llmModel === option.model) return;
+    const capturedConversationId = activeConversationId;
     const savedPersona = await savePersona({
       ...toolbarPersona,
       agentId: activeAgent?.id ?? toolbarPersona.agentId,
       llmProvider: fixedProviderId,
       llmModel: option.model
     });
-    await refreshChatData(activeConversationId, savedPersona.id);
+    if (activeConversationId === capturedConversationId) {
+      await refreshChatData(capturedConversationId, savedPersona.id);
+    }
   };
 
   const switchConversationAgent = async (agentId: string) => {
     if (!agentId || activeAgent?.id === agentId) return;
     setFocusedAgentId(agentId);
+    const capturedConversationId = activeConversationId;
     if (toolbarPersona) {
       const savedPersona = await savePersona({ ...toolbarPersona, agentId });
-      await refreshChatData(activeConversationId, savedPersona.id);
+      if (activeConversationId === capturedConversationId) {
+        await refreshChatData(capturedConversationId, savedPersona.id);
+      }
       return;
     }
-    if (!activeConversationId) return;
-    const conversation = await api.setConversationAgent(activeConversationId, agentId);
-    await refreshChatData((conversation as any)?.id || activeConversationId, (conversation as any)?.personaId ?? activeConversation?.personaId);
+    if (!capturedConversationId) return;
+    const conversation = await api.setConversationAgent(capturedConversationId, agentId);
+    if (activeConversationId === capturedConversationId) {
+      await refreshChatData((conversation as any)?.id || capturedConversationId, (conversation as any)?.personaId ?? activeConversation?.personaId);
+    }
   };
 
   const submit = async () => {
@@ -1809,13 +1938,13 @@ export const ChatExperience = memo(function ChatExperience() {
         .map((file) => `[media attached: "${file.path}" (${file.mimeType || "application/octet-stream"})] ${file.fileName}`)
         .join("\n");
       const outbound = [content, attachmentMarkers, attachmentContext].filter(Boolean).join("\n\n");
-      // Revoke preview blob URLs before clearing the attachment list so the
-      // browser can free the backing memory without waiting for GC.
+      await sendMessage(outbound, outboundPersonaId, activeAgent?.id);
+      // Revoke preview blob URLs only after a successful send so that on failure
+      // the restored submittedAttachments still have valid previews for retry.
       for (const a of attachments) {
         if (a.preview?.startsWith("blob:")) URL.revokeObjectURL(a.preview);
       }
       setAttachments([]);
-      await sendMessage(outbound, outboundPersonaId, activeAgent?.id);
     } catch (error) {
       console.error("submit message failed", error);
       setDraft((current) => current.trim() ? current : content);
@@ -1823,29 +1952,47 @@ export const ChatExperience = memo(function ChatExperience() {
       setComposerError(composerErrorText(error));
     } finally {
       sendingRef.current = false;
-      // Delay scroll to let React commit the new message to DOM first
-      window.setTimeout(() => scrollToBottom(), 50);
+      // Delay scroll to let React commit the new message to DOM first.
+      // Track the timer so it can be cancelled if the component unmounts.
+      if (postSubmitScrollTimerRef.current !== null) window.clearTimeout(postSubmitScrollTimerRef.current);
+      postSubmitScrollTimerRef.current = window.setTimeout(() => {
+        postSubmitScrollTimerRef.current = null;
+        scrollToBottom();
+      }, 50);
     }
   };
 
   const stopActiveRun = async () => {
-    if (!stoppableRun) return;
-    await api.abortAgentRun(stoppableRun.runId, "Agent run stopped by user from chat.");
-    setConversationProcessing(stoppableRun.conversationId, false);
-    await Promise.all([
-      refreshAgentRuns(),
-      refreshAgentQueue(),
-      refreshChatData(activeConversationId, selectedPersona?.id)
-    ]);
+    if (!stoppableRun || isStoppingRunRef.current) return;
+    isStoppingRunRef.current = true;
+    try {
+      await api.abortAgentRun(stoppableRun.runId, "Agent run stopped by user from chat.");
+      setConversationProcessing(stoppableRun.conversationId, false);
+      await Promise.all([
+        refreshAgentRuns(),
+        refreshAgentQueue(),
+        refreshChatData(activeConversationId, selectedPersona?.id)
+      ]);
+    } finally {
+      isStoppingRunRef.current = false;
+    }
   };
 
+  const cancellingQueueItemIdsRef = useRef(new Set<string>());
+
   const cancelQueuedItem = async (id: string) => {
-    await api.cancelAgentQueueItem(id);
-    await Promise.all([
-      refreshAgentQueue(),
-      refreshAgentRuns(),
-      refreshChatData(activeConversationId, selectedPersona?.id)
-    ]);
+    if (cancellingQueueItemIdsRef.current.has(id)) return;
+    cancellingQueueItemIdsRef.current.add(id);
+    try {
+      await api.cancelAgentQueueItem(id);
+      await Promise.all([
+        refreshAgentQueue(),
+        refreshAgentRuns(),
+        refreshChatData(activeConversationId, selectedPersona?.id)
+      ]);
+    } finally {
+      cancellingQueueItemIdsRef.current.delete(id);
+    }
   };
 
   const copyMessage = async (message: ChatMessage) => {
@@ -1861,9 +2008,19 @@ export const ChatExperience = memo(function ChatExperience() {
       }
     }
     const text = displayTextForMessage(visibleMessageText(sourceMessage));
-    if (text) await navigator.clipboard?.writeText(text);
+    if (!text) return;
+    try {
+      await navigator.clipboard?.writeText(text);
+    } catch (error) {
+      setComposerError("复制失败：" + String(error));
+      return;
+    }
+    if (copiedMessageTimerRef.current !== null) window.clearTimeout(copiedMessageTimerRef.current);
     setCopiedMessageId(message.id);
-    window.setTimeout(() => setCopiedMessageId(null), 1200);
+    copiedMessageTimerRef.current = window.setTimeout(() => {
+      copiedMessageTimerRef.current = null;
+      setCopiedMessageId(null);
+    }, 1200);
   };
 
   const insertSkill = (skillName: string) => {
@@ -1876,6 +2033,11 @@ export const ChatExperience = memo(function ChatExperience() {
   };
 
   const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    // Ignore key events fired during IME composition (e.g. Chinese/Japanese/Korean
+    // candidate selection). Without this guard, pressing Enter to confirm a
+    // candidate word triggers submit() — a CRITICAL input bug for CJK users.
+    if (event.nativeEvent.isComposing) return;
+
     if (slashCommandSuggestions.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -1925,7 +2087,7 @@ export const ChatExperience = memo(function ChatExperience() {
         </div>
         <label className="claw-search">
           <Search size={15} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索会话" />
+          <input aria-label="搜索会话" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索会话" />
         </label>
         <div className="claw-session-list">
           {filteredConversations.map((conversation) => {
@@ -1974,7 +2136,7 @@ export const ChatExperience = memo(function ChatExperience() {
           {filteredConversations.length === 0 ? (
             <div className="claw-empty-small">
               <MessageSquareText size={28} />
-              <span>还没有对话</span>
+              <span>{deferredQuery ? "无匹配结果" : "还没有对话"}</span>
             </div>
           ) : null}
         </div>
@@ -2077,7 +2239,13 @@ export const ChatExperience = memo(function ChatExperience() {
           onDrop={handleFileDrop}
         >
           <div className="claw-message-stream-wrap">
-            <div className="claw-message-stream" ref={scrollRef} onScroll={handleScroll}>
+            <div
+              className="claw-message-stream"
+              ref={scrollRef}
+              onScroll={handleScroll}
+              aria-live="polite"
+              aria-label="对话消息"
+            >
               {messages.length === 0 ? (
                 <WelcomePanel
                   disabled={!selectedPersona}
@@ -2086,7 +2254,7 @@ export const ChatExperience = memo(function ChatExperience() {
               ) : (
                 <>
                   {messages.length >= renderLimit ? (
-                    <div className={`claw-history-loader${historyLoading ? " is-loading" : ""}${historyExhausted ? " is-exhausted" : ""}`}>
+                    <div role="status" className={`claw-history-loader${historyLoading ? " is-loading" : ""}${historyExhausted ? " is-exhausted" : ""}`}>
                       {historyLoading ? (
                         <>
                           <Loader2 className="spin" size={14} />
@@ -2137,7 +2305,13 @@ export const ChatExperience = memo(function ChatExperience() {
             ) : null}
           </div>
 
-          <aside className="claw-execution-panel" aria-hidden={!executionPanelOpen}>
+          <aside
+            className="claw-execution-panel"
+            aria-hidden={!executionPanelOpen}
+            // inert prevents keyboard Tab from reaching focusable children
+            // inside a collapsed panel — aria-hidden alone does not block Tab.
+            {...(!executionPanelOpen ? { inert: "" } : {})}
+          >
             {activeQueueItems.length > 0 ? (
               <div className="claw-panel-card claw-panel-card--queue">
                 <div className="claw-panel-head compact">
@@ -2490,6 +2664,7 @@ export const ChatExperience = memo(function ChatExperience() {
             ) : null}
           <textarea
             rows={1}
+            aria-label="消息输入框"
             value={draft}
             onChange={(event) => {
               setDraft(event.target.value);

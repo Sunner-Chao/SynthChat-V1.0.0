@@ -263,6 +263,13 @@ async fn read_anthropic_sse_stream(
         let chunk =
             chunk.map_err(|e| AppError::Llm(format!("failed to read anthropic stream: {e}")))?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
+        // Guard against buffer growing without bound (hijacked/misbehaving provider).
+        const MAX_SSE_BUFFER_BYTES: usize = 64 * 1024 * 1024; // 64 MB
+        if buffer.len() > MAX_SSE_BUFFER_BYTES {
+            return Err(AppError::Llm(format!(
+                "anthropic stream SSE buffer exceeded {MAX_SSE_BUFFER_BYTES} bytes"
+            )));
+        }
         while let Some(newline) = buffer.find('\n') {
             let mut line = buffer[..newline].trim().to_string();
             buffer.replace_range(..=newline, "");
@@ -457,11 +464,13 @@ fn track_anthropic_stream_tool_call(
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
     {
-        tool_calls
-            .entry(index)
-            .or_default()
-            .input_json
-            .push_str(partial_json);
+        let entry = tool_calls.entry(index).or_default();
+        // Cap tool-call JSON input so a misbehaving model cannot accumulate
+        // unbounded JSON in memory.
+        const MAX_TOOL_INPUT_JSON_BYTES: usize = 4 * 1024 * 1024; // 4 MB
+        if entry.input_json.len() < MAX_TOOL_INPUT_JSON_BYTES {
+            entry.input_json.push_str(partial_json);
+        }
     }
 }
 

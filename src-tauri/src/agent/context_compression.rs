@@ -508,6 +508,13 @@ pub(super) fn compression_anti_thrash_skip_note(
     if short_context.ineffective_compression_count < 2 {
         return None;
     }
+    // Allow compression to retry every 3 ineffective cycles (previously 5).
+    // A step of 5 meant 4 consecutive skipped rounds during which the context
+    // could grow unchecked; using 3 limits consecutive skips to 2, reducing the
+    // maximum unprotected growth window while still preventing thrashing.
+    if short_context.ineffective_compression_count % 3 == 0 {
+        return None;
+    }
     Some(format!(
         "Compression skipped: last {} compression(s) saved <10% each; latest savings {:.1}%. Use /compact here <focus> for manual focused compression.",
         short_context.ineffective_compression_count,
@@ -1293,8 +1300,15 @@ pub(super) fn record_summary_abort(
     error: &str,
     dropped_count: usize,
 ) {
-    record_summary_failure(short_context, error, dropped_count);
+    // Record the error and dropped count without setting the retry cooldown.
+    // The cooldown is appropriate for automatic compression failures (rate
+    // limits, transient model errors) to avoid hammering the API, but not for
+    // deliberate abort-on-failure stops: the user will fix the model config and
+    // immediately run /compact again, so a 10-minute gate serves no purpose and
+    // actively prevents fast recovery.
+    short_context.last_summary_error = Some(compact_text(error, 700));
     short_context.last_summary_fallback_used = false;
+    short_context.last_summary_dropped_count = dropped_count;
     short_context.last_compress_aborted = true;
 }
 
@@ -1381,5 +1395,30 @@ fn compact_text(value: &str, max_chars: usize) -> String {
 }
 
 pub(super) fn estimate_tokens(text: &str) -> usize {
-    text.chars().count().saturating_add(3) / 4
+    // Use a content-aware chars-per-token ratio. English prose averages ~4
+    // chars/token (GPT/Claude tokenizers), but CJK scripts map roughly 1:1
+    // (1 char ≈ 1 token). Blend the ratio based on the CJK character fraction
+    // to avoid systematic 4× undercount on Chinese/Japanese/Korean content,
+    // which would delay context compression and produce under-sized summaries.
+    let chars: Vec<char> = text.chars().collect();
+    let total = chars.len();
+    if total == 0 {
+        return 0;
+    }
+    let cjk = chars.iter().filter(|&&c| {
+        let cp = c as u32;
+        matches!(
+            cp,
+            0x3000..=0x303F   // CJK Symbols
+            | 0x3040..=0x309F // Hiragana
+            | 0x30A0..=0x30FF // Katakana
+            | 0x4E00..=0x9FFF // CJK Unified Ideographs (core)
+            | 0xAC00..=0xD7AF // Hangul Syllables
+            | 0xF900..=0xFAFF // CJK Compatibility Ideographs
+        )
+    }).count();
+    let cjk_ratio = cjk as f64 / total as f64;
+    // Blend: 1 char/token for pure CJK → 4 chars/token for pure ASCII
+    let chars_per_token = 1.0_f64 + (4.0_f64 - 1.0_f64) * (1.0_f64 - cjk_ratio);
+    ((total as f64 / chars_per_token).ceil() as usize).max(1)
 }

@@ -420,7 +420,11 @@ export function ProviderSettings({
             </label>
             <div className="two-column">
               <label>API Key 环境变量<input value={draft.apiKeyEnv} onChange={(event) => setDraft((d) => d ? { ...d, apiKeyEnv: event.target.value } : d)} /></label>
-              <label>超时秒数<input min={1} type="number" value={draft.timeoutSeconds} onChange={(event) => setDraft((d) => d ? { ...d, timeoutSeconds: Number(event.target.value) } : d)} /></label>
+              <label>超时秒数<input min={1} type="number" value={draft.timeoutSeconds} onChange={(event) => {
+                const raw = Number(event.target.value);
+                const safe = isNaN(raw) || raw <= 0 ? (draft.timeoutSeconds ?? 60) : Math.round(raw);
+                setDraft((d) => d ? { ...d, timeoutSeconds: safe } : d);
+              }} /></label>
             </div>
             <div className="two-column">
               <label>Prompt Cache<select value={draft.promptCacheMode ?? "auto"} onChange={(event) => setDraft((d) => d ? { ...d, promptCacheMode: event.target.value } : d)}>

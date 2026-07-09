@@ -18,7 +18,11 @@ pub(super) fn acp_session_history_updates_for_store(
     session_id: &str,
 ) -> AppResult<Vec<Value>> {
     store.conversation(session_id)?;
-    let messages = store.messages(session_id, None)?;
+    // Cap history at 60 messages — consistent with the main agent loop's
+    // 30-message window plus headroom for tool messages. Without a limit, a
+    // long-running conversation would push the entire history into every new
+    // ACP session, exceeding LLM context windows and degrading performance.
+    let messages = store.messages(session_id, Some(60))?;
     Ok(acp_session_history_updates(&messages))
 }
 

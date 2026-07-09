@@ -271,6 +271,21 @@ pub(super) fn fact_store_tool_for_run(
                 "updatedAt": now,
                 "source": "synthchat_holographic_desktop"
             });
+            // Guard against unbounded growth: cap content length and total entry count
+            // so a misbehaving agent cannot exhaust disk space via repeated fact_store adds.
+            const MAX_FACT_CONTENT_CHARS: usize = 4_000;
+            const MAX_HOLOGRAPHIC_FACTS: usize = 2_000;
+            let content_trimmed = content.trim();
+            if content_trimmed.len() > MAX_FACT_CONTENT_CHARS {
+                return Err(AppError::BadRequest(format!(
+                    "fact content exceeds {MAX_FACT_CONTENT_CHARS} character limit"
+                )));
+            }
+            if facts.len() >= MAX_HOLOGRAPHIC_FACTS {
+                return Err(AppError::BadRequest(format!(
+                    "holographic fact store is full ({MAX_HOLOGRAPHIC_FACTS} entries). Use fact_store remove to free space before adding more."
+                )));
+            }
             facts.push(fact.clone());
             save_holographic_facts(store, &facts)?;
             on_memory_write(

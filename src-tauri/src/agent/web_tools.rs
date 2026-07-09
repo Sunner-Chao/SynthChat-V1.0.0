@@ -487,6 +487,7 @@ async fn xai_responses_x_search(
     let timeout_seconds = xai_search_timeout_seconds(&store.config()?);
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_seconds))
+        .connect_timeout(Duration::from_secs(15))
         .user_agent("Hermes-Agent-SynthChat/1.0")
         .build()
         .map_err(|error| AppError::BadRequest(format!("failed to build xAI client: {error}")))?;
@@ -1502,7 +1503,8 @@ fn readable_json_text(value: &Value) -> String {
 
 fn web_client(provider: &SearchProvider) -> AppResult<reqwest::Client> {
     reqwest::Client::builder()
-        .timeout(Duration::from_secs(provider.timeout_seconds.max(1)))
+        .timeout(Duration::from_secs(provider.timeout_seconds.max(60)))
+        .connect_timeout(Duration::from_secs(15))
         .user_agent("SynthChat-agent/1.0")
         .build()
         .map_err(|error| AppError::BadRequest(format!("failed to build search client: {error}")))
@@ -1620,6 +1622,7 @@ pub(super) async fn web_request_tool(store: &AppStore, payload: &Value) -> AppRe
         .map_err(|error| AppError::BadRequest(format!("invalid HTTP method: {error}")))?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60))
+        .connect_timeout(Duration::from_secs(15))
         .redirect(safe_redirect_policy_with_policy(policy))
         .user_agent("SynthChat-agent/1.0")
         .build()
@@ -2043,6 +2046,7 @@ pub(super) async fn fetch_url_text_with_policy(
     validate_web_url_with_policy(url, &policy)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60))
+        .connect_timeout(Duration::from_secs(15))
         .redirect(safe_redirect_policy_with_policy(policy))
         .user_agent("SynthChat-agent/1.0")
         .build()
@@ -2052,10 +2056,19 @@ pub(super) async fn fetch_url_text_with_policy(
         .send()
         .await
         .map_err(|error| AppError::BadRequest(format!("browser fetch failed: {error}")))?;
-    response
-        .text()
+    // Cap body reads so a malicious or oversized response cannot exhaust
+    // process memory before we even get to the truncation step.
+    const WEB_FETCH_MAX_BYTES: usize = 10 * 1024 * 1024; // 10 MB
+    let bytes = response
+        .bytes()
         .await
-        .map_err(|error| AppError::BadRequest(format!("failed to read page body: {error}")))
+        .map_err(|error| AppError::BadRequest(format!("failed to read page body: {error}")))?;
+    let capped = if bytes.len() > WEB_FETCH_MAX_BYTES {
+        &bytes[..WEB_FETCH_MAX_BYTES]
+    } else {
+        &bytes
+    };
+    Ok(String::from_utf8_lossy(capped).into_owned())
 }
 
 pub(super) fn build_browser_snapshot(url: &str, html: &str, full: bool) -> String {

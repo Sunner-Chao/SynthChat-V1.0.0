@@ -173,6 +173,7 @@ export function PersonaPanel() {
   const [saved, setSaved] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [catalogModels, setCatalogModels] = useState<ModelCatalogEntry[]>([]);
   const [remoteVoiceReplyEnabled, setRemoteVoiceReplyEnabled] = useState<boolean | null>(null);
   const selectedIdRef = useRef(selectedId);
@@ -196,6 +197,9 @@ export function PersonaPanel() {
       setCatalogModels([]);
       return;
     }
+    // Clear immediately so switching providers doesn't show the old list
+    // until the new fetch completes.
+    setCatalogModels([]);
     let cancelled = false;
     api.detectProviderModels(provider).then((result) => {
       if (!cancelled) setCatalogModels(result.models ?? []);
@@ -212,7 +216,13 @@ export function PersonaPanel() {
     if (selectedId.startsWith("persona-") && !personas.some((persona) => persona.id === selectedId)) return;
     if (next) {
       setSelectedId(next.id);
-      setDraft(next);
+      // Only replace the draft when the user is switching to a *different* persona.
+      // If the same persona was updated in the store (e.g., backend sync from another
+      // window), do NOT overwrite in-progress edits.
+      if (next.id !== draftRef.current.id) {
+        draftRef.current = next;
+        setDraft(next);
+      }
     }
   }, [personas, selectedId]);
 
@@ -440,9 +450,15 @@ export function PersonaPanel() {
 
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
+    const savedIdAtCallTime = selectedIdRef.current;
     try {
       await voiceReplySaveQueueRef.current;
       const draftSnapshot = currentDraftSnapshot();
+      // Re-read effective model from draftRef after the await so we use the
+      // value that was current when the save was actually submitted, not the
+      // value captured when the callback was created.
+      const resolvedModelId = effectiveLlmModelId || draftSnapshot.llmModel;
       const imageGeneration = {
         ...(draftSnapshot.imageGeneration ?? defaultImageGenerationConfig()),
         model: ""
@@ -450,14 +466,20 @@ export function PersonaPanel() {
       const saved = await savePersona({
         ...draftSnapshot,
         llmProvider: draftSnapshot.llmProvider,
-        llmModel: effectiveLlmModelId || draftSnapshot.llmModel,
+        llmModel: resolvedModelId,
         imageGeneration
       });
-      setSelectedId(saved.id);
-      draftRef.current = saved;
-      setDraft(saved);
+      // Guard against switching: if the user switched to a different persona
+      // while save was in-flight, do not snap them back to the saved one.
+      if (selectedIdRef.current === savedIdAtCallTime) {
+        setSelectedId(saved.id);
+        draftRef.current = saved;
+        setDraft(saved);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaveError(`保存失败: ${String(e)}`);
     } finally {
       setSaving(false);
     }
@@ -481,6 +503,16 @@ export function PersonaPanel() {
     const file = event.target.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
+    // Validate file type and size before uploading.
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("请选择图片文件（PNG、JPG、WebP 等）。");
+      return;
+    }
+    const MAX_AVATAR_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarError(`图片超过 10 MB 上限（当前 ${(file.size / 1024 / 1024).toFixed(1)} MB）。`);
+      return;
+    }
     setAvatarUploading(true);
     setAvatarError("");
     try {
@@ -779,12 +811,19 @@ export function PersonaPanel() {
                 </span>
               </div>
               <button
-                onClick={async () => {
-                  const draftSnapshot = currentDraftSnapshot();
-                  const savedPersona = await savePersona(draftSnapshot);
-                  draftRef.current = savedPersona;
-                  setDraft(savedPersona);
-                  await triggerProactiveOnce(savedPersona.id);
+                onClick={async (e) => {
+                  const btn = e.currentTarget;
+                  if (btn.disabled) return;
+                  btn.disabled = true;
+                  try {
+                    const draftSnapshot = currentDraftSnapshot();
+                    const savedPersona = await savePersona(draftSnapshot);
+                    draftRef.current = savedPersona;
+                    setDraft(savedPersona);
+                    await triggerProactiveOnce(savedPersona.id);
+                  } finally {
+                    btn.disabled = false;
+                  }
                 }}
                 type="button"
               >

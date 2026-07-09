@@ -260,6 +260,12 @@ async fn read_openai_sse_stream(
         };
         let chunk = chunk.map_err(|e| AppError::Llm(format!("failed to read llm stream: {e}")))?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
+        const MAX_SSE_BUFFER_BYTES: usize = 64 * 1024 * 1024;
+        if buffer.len() > MAX_SSE_BUFFER_BYTES {
+            return Err(AppError::Llm(format!(
+                "openai stream SSE buffer exceeded {MAX_SSE_BUFFER_BYTES} bytes"
+            )));
+        }
         while let Some(newline) = buffer.find('\n') {
             let mut line = buffer[..newline].trim().to_string();
             buffer.replace_range(..=newline, "");
@@ -394,11 +400,16 @@ fn handle_openai_sse_line(
             .and_then(Value::as_u64)
             .unwrap_or(0) as usize;
     }
-    if *completion_tokens == 0 {
-        *completion_tokens = payload
-            .pointer("/usage/completion_tokens")
-            .and_then(Value::as_u64)
-            .unwrap_or(0) as usize;
+    // Always update completion_tokens (not only when 0) so a final usage
+    // chunk can correct an earlier mid-stream estimate.  Locking to the
+    // first non-zero value caused the token count to be under-reported when
+    // a provider emits usage early and then sends a corrected final count.
+    let incoming = payload
+        .pointer("/usage/completion_tokens")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    if incoming > 0 {
+        *completion_tokens = incoming;
     }
     Ok(())
 }

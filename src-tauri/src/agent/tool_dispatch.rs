@@ -1,12 +1,13 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use futures::future::join_all;
 use serde_json::{json, Value};
 use tauri::AppHandle;
+use tokio::time::timeout as tokio_timeout;
 
 use crate::{
     error::{AppError, AppResult},
@@ -111,7 +112,10 @@ pub(super) fn observations_for_prompt(
     let mut tail_chars = 0usize;
     for observation in observations.iter().rev() {
         let size = observation.chars().count();
-        if !tail.is_empty() && tail_chars.saturating_add(size) > tail_budget {
+        // Guard applies on every iteration, including the first, so that a
+        // single oversized observation cannot bypass the tail budget limit and
+        // cause the assembled prompt to exceed the per-turn token ceiling.
+        if tail_chars.saturating_add(size) > tail_budget {
             break;
         }
         tail_chars = tail_chars.saturating_add(size);
@@ -145,37 +149,58 @@ pub(super) fn persist_large_tool_result_for_context(
     if text.chars().count() <= persist_threshold {
         return Ok(text.to_string());
     }
-    let path = store.save_tool_artifact(run_id, tool_name, text)?;
+    // Attempt to persist the full output to disk. On IO failure (disk full,
+    // permission error, read-only fs) gracefully degrade to a truncated
+    // preview so the agent loop can continue rather than terminating the run.
     let preview = preview_at_line_boundary(text, preview_chars);
-    let persisted = persisted_output_message(text, &path, &preview);
-    event.text = Some(persisted.clone());
-    event.summary = format!(
-        "{}; full output persisted to {}",
-        summarize_tool_text(&preview),
-        path.to_string_lossy()
-    );
-    let mut raw = event.raw.take().unwrap_or_else(|| json!({}));
-    if let Some(object) = raw.as_object_mut() {
-        object.insert(
-            "persistedOutput".into(),
-            json!({
-                "path": path.to_string_lossy(),
-                "originalChars": text.chars().count(),
-                "previewChars": preview.chars().count(),
-            }),
-        );
-    } else {
-        raw = json!({
-            "value": raw,
-            "persistedOutput": {
-                "path": path.to_string_lossy(),
-                "originalChars": text.chars().count(),
-                "previewChars": preview.chars().count(),
+    match store.save_tool_artifact(run_id, tool_name, text) {
+        Ok(path) => {
+            let persisted = persisted_output_message(text, &path, &preview);
+            event.text = Some(persisted.clone());
+            event.summary = format!(
+                "{}; full output persisted to {}",
+                summarize_tool_text(&preview),
+                path.to_string_lossy()
+            );
+            let mut raw = event.raw.take().unwrap_or_else(|| json!({}));
+            if let Some(object) = raw.as_object_mut() {
+                object.insert(
+                    "persistedOutput".into(),
+                    json!({
+                        "path": path.to_string_lossy(),
+                        "originalChars": text.chars().count(),
+                        "previewChars": preview.chars().count(),
+                    }),
+                );
+            } else {
+                raw = json!({
+                    "value": raw,
+                    "persistedOutput": {
+                        "path": path.to_string_lossy(),
+                        "originalChars": text.chars().count(),
+                        "previewChars": preview.chars().count(),
+                    }
+                });
             }
-        });
+            event.raw = Some(raw);
+            Ok(persisted)
+        }
+        Err(err) => {
+            // Degraded path: return a truncated preview and annotate the event
+            // with a warning so diagnostics can surface the IO failure without
+            // stopping the agent run.
+            eprintln!(
+                "SynthChat: failed to persist large tool output for {tool_name} \
+                 (run={run_id}): {err} — falling back to truncated preview"
+            );
+            let degraded = format!(
+                "{preview}\n\n[注意：完整输出因存储错误未能持久化，以上为截断预览。]"
+            );
+            event.text = Some(degraded.clone());
+            event.summary = summarize_tool_text(&preview);
+            Ok(degraded)
+        }
     }
-    event.raw = Some(raw);
-    Ok(persisted)
 }
 
 pub(super) fn positive_or_default(value: usize, default: usize) -> usize {
@@ -626,40 +651,61 @@ pub(super) async fn execute_parallel_tool_batch(
     }
 
     let futures = requests.iter().map(|(tool_name, payload)| async move {
-        let result = if let Some(definition) = resolve_mcp_tool(mcp_tools, tool_name) {
-            execute_recovery_mcp_tool(
-                store,
-                run_id,
-                &definition,
-                payload.clone(),
-                Some(&PythonPluginBridgeContext {
+        // Per-tool timeout: a single stalled tool must not block the entire
+        // parallel batch. When `await_agent_run_interruptible` cancels the
+        // outer `join_all` via tokio::select!, all already-completed results
+        // are discarded. Wrapping each tool individually means that a hung
+        // tool fails with an error while the rest of the batch completes
+        // normally and its results are preserved.
+        // Cap each tool at a fixed 300s wall-clock limit so that a single hung
+        // tool cannot block the entire parallel batch indefinitely.  This is
+        // intentionally NOT derived from agent_run_timeout_seconds (the total
+        // run budget) — that value can be set to 600s or more by the user, but
+        // the per-tool limit must be much tighter to preserve parallelism.
+        let per_tool_timeout = Duration::from_secs(300);
+        let result = tokio_timeout(per_tool_timeout, async {
+            if let Some(definition) = resolve_mcp_tool(mcp_tools, tool_name) {
+                execute_recovery_mcp_tool(
+                    store,
+                    run_id,
+                    &definition,
+                    payload.clone(),
+                    Some(&PythonPluginBridgeContext {
+                        agent,
+                        conversation_id,
+                        run_id,
+                        tool_context: context,
+                        app,
+                        allow_mutating_tools: true,
+                    }),
+                )
+                .await
+            } else if is_internal_tool(tool_name) {
+                execute_recovery_internal_tool(
+                    store,
                     agent,
                     conversation_id,
                     run_id,
-                    tool_context: context,
+                    tool_name,
+                    payload.clone(),
+                    context,
                     app,
-                    allow_mutating_tools: true,
-                }),
-            )
-            .await
-        } else if is_internal_tool(tool_name) {
-            execute_recovery_internal_tool(
-                store,
-                agent,
-                conversation_id,
-                run_id,
-                tool_name,
-                payload.clone(),
-                context,
-                app,
-                false,
-            )
-            .await
-        } else {
+                    false,
+                )
+                .await
+            } else {
+                Err(AppError::BadRequest(format!(
+                    "tool is not available: {tool_name}"
+                )))
+            }
+        })
+        .await
+        .unwrap_or_else(|_| {
             Err(AppError::BadRequest(format!(
-                "tool is not available: {tool_name}"
+                "parallel tool {tool_name} timed out after {}s",
+                per_tool_timeout.as_secs()
             )))
-        };
+        });
         (tool_name.clone(), payload.clone(), result)
     });
     let results = join_all(futures).await;
@@ -1873,6 +1919,10 @@ pub(super) async fn execute_recovery_internal_tool(
             Some(redact_sensitive_text(&error.to_string())),
         ),
     };
+    // Detect timeout from the error string so timed_out is accurate in the
+    // ToolEvent and ToolTraceEntry records — callers use this field for
+    // structured monitoring and retry decisions.
+    let timed_out = !ok && error.as_deref().map(|e| e.contains("timed out")).unwrap_or(false);
     text = run_transform_tool_result_hooks(
         store,
         run_id,
@@ -1893,7 +1943,7 @@ pub(super) async fn execute_recovery_internal_tool(
         server_id: "__internal".into(),
         tool_name: tool_name.into(),
         ok,
-        timed_out: false,
+        timed_out,
         elapsed_ms,
         kind: tool_event_kind("__internal", tool_name, None),
         title: format!("internal · {tool_name}"),
@@ -1927,7 +1977,7 @@ pub(super) async fn execute_recovery_internal_tool(
         server_id: "__internal".into(),
         tool_name: tool_name.into(),
         ok,
-        timed_out: false,
+        timed_out,
         elapsed_ms,
         payload: redact_json_value(payload.clone()),
         event: event.clone(),

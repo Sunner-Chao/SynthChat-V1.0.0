@@ -151,7 +151,19 @@ pub(super) fn recover_llm_failure_for_agent_run(
     token_budget: usize,
 ) -> AppResult<Option<String>> {
     let kind = classify_llm_failure(error);
-    if !attempted.insert(kind.to_string()) {
+    // Use a canonical dedup key for error families that share the same
+    // recovery function. Without this, `context_overflow` followed by
+    // `payload_too_large` (same underlying cause, different HTTP response)
+    // would each pass the attempted check and call the same recovery twice,
+    // double-modifying history and short_context.
+    let dedup_key = match kind {
+        "context_overflow" | "payload_too_large" | "long_context_tier" => {
+            "context_overflow_family"
+        }
+        "image_too_large" | "multimodal_tool_content_unsupported" => "image_payload_family",
+        other => other,
+    };
+    if !attempted.insert(dedup_key.to_string()) {
         return Ok(None);
     }
 
@@ -360,10 +372,15 @@ pub(super) fn preflight_compact_context_for_agent_run(
     }
     let messages = store.messages(conversation_id, None)?;
     let keep_messages = (chat_config.max_context_rounds.max(1) * 2 + 1).clamp(3, 60);
+    // Compute rough_tokens from the same `messages` snapshot that will be used
+    // for the compression boundary. Previously this used the bounded `history`
+    // vector (max 30 entries) while the compressor re-read the full DB, causing
+    // rough_tokens to be underestimated and the "skip compression" heuristic to
+    // fire incorrectly for longer conversations.
     let rough_tokens = estimate_tokens(&format!(
         "{}\n{}",
         short_context.summary,
-        render_messages_for_summary(history)
+        render_messages_for_summary(&messages)
     ));
     if should_defer_preflight_to_real_usage(
         short_context,
@@ -438,7 +455,7 @@ pub(super) fn preflight_compact_context_for_agent_run(
         return Ok(Some(format!("LLM preflight compaction skipped: {note}")));
     }
 
-    let dynamic_note = compact_conversation_history_with_context_engine(
+    let note = if let Some(note) = compact_conversation_history_with_context_engine(
         store,
         Some(run_id),
         conversation_id,
@@ -448,11 +465,13 @@ pub(super) fn preflight_compact_context_for_agent_run(
         keep_messages,
         "llm_preflight_compacted",
         "Preflight context budget management before LLM request.",
-    )?;
-    let note = if let Some(note) = dynamic_note {
+    )? {
         Some(note)
     } else {
-        compact_conversation_history_for_context(
+        // Pass the already-loaded messages snapshot so the inner function does
+        // not re-read from DB, preventing concurrent writes from being injected
+        // into history after the snapshot was taken.
+        compact_conversation_history_for_context_with_snapshot(
             store,
             Some(run_id),
             conversation_id,
@@ -462,6 +481,7 @@ pub(super) fn preflight_compact_context_for_agent_run(
             keep_messages,
             "llm_preflight_compacted",
             "Preflight context budget management before LLM request.",
+            Some(&messages),
         )?
     };
     let Some(note) = note else {
@@ -499,7 +519,12 @@ pub(super) fn recover_context_overflow_for_retry(
         .map(|limit| limit.saturating_mul(80) / 100)
         .map(|budget| budget.max(1_000))
         .unwrap_or(token_budget);
-    let note = compact_conversation_history_for_context(
+    // Clone the current in-memory history as a snapshot before passing it to
+    // the compaction function so we satisfy Rust's aliasing rules (the function
+    // takes &mut history to update it, and we can't hold &[..] into the same
+    // Vec at the same time as the &mut borrow).
+    let history_snapshot: Vec<ChatMessage> = history.clone();
+    let note = compact_conversation_history_for_context_with_snapshot(
         store,
         Some(run_id),
         conversation_id,
@@ -512,6 +537,7 @@ pub(super) fn recover_context_overflow_for_retry(
             "Automatic LLM recovery for {kind}: {error}.{}",
             detail.reason_suffix(recovery_budget)
         ),
+        Some(&history_snapshot),
     )?;
     Ok(note.map(|note| {
         format!(
@@ -813,7 +839,44 @@ pub(super) fn compact_conversation_history_for_context(
     checkpoint_state: &str,
     reason: &str,
 ) -> AppResult<Option<String>> {
-    let messages = store.messages(conversation_id, None)?;
+    compact_conversation_history_for_context_with_snapshot(
+        store,
+        run_id,
+        conversation_id,
+        history,
+        short_context,
+        token_budget,
+        keep_messages,
+        checkpoint_state,
+        reason,
+        None,
+    )
+}
+
+/// Like `compact_conversation_history_for_context` but accepts an optional
+/// pre-loaded message snapshot to avoid a second DB read. When `Some(snapshot)`
+/// is passed, the function operates on that slice instead of re-reading from
+/// the store, preserving consistency in callers that have already loaded the
+/// messages (e.g. `preflight_compact_context_for_agent_run`).
+pub(super) fn compact_conversation_history_for_context_with_snapshot(
+    store: &AppStore,
+    run_id: Option<&str>,
+    conversation_id: &str,
+    history: &mut Vec<ChatMessage>,
+    short_context: &mut ShortContextState,
+    token_budget: usize,
+    keep_messages: usize,
+    checkpoint_state: &str,
+    reason: &str,
+    messages_snapshot: Option<&[ChatMessage]>,
+) -> AppResult<Option<String>> {
+    let owned;
+    let messages: &[ChatMessage] = if let Some(snapshot) = messages_snapshot {
+        snapshot
+    } else {
+        owned = store.messages(conversation_id, None)?;
+        &owned
+    };
     if messages.len() < 4 {
         return Ok(None);
     }
@@ -870,6 +933,10 @@ pub(super) fn compact_conversation_history_for_context(
     short_context.summary_messages = older_count;
     short_context.summary = summary;
     record_compression_effectiveness(short_context, before_tokens, after_tokens);
+    // Call record_summary_success so last_compress_aborted and the failure
+    // cooldown are cleared — the fallback path succeeded, so any prior abort
+    // flag left by a failed LLM summarization should not block future runs.
+    crate::agent::context_compression::record_summary_success(short_context);
     short_context.last_compression_rough_tokens = before_tokens;
     short_context.awaiting_real_usage_after_compression = true;
     *short_context = store.save_short_context(short_context.clone())?;
@@ -2253,8 +2320,17 @@ pub(super) async fn complete_chat_with_provider_failover_options(
     let retry_backoff_ms = chat_config.llm_retry_backoff_ms.min(60_000);
     let mut failed_providers = Vec::new();
     let mut attempts = Vec::new();
-    let mut recovery_attempted = HashSet::new();
+    // Snapshot the original history so each provider starts with a clean slate.
+    // Recovery functions (e.g. tool_replay_orphan) may mutate request_history in
+    // place; without resetting between providers, a modification made for provider A
+    // that still fails would carry over to provider B, which may have a larger context
+    // window and could succeed with the full, unmodified history.
+    let original_request_history = request_history.clone();
     for (index, provider) in providers.iter().enumerate() {
+        let mut recovery_attempted = HashSet::new();
+        // Reset to the original for each provider so recovery mutations from
+        // a previous provider's failed attempts do not bleed through.
+        request_history = original_request_history.clone();
         let credential_binding = crate::llm::bind_runtime_credential_for_attempt(provider);
         let attempt_provider = credential_binding.provider;
         let credential_source = credential_binding.source;

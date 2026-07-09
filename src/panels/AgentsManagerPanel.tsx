@@ -46,6 +46,9 @@ export function AgentsManagerPanel() {
       setCatalogModels([]);
       return;
     }
+    // Clear stale results immediately so switching providers doesn't
+    // momentarily show the previous provider's model list.
+    setCatalogModels([]);
     let cancelled = false;
     api.detectProviderModels(selectedProvider).then((result) => {
       if (!cancelled) setCatalogModels(result.models ?? []);
@@ -142,7 +145,9 @@ export function AgentsManagerPanel() {
     } finally {
       setSaving(false);
     }
-  }, [draft, saveAgent, setFocusedAgentId]);
+  }, [draft, saveAgent, setFocusedAgentId, config, saveConfig,
+    delegationMax, delegationStrategy, delegationOrch, delegationAutoApprove,
+    delegationInheritMcp, delegationProviderId, delegationModel]);
 
   const handleDelete = useCallback(async () => {
     if (!draft) return;

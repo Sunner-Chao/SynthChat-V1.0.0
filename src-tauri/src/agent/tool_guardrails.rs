@@ -124,9 +124,14 @@ impl ToolLoopGuardrails {
                 self.same_tool_contract_failures.remove(tool_name);
             }
             if let Some(stale_file_failure) = stale_file_failure {
+                // Use the full call signature (tool_name + payload hash) as the
+                // stale-failure key so that separate files with different paths
+                // maintain independent counters. Using only tool_name caused a
+                // single stale failure on file_a to count toward the halt limit
+                // for an unrelated write to file_b.
                 let stale_count = self
                     .stale_file_mutation_failures
-                    .entry(tool_name.to_string())
+                    .entry(signature.clone())
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
                 if *stale_count >= STALE_FILE_MUTATION_REPEAT_LIMIT {
@@ -135,7 +140,7 @@ impl ToolLoopGuardrails {
                     )));
                 }
             } else {
-                self.stale_file_mutation_failures.remove(tool_name);
+                self.stale_file_mutation_failures.remove(&signature);
             }
             if self.hard_stop_enabled && *same_count >= self.same_tool_failure_limit {
                 return Some(ToolGuardrailOutcome::halt(format!(
@@ -164,7 +169,10 @@ impl ToolLoopGuardrails {
         self.same_tool_failures.remove(tool_name);
         self.contract_failures.remove(&signature);
         self.same_tool_contract_failures.remove(tool_name);
-        self.stale_file_mutation_failures.remove(tool_name);
+        // Use &signature (not tool_name) — the key was inserted with signature
+        // at line 134.  Using tool_name here is a no-op: the key never matches,
+        // so the stale-failure counter never resets and the HashMap grows forever.
+        self.stale_file_mutation_failures.remove(&signature);
         if !is_idempotent_tool(tool_name) {
             self.no_progress.remove(&signature);
             return None;

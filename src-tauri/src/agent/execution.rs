@@ -430,7 +430,9 @@ async fn execute_code_with_local_python_rpc(
                         "execute_code timed out after {timeout_seconds}s"
                     )));
                 }
-                return Err(error);
+                // Redact before surfacing — non-timeout errors may contain
+                // scratch paths or OS socket details (e.g. spawn failures).
+                return Err(AppError::BadRequest(redact_sensitive_text(&error_text)));
             }
         };
     server_task.abort();
@@ -439,9 +441,12 @@ async fn execute_code_with_local_python_rpc(
     let stderr = decode_terminal_output(&output.stderr);
     let stdout = execute_code_sanitize_output(&stdout);
     let stderr = execute_code_sanitize_output(&stderr);
+    // Redact the cwd for the same reason we sanitize stdout/stderr — it may
+    // contain user-specific path segments (home dir, project name, etc.).
+    let cwd_display = redact_sensitive_text(&cwd.display().to_string());
     Ok(format!(
         "cwd: {}\ntransport: hermes_tools_rpc\nexitCode: {}\nstdout:\n{}\nstderr:\n{}",
-        cwd.display(),
+        cwd_display,
         output.status.code().unwrap_or(-1),
         truncate_output(&stdout, max_output_chars),
         truncate_output(&stderr, max_output_chars / 2)
@@ -5770,9 +5775,15 @@ async fn run_shell_command_with_cwd_capture(
     stdin_data: Option<&str>,
 ) -> AppResult<String> {
     ensure_command_not_hardline(command)?;
+    // Include a per-invocation random nonce in the marker so that even if
+    // the command output contains the session-keyed marker string (vanishingly
+    // rare but theoretically possible), it will not match the nonce-suffixed
+    // marker for this specific call and cannot corrupt the captured CWD.
+    let nonce = crate::models::new_id("n");
     let marker = format!(
-        "__SYNTHCHAT_CWD_{}__",
-        sanitize_terminal_session_key(session_id)
+        "__SYNTHCHAT_CWD_{}_{}__",
+        sanitize_terminal_session_key(session_id),
+        &nonce[..8]
     );
     let wrapped = wrap_command_with_cwd_marker(command, &marker);
     let mut child = shell_command(&wrapped);

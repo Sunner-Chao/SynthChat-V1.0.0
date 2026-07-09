@@ -218,9 +218,11 @@ export function App() {
         return;
       }
       chatRefreshInFlightRef.current.add(key);
-      void refreshChatData(conversationId ?? null, personaId ?? null).finally(() => {
-        chatRefreshInFlightRef.current.delete(key);
-      });
+      void refreshChatData(conversationId ?? null, personaId ?? null)
+        .catch((e: unknown) => console.warn("refreshChatData failed", e))
+        .finally(() => {
+          chatRefreshInFlightRef.current.delete(key);
+        });
     }, Math.max(0, delayMs));
     chatRefreshTimersRef.current.set(key, timer);
   }, [refreshChatData]);
@@ -236,9 +238,11 @@ export function App() {
         return;
       }
       agentQueueRefreshInFlightRef.current = true;
-      void refreshAgentQueue().finally(() => {
-        agentQueueRefreshInFlightRef.current = false;
-      });
+      void refreshAgentQueue()
+        .catch((e: unknown) => console.warn("refreshAgentQueue failed", e))
+        .finally(() => {
+          agentQueueRefreshInFlightRef.current = false;
+        });
     }, Math.max(0, delayMs));
   }, [refreshAgentQueue]);
 
@@ -253,8 +257,10 @@ export function App() {
         return;
       }
       agentRunsRefreshInFlightRef.current = true;
-      void refreshAgentRuns().finally(() => {
-        agentRunsRefreshInFlightRef.current = false;
+      void refreshAgentRuns()
+        .catch((e: unknown) => console.warn("refreshAgentRuns failed", e))
+        .finally(() => {
+          agentRunsRefreshInFlightRef.current = false;
       });
     }, Math.max(0, delayMs));
   }, [refreshAgentRuns]);
@@ -270,9 +276,11 @@ export function App() {
         return;
       }
       memoriesRefreshInFlightRef.current = true;
-      void refreshMemories().finally(() => {
-        memoriesRefreshInFlightRef.current = false;
-      });
+      void refreshMemories()
+        .catch((e: unknown) => console.warn("refreshMemories failed", e))
+        .finally(() => {
+          memoriesRefreshInFlightRef.current = false;
+        });
     }, Math.max(0, delayMs));
   }, [refreshMemories]);
 
@@ -426,7 +434,9 @@ export function App() {
   }, [scheduleWechatFallbackRefresh]);
 
   useEffect(() => {
-    void bootstrap();
+    void bootstrap().catch((e: unknown) => {
+      console.error("bootstrap failed:", e);
+    });
   }, [bootstrap]);
 
   useEffect(() => {
@@ -463,7 +473,8 @@ export function App() {
         updatedAt: new Date().toISOString()
       };
       publishPetThinkingState(payload);
-      void emit(PET_THINKING_STATE_EVENT, payload).catch(() => undefined);
+      // Use emitTo("pet") only — emit() is a global broadcast that the pet
+      // window would also receive, causing it to process the same event twice.
       void emitTo("pet", PET_THINKING_STATE_EVENT, payload).catch(() => undefined);
       void emitTo("pet", "synthchat-pet-event", {
         type: "thinking_started",
@@ -483,9 +494,13 @@ export function App() {
 
   useEffect(() => {
     const tick = async () => {
-      const due = await api.tickScheduledAgentJobs();
-      if (due.length > 0) {
-        await refreshChatData(null, null);
+      try {
+        const due = await api.tickScheduledAgentJobs();
+        if (due.length > 0) {
+          await refreshChatData(null, null);
+        }
+      } catch (e) {
+        console.warn("tickScheduledAgentJobs failed", e);
       }
     };
     void tick();
@@ -499,7 +514,7 @@ export function App() {
     if (activeSection !== "contacts") return;
     const timer = window.setInterval(() => {
       if (processingConversationCount > 0) return;
-      void refreshChatData(null, null);
+      void refreshChatData(null, null).catch((e: unknown) => console.warn("refreshChatData failed", e));
     }, 5000);
     return () => window.clearInterval(timer);
   }, [activeSection, processingConversationCount, refreshChatData]);
@@ -703,11 +718,15 @@ export function App() {
       }
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
       deferredWechatTimerRef.current.forEach((timer) => window.clearTimeout(timer));
       deferredWechatTimerRef.current.clear();
+      // Also cancel any pending WeChat safety-net timeouts so they don't fire
+      // after this effect re-subscribes with a fresh listener.
+      wechatTurnSafetyTimerRef.current.forEach((timer) => window.clearTimeout(timer));
+      wechatTurnSafetyTimerRef.current.clear();
     };
   }, [
     deferWechatTurnMessage,
@@ -744,7 +763,7 @@ export function App() {
       void refreshPersonasFromBackend();
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
     };
@@ -772,7 +791,7 @@ export function App() {
       }
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
     };
@@ -791,7 +810,7 @@ export function App() {
       scheduleAgentQueueRefresh(120);
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
     };
@@ -805,7 +824,7 @@ export function App() {
       scheduleChatRefresh(event.payload.conversationId ?? null, null);
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
     };
@@ -823,7 +842,7 @@ export function App() {
       scheduleAgentQueueRefresh();
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
     };
@@ -832,11 +851,14 @@ export function App() {
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     void listen("synthchat-skills-changed", () => {
+      // Use scheduled refresh (with built-in in-flight dedup) instead of
+      // calling directly so rapid skill-changed events don't queue parallel requests.
+      scheduleMemoriesRefresh(200);
       void refreshSkills();
       void refreshAgents();
     }).then((handler) => {
       unlisten = handler;
-    });
+    }).catch((e: unknown) => console.warn("Tauri listen registration failed", e));
     return () => {
       if (unlisten) unlisten();
     };

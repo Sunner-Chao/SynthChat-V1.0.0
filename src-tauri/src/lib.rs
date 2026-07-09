@@ -2672,6 +2672,12 @@ async fn run_proactive_loop(app: AppHandle, store: AppStore) {
                 Box::pin(trigger_proactive_for_persona(&app, &store, &persona, false)).await
             {
                 eprintln!("SynthChat proactive failed: {error}");
+                // On failure, schedule a backoff retry instead of letting the
+                // loop retry on the very next tick (every 30s default), which
+                // would cause a retry storm for persistent errors like invalid
+                // API keys or network outages.
+                const ERROR_BACKOFF_SECONDS: i64 = 300; // 5 minutes
+                next_fire_at.insert(persona.id.clone(), now + ERROR_BACKOFF_SECONDS);
             } else if let Ok(status) = proactive_status_for_persona(&store, &persona) {
                 next_fire_at.insert(persona.id.clone(), now + status.wait_seconds as i64);
             }
@@ -2826,10 +2832,13 @@ fn proactive_wait_seconds(persona_id: &str, config: &Value) -> u64 {
     if max_seconds <= min_seconds {
         return min_seconds;
     }
+    // Use a stable hash of persona_id only — the previous implementation used
+    // epoch_seconds_now() as the fold accumulator, causing wait_seconds to
+    // change every second and making can_fire oscillate unpredictably.
     let salt = persona_id
         .bytes()
-        .fold(epoch_seconds_now().unsigned_abs(), |acc, value| {
-            acc + value as u64
+        .fold(0xcafe_u64, |acc, value| {
+            acc.wrapping_mul(31).wrapping_add(value as u64)
         });
     min_seconds + salt % (max_seconds - min_seconds + 1)
 }
@@ -7321,6 +7330,11 @@ fn setup_tray(app: &App) -> AppResult<()> {
                 let _ = ensure_pet_window(app, true);
             }
             TRAY_QUIT_ID => {
+                // Force-flush any debounce-pending writes before exiting so
+                // the last 500ms of state changes are not silently lost.
+                if let Some(store) = app.try_state::<AppStore>() {
+                    let _ = store.save();
+                }
                 app.exit(0);
             }
             _ => {}

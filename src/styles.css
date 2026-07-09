@@ -12922,6 +12922,43 @@ select:focus-visible {
   gap: 6px;
 }
 
+/* Persona avatar badge on the cloud bubble — shows who is speaking */
+.pet-cloud-persona-avatar {
+  position: absolute;
+  bottom: -10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+  z-index: 3;
+  pointer-events: none;
+  background: #e2e8f0;
+}
+
+/* User avatar slot in the input bar */
+.pet-input-user-avatar-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.pet-input-user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(99, 182, 166, 0.55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
 .pet-cloud-bubble::before {
   content: "";
   position: absolute;
@@ -13076,7 +13113,7 @@ select:focus-visible {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-width: 0;

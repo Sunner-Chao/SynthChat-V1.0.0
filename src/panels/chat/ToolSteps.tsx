@@ -1,4 +1,4 @@
-import { memo, useState, useRef } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { useSharedNowMs } from "../../lib/useSharedNowMs";
 import { AlertCircle, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { formatDurationMs } from "../../lib/agentRunUtils";
@@ -13,13 +13,18 @@ export const ToolStep = memo(function ToolStep({ event }: { event: ToolEvent }) 
     <div className={isRunning ? "claw-step active" : event.ok ? "claw-step done" : "claw-step failed"}>
       {isRunning ? <Loader2 size={15} /> : event.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
       <span>{event.title || `${event.serverId}.${event.toolName}`}</span>
-      <small>{status} · {event.elapsedMs}ms</small>
+      <small>{status} · {typeof event.elapsedMs === "number" && Number.isFinite(event.elapsedMs) ? `${event.elapsedMs}ms` : "…"}</small>
     </div>
   );
 });
 
 export const TimelineStep = memo(function TimelineStep({ step, isLast }: { step: CompactStep; isLast: boolean }) {
   const [expanded, setExpanded] = useState(step.anyRunning);
+  // Auto-expand when the step transitions into the running state so the user
+  // can see live tool output without having to manually open the accordion.
+  useEffect(() => {
+    if (step.anyRunning) setExpanded(true);
+  }, [step.anyRunning]);
   const statusClass = step.anyRunning ? "running" : step.anyFailed ? "failed" : "done";
   const statusIcon = step.anyRunning
     ? <Loader2 size={14} className="claw-tl-icon-spin" />

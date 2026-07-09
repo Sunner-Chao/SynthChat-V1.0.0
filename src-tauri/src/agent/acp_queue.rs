@@ -201,6 +201,17 @@ fn acp_enqueue_prompt_for_session(
     session_id: &str,
     prompt: &str,
 ) -> AppResult<AgentQueuedRequest> {
+    // Guard against unbounded queue growth — a misbehaving client sending
+    // /queue in a tight loop would otherwise inflate the store indefinitely
+    // and make all subsequent preflight scans increasingly slow.
+    const ACP_MAX_PENDING_QUEUE_DEPTH: usize = 50;
+    let current_depth = acp_pending_queue_depth(store, session_id)?;
+    if current_depth >= ACP_MAX_PENDING_QUEUE_DEPTH {
+        return Err(crate::error::AppError::BadRequest(format!(
+            "ACP queue is full ({current_depth} pending items). \
+             Wait for queued prompts to execute before adding more."
+        )));
+    }
     let conversation = store.conversation(session_id)?;
     let persona = store.persona(conversation.persona_id.as_deref())?;
     let (_, queued) =

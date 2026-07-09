@@ -43,18 +43,27 @@ function useRevealedText(
   const onDoneRef = useRef(onDone);
   const completedTextRef = useRef("");
   const visibleCountRef = useRef(enabled ? 0 : text.length);
+  // Track pending onDone timeout IDs so they can be cancelled when the
+  // component unmounts or the effect re-runs, preventing post-unmount state
+  // updates on the parent component.
+  const onDoneTimerRef = useRef<number | null>(null);
+
+  const scheduleOnDone = (ref: React.MutableRefObject<number | null>) => {
+    if (ref.current !== null) window.clearTimeout(ref.current);
+    ref.current = window.setTimeout(() => {
+      ref.current = null;
+      onDoneRef.current?.();
+    }, 0);
+  };
 
   useEffect(() => {
     if (!enabled) {
       targetTextRef.current = text;
       visibleCountRef.current = text.length;
       setVisibleText(text);
-      // When animation is disabled (text too long or not a streaming message),
-      // still fire onDone so callers like onAnimationDone can clear settlingAfterStream.
-      // Guard with completedTextRef to avoid re-firing on every re-render.
       if (completedTextRef.current !== text) {
         completedTextRef.current = text;
-        window.setTimeout(() => onDoneRef.current?.(), 0);
+        scheduleOnDone(onDoneTimerRef);
       }
       return;
     }
@@ -71,11 +80,19 @@ function useRevealedText(
       visibleCountRef.current = next.length;
       if (next && next.length >= text.length && completedTextRef.current !== text) {
         completedTextRef.current = text;
-        window.setTimeout(() => onDoneRef.current?.(), 0);
+        scheduleOnDone(onDoneTimerRef);
       }
       return next;
     });
   }, [enabled, text]);
+
+  useEffect(() => () => {
+    // Cancel any pending onDone callback when the component unmounts.
+    if (onDoneTimerRef.current !== null) {
+      window.clearTimeout(onDoneTimerRef.current);
+      onDoneTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     onDoneRef.current = onDone;
@@ -98,13 +115,28 @@ function useRevealedText(
         const next = target.slice(0, nextCount);
         if (nextCount >= target.length && completedTextRef.current !== target) {
           completedTextRef.current = target;
-          window.setTimeout(() => onDoneRef.current?.(), 0);
         }
         return next;
       });
+      // Side effect (setTimeout) must live outside the updater — React can call
+      // updaters multiple times in StrictMode and the extra clearTimeout +
+      // setTimeout calls would corrupt the pending timer.
+      const target = targetTextRef.current;
+      if (
+        visibleCountRef.current >= target.length &&
+        completedTextRef.current === target
+      ) {
+        scheduleOnDone(onDoneTimerRef);
+      }
     }, stepMs);
     return () => {
       window.clearInterval(timer);
+      // Cancel any onDone timer that was scheduled by this effect instance
+      // so it does not fire after charsPerSecond or enabled changes.
+      if (onDoneTimerRef.current !== null) {
+        window.clearTimeout(onDoneTimerRef.current);
+        onDoneTimerRef.current = null;
+      }
     };
   }, [charsPerSecond, enabled]);
 
@@ -174,7 +206,7 @@ export const MessageRow = memo(function MessageRow({
   const handleRevealDone = useCallback(() => {
     if (!isLiveStreaming) setSettlingAfterStream(false);
     onAnimationDone(message.id);
-  }, [isLiveStreaming, onAnimationDone]);
+  }, [isLiveStreaming, message.id, onAnimationDone]);
   const displayText = useRevealedText(text, revealText, streamCharsPerSecond, handleRevealDone);
   if (toolEvent && isCanceledToolEvent(toolEvent)) return null;
   if (toolEvent) return <ToolMessage event={toolEvent} />;

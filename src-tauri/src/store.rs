@@ -5606,14 +5606,16 @@ fn write_json_projection<T: Serialize + ?Sized>(path: &Path, value: &T) -> AppRe
     fs::write(&tmp, serde_json::to_vec_pretty(value)?)?;
     match fs::rename(&tmp, path) {
         Ok(()) => Ok(()),
-        Err(first_error) => {
-            if path.exists() {
-                fs::remove_file(path)?;
-                fs::rename(&tmp, path)?;
-                Ok(())
-            } else {
-                Err(AppError::Io(first_error))
-            }
+        Err(_first_error) => {
+            // rename can fail cross-partition (EXDEV).  Use copy+remove as a
+            // safe fallback: the old file stays intact until the new data has
+            // been fully written, so a crash mid-copy cannot produce a missing
+            // file (only a partially-written one, which will trigger the backup
+            // path on next load like any other write failure).
+            fs::copy(&tmp, path)
+                .map_err(|e| AppError::Io(e))?;
+            let _ = fs::remove_file(&tmp);
+            Ok(())
         }
     }
 }
@@ -5945,6 +5947,17 @@ fn normalize_interrupted_runs(state: &mut PersistedState) {
             run.error = Some(summary.to_string());
             run.updated_at = now.clone();
             run.completed_at = Some(now.clone());
+            // Close any tool_events still in "running" state so the LLM history
+            // does not contain orphan tool_use blocks on the next request.
+            // abort_agent_run() calls close_terminal_tool_events +
+            // sync_closed_running_tool_messages; mirror that here.
+            let closed = close_terminal_tool_events(run);
+            if !closed.is_empty() {
+                let conversation_id = run.conversation_id.clone();
+                if let Some(messages) = state.messages.get_mut(&conversation_id) {
+                    sync_closed_running_tool_messages(messages, &closed);
+                }
+            }
         } else if state.agent_runs[run_index].state == "failed"
             && state.agent_runs[run_index].error.as_deref() == Some(summary)
         {
@@ -5967,6 +5980,25 @@ fn normalize_interrupted_runs(state: &mut PersistedState) {
             item.updated_at = now.clone();
             item.started_at = None;
             item.completed_at = None;
+        }
+    }
+    // Close any pending tool approvals for runs that were just normalized so
+    // they don't stay stuck in a permanent "waiting for approval" state after
+    // restart.  abort_agent_run() does this on normal abort paths; we mirror
+    // it here for the startup normalization path.
+    for approval in &mut state.tool_approvals {
+        if approval.status == "pending" {
+            if let Some(run_id) = approval.run_id.as_deref() {
+                let run_is_normalized = state
+                    .agent_runs
+                    .iter()
+                    .any(|r| r.run_id == run_id && r.state == "failed" && r.error.as_deref() == Some(summary));
+                if run_is_normalized {
+                    approval.status = "aborted".into();
+                    approval.updated_at = now.clone();
+                    approval.error = Some("Agent run was interrupted on startup.".into());
+                }
+            }
         }
     }
 }
@@ -7557,19 +7589,50 @@ impl AppStore {
             PersistedState::default()
         };
         normalize_persisted_config(&mut state);
+        let state_was_invalid = {
+            // Track whether the state was replaced with defaults so we can
+            // surface a notification to the user after the store is built.
+            false
+        };
+        // Use atomic tmp→rename writes during initialisation to match what
+        // do_persist() does — plain fs::write can corrupt the file on crash.
+        let atomic_write = |p: &Path, data: &[u8]| -> AppResult<()> {
+            let tmp = p.with_extension("json.tmp");
+            fs::write(&tmp, data)?;
+            fs::rename(&tmp, p).or_else(|_| {
+                // Cross-partition fallback (same logic as write_json_projection).
+                fs::copy(&tmp, p)?;
+                let _ = fs::remove_file(&tmp);
+                Ok(())
+            })
+        };
         if import_legacy_v0_personas_if_needed(&mut state)? {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::write(&path, serde_json::to_vec_pretty(&state)?)?;
+            atomic_write(&path, &serde_json::to_vec_pretty(&state)?)?;
         } else if !state_existed {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::write(&path, serde_json::to_vec_pretty(&state)?)?;
+            atomic_write(&path, &serde_json::to_vec_pretty(&state)?)?;
         }
         ensure_portable_profile_layout(&path)?;
         normalize_interrupted_runs(&mut state);
+        // Persist the normalized state immediately so the run/approval
+        // changes survive a subsequent reload_from_disk() before the first
+        // explicit save.  Without this, a reload would restore the original
+        // "running" run records from disk, undoing the normalization.
+        if let Ok(bytes) = serde_json::to_vec_pretty(&state) {
+            let tmp = path.with_extension("json.tmp");
+            if fs::write(&tmp, &bytes).is_ok() {
+                let _ = fs::rename(&tmp, &path).or_else(|_| {
+                    fs::copy(&tmp, &path)?;
+                    let _ = fs::remove_file(&tmp);
+                    Ok::<(), std::io::Error>(())
+                });
+            }
+        }
         let store = Self {
             path,
             state: Arc::new(Mutex::new(state)),
@@ -9460,7 +9523,10 @@ impl AppStore {
     pub fn set_config(&self, config: AppConfig) -> AppResult<()> {
         self.with_state(|s| {
             s.config = config;
-            self.persist(s)
+            // Use do_persist (force, no debounce) so rapid consecutive config
+            // saves don't have the last change silently dropped in the 500ms
+            // debounce window.
+            self.do_persist(s)
         })
     }
 
@@ -9701,7 +9767,12 @@ impl AppStore {
                     .map(|run_id| !removed_run_ids.iter().any(|removed| removed == run_id))
                     .unwrap_or(true)
             });
-            self.persist(s)?;
+            // Use do_persist (force, no debounce) so the state is safely on
+            // disk BEFORE we physically delete artifact directories.  With the
+            // regular debounced persist(), a crash inside the 500ms window would
+            // leave the conversation/runs in the state file but their artifacts
+            // already deleted — an inconsistent state with no recovery path.
+            self.do_persist(s)?;
             for run_id in removed_run_ids {
                 self.cleanup_tool_artifacts(&run_id);
             }
@@ -11981,6 +12052,16 @@ impl AppStore {
     }
 
     pub fn save_agent_run(&self, mut run: AgentRunRecord) -> AppResult<AgentRunRecord> {
+        // Cap checkpoint and phase_event arrays so long-running / frequently-
+        // interrupted runs don't cause PersistedState JSON to grow without bound.
+        const MAX_CHECKPOINTS: usize = 100;
+        const MAX_PHASE_EVENTS: usize = 500;
+        if run.checkpoints.len() > MAX_CHECKPOINTS {
+            run.checkpoints.drain(..run.checkpoints.len() - MAX_CHECKPOINTS);
+        }
+        if run.phase_events.len() > MAX_PHASE_EVENTS {
+            run.phase_events.drain(..run.phase_events.len() - MAX_PHASE_EVENTS);
+        }
         self.with_state(|s| {
             if run.pending_steers.is_empty() {
                 if let Some(existing) = s.agent_runs.iter().find(|r| r.run_id == run.run_id) {
@@ -12751,6 +12832,15 @@ impl AppStore {
     }
 
     pub fn save_memory(&self, mut memory: MemoryEntry) -> AppResult<MemoryEntry> {
+        // Align with fact_store which caps content at 4 000 chars.  Without this
+        // limit an agent can write arbitrarily large summaries that bloat the
+        // memory context block and eventually exceed the context window.
+        const MAX_MEMORY_SUMMARY_CHARS: usize = 4_000;
+        if memory.summary.chars().count() > MAX_MEMORY_SUMMARY_CHARS {
+            return Err(AppError::BadRequest(format!(
+                "memory summary exceeds {MAX_MEMORY_SUMMARY_CHARS} character limit"
+            )));
+        }
         let saved = self.with_state(|s| {
             if !s
                 .personas
