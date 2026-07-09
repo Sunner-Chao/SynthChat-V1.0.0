@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     path::Path,
     sync::{Mutex, OnceLock},
+    time::Instant,
 };
 
 use serde_json::{json, Value};
@@ -28,6 +29,14 @@ static AGENT_RUN_BROADCASTERS: OnceLock<Mutex<HashMap<String, broadcast::Sender<
 
 fn agent_run_broadcasters() -> &'static Mutex<HashMap<String, broadcast::Sender<AgentRunRecord>>> {
     AGENT_RUN_BROADCASTERS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Per-run throttle map for intermediate tool-event Tauri emissions.
+/// Keyed by run_id; value is the Instant of the last emission.
+static TOOL_EVENT_EMIT_THROTTLE: OnceLock<Mutex<HashMap<String, Instant>>> = OnceLock::new();
+
+fn tool_event_emit_throttle() -> &'static Mutex<HashMap<String, Instant>> {
+    TOOL_EVENT_EMIT_THROTTLE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 pub(crate) fn subscribe_agent_run_record(run_id: &str) -> broadcast::Receiver<AgentRunRecord> {
@@ -220,6 +229,28 @@ pub(super) fn emit_agent_run_record(
         "lastActivityAt": &run.last_activity_at,
         "lastActivityDesc": &run.last_activity_desc,
     });
+    // Throttle intermediate (running) tool events to prevent bursting the
+    // Win32 message pump with back-to-back IPC emissions, which causes
+    // WM_NCHITTEST delays / drag stutter.  Final events (completed, failed,
+    // canceled) are always emitted unconditionally so the UI stays consistent.
+    let is_intermediate_tool_event = run
+        .tool_events
+        .last()
+        .and_then(|e| e.get("status").and_then(|v| v.as_str()))
+        == Some("running");
+    if is_intermediate_tool_event {
+        let now = Instant::now();
+        let mut throttle = tool_event_emit_throttle()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let last = throttle.get(&run.run_id).copied();
+        if let Some(last) = last {
+            if now.duration_since(last).as_millis() < 100 {
+                return;
+            }
+        }
+        throttle.insert(run.run_id.clone(), now);
+    }
     let _ = app.emit("synthchat-agent-run-event", payload);
 }
 

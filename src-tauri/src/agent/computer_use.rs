@@ -22,6 +22,8 @@ use crate::{
 use super::{decode_base64_image, required_string_arg, string_arg, truncate_output};
 static COMPUTER_USE_ELEMENTS: OnceLock<Mutex<HashMap<String, Vec<Value>>>> = OnceLock::new();
 static CUA_MCP_LIFECYCLE: OnceLock<Mutex<CuaMcpLifecycle>> = OnceLock::new();
+// Cache computer_use status — it never changes within a process run.
+static COMPUTER_USE_STATUS_CACHE: OnceLock<Value> = OnceLock::new();
 #[cfg(target_os = "macos")]
 static CUA_MCP_SESSION: OnceLock<tokio::sync::Mutex<Option<CuaMcpPersistentSession>>> =
     OnceLock::new();
@@ -153,45 +155,48 @@ fn computer_use_mcp_session_status() -> AppResult<Value> {
 }
 
 fn computer_use_status(_payload: &Value) -> AppResult<Value> {
-    let backend = computer_use_backend_status();
-    Ok(json!({
-        "action": "status",
-        "ok": true,
-        "platform": std::env::consts::OS,
-        "backend": backend,
-        "safeActions": ["status", "capabilities", "capture", "list_apps", "wait"],
-        "mutatingActions": [
-            "click",
-            "double_click",
-            "right_click",
-            "middle_click",
-            "drag",
-            "scroll",
-            "type",
-            "key",
-            "set_value",
-            "focus_app"
-        ],
-        "captureModes": ["som", "vision", "ax"],
-        "maxElements": {
-            "default": COMPUTER_USE_DEFAULT_MAX_ELEMENTS,
-            "maximum": COMPUTER_USE_MAX_ALLOWED_ELEMENTS
-        },
-        "hermesParity": {
-            "referenceBackend": "cua-driver MCP",
-            "referencePlatform": "macOS",
-            "referenceEnv": {
-                "HERMES_COMPUTER_USE_BACKEND": "cua",
-                "HERMES_CUA_DRIVER_CMD": "cua-driver",
-                "HERMES_CUA_DRIVER_VERSION": "0.5.0"
+    let cached = COMPUTER_USE_STATUS_CACHE.get_or_init(|| {
+        let backend = computer_use_backend_status();
+        json!({
+            "action": "status",
+            "ok": true,
+            "platform": std::env::consts::OS,
+            "backend": backend,
+            "safeActions": ["status", "capabilities", "capture", "list_apps", "wait"],
+            "mutatingActions": [
+                "click",
+                "double_click",
+                "right_click",
+                "middle_click",
+                "drag",
+                "scroll",
+                "type",
+                "key",
+                "set_value",
+                "focus_app"
+            ],
+            "captureModes": ["som", "vision", "ax"],
+            "maxElements": {
+                "default": COMPUTER_USE_DEFAULT_MAX_ELEMENTS,
+                "maximum": COMPUTER_USE_MAX_ALLOWED_ELEMENTS
             },
-            "synthchatBackend": backend.get("name").cloned().unwrap_or(Value::Null),
-            "backgroundInput": backend.get("backgroundInput").cloned().unwrap_or(Value::Bool(false)),
-            "backgroundInputContract": computer_use_background_input_contract(&backend),
-            "gap": backend.get("gap").cloned().unwrap_or(Value::Null)
-        },
-        "lifecycle": computer_use_lifecycle_status(&backend)
-    }))
+            "hermesParity": {
+                "referenceBackend": "cua-driver MCP",
+                "referencePlatform": "macOS",
+                "referenceEnv": {
+                    "HERMES_COMPUTER_USE_BACKEND": "cua",
+                    "HERMES_CUA_DRIVER_CMD": "cua-driver",
+                    "HERMES_CUA_DRIVER_VERSION": "0.5.0"
+                },
+                "synthchatBackend": backend.get("name").cloned().unwrap_or(Value::Null),
+                "backgroundInput": backend.get("backgroundInput").cloned().unwrap_or(Value::Bool(false)),
+                "backgroundInputContract": computer_use_background_input_contract(&backend),
+                "gap": backend.get("gap").cloned().unwrap_or(Value::Null)
+            },
+            "lifecycle": computer_use_lifecycle_status(&backend)
+        })
+    });
+    Ok(cached.clone())
 }
 
 fn computer_use_requirements() -> AppResult<Value> {

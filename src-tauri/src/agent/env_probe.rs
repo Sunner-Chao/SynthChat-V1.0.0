@@ -1,4 +1,10 @@
-use std::{env, path::Path, process::Command};
+use std::{
+    env,
+    path::Path,
+    process::Command,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 use serde_json::{json, Value};
 
@@ -10,12 +16,40 @@ use crate::{
 
 use super::workspace_root;
 
+// Cache default-commands probe for 90 seconds — repeated calls within a run return instantly.
+static DEFAULT_PROBE_CACHE: Mutex<Option<(Instant, String)>> = Mutex::new(None);
+const DEFAULT_PROBE_TTL: Duration = Duration::from_secs(90);
+
 const DEFAULT_COMMANDS: &[&str] = &[
     "git", "rg", "fd", "python", "python3", "pip", "uv", "node", "npm", "pnpm", "cargo", "rustc",
     "go", "docker",
 ];
 
 pub(super) fn env_probe_tool(agent: &AgentDefinition, payload: &Value) -> AppResult<String> {
+    let has_custom_commands = payload
+        .get("commands")
+        .and_then(Value::as_array)
+        .map(|a| !a.is_empty())
+        .unwrap_or(false);
+
+    // For the common case (default commands), return cached result if still fresh.
+    if !has_custom_commands {
+        if let Ok(mut guard) = DEFAULT_PROBE_CACHE.lock() {
+            if let Some((ts, ref cached)) = *guard {
+                if ts.elapsed() < DEFAULT_PROBE_TTL {
+                    return Ok(cached.clone());
+                }
+            }
+            let result = run_env_probe(agent, payload)?;
+            *guard = Some((Instant::now(), result.clone()));
+            return Ok(result);
+        }
+    }
+
+    run_env_probe(agent, payload)
+}
+
+fn run_env_probe(agent: &AgentDefinition, payload: &Value) -> AppResult<String> {
     let root = workspace_root(agent)?;
     let mut commands = payload
         .get("commands")

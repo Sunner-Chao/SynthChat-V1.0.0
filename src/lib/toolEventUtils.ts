@@ -10,7 +10,17 @@ const RUNNING_TOOL_STARTED_AT = "__runningToolStartedAt";
 export function parseToolEvent(content: string): ToolEvent | null {
   try {
     const parsed = JSON.parse(content) as Partial<ToolEventEnvelope>;
+    // 标准格式：{ type: "toolEvent", event: {...} }
     if (parsed?.type === "toolEvent" && parsed.event) return parsed.event;
+    // 兼容格式：{ event: {...} }（无顶层 type 字段），通过 callId 或 eventType 判断
+    if (
+      parsed?.event &&
+      typeof parsed.event === "object" &&
+      !Array.isArray(parsed.event) &&
+      ("callId" in parsed.event || "eventType" in parsed.event)
+    ) {
+      return parsed.event as unknown as ToolEvent;
+    }
   } catch {
     return null;
   }

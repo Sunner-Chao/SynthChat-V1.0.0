@@ -1867,5 +1867,55 @@
     ],
     "trust": 0.5,
     "updatedAt": "2026-07-08T22:39:40.176640100+00:00"
+  },
+  {
+    "category": "general",
+    "content": "已验证该会话中可调用生图功能，且曾成功生成并发布过一张“小可爱卡通形象”图片；桌面端发送/显示可能不稳定，曾出现只返回本地 MEDIA 标记的情况。",
+    "createdAt": "2026-07-09T07:07:12.666156200+00:00",
+    "entities": [
+      "MEDIA"
+    ],
+    "id": "fact-1bfdc15da9c2405cac951b4428682fc2",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-20bcb71f5d524bf0aebbcdb6c4be1619",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-09T07:07:12.666156200+00:00"
+  },
+  {
+    "category": "general",
+    "content": "用户曾要求：针对附件文档中“表1 基本信息表”未确认的信息进行整理，生成一个 Word 文档到桌面并同时发送一份；附件为 .wps 文档《转发关于组织开展2026年嘉兴市人工智能应用场景、人工智能应用标杆企业、“数智优品”遴选申报工作的通知(1).wps》。",
+    "createdAt": "2026-07-09T07:07:14.130558+00:00",
+    "entities": [
+      "Word",
+      "wps"
+    ],
+    "id": "fact-1e4740408ccb4f9f8d32c9763a6df950",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-318a21aeaa444d25bf3bf44277af6c27",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-09T07:07:14.130558+00:00"
+  },
+  {
+    "category": "general",
+    "content": "处理该 .wps 附件时，曾尝试目录查找和工具转换；确认文件头为 OLE 文档（d0cf11e0a1b11ae1），但未完成最终提取/生成。",
+    "createdAt": "2026-07-09T07:07:14.522802900+00:00",
+    "entities": [
+      "OLE",
+      "wps"
+    ],
+    "id": "fact-21360280f0d146c889c8e738718f3c01",
+    "source": "synthchat_memory_write_mirror",
+    "sourceTarget": "mem-bcb161165d984081a8951b5ae845f6c5",
+    "tags": [
+      "memory_write"
+    ],
+    "trust": 0.5,
+    "updatedAt": "2026-07-09T07:07:14.522802900+00:00"
   }
 ]

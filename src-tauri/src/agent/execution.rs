@@ -197,7 +197,7 @@ pub(super) async fn terminal_tool(
             .await;
         }
     }
-    run_shell_command(
+    let result = run_shell_command(
         store,
         shell_hook_run_id(payload, "terminal"),
         command,
@@ -207,7 +207,22 @@ pub(super) async fn terminal_tool(
         &allowed_env,
         stdin_data.as_deref(),
     )
-    .await
+    .await?;
+
+    // On Windows, if the output contains PowerShell syntax-error markers, prepend a hint.
+    #[cfg(windows)]
+    {
+        let has_ps_syntax_err = result.contains("不是此版本中的有效语句分隔符")
+            || result.contains("InvalidEndOfLine")
+            || result.contains("UnexpectedToken");
+        if has_ps_syntax_err {
+            return Ok(format!(
+                "[shell hint: this is Windows PowerShell/cmd.exe — use ';' not '&&', 'Get-ChildItem' not 'ls -la', 'where.exe' not 'which'. Rewrite the command for PowerShell.]\n{result}"
+            ));
+        }
+    }
+
+    Ok(result)
 }
 
 pub(super) fn terminal_background_requested(payload: &Value) -> bool {
@@ -395,6 +410,8 @@ async fn execute_code_with_local_python_rpc(
         .env("HERMES_RPC_SOCKET", endpoint)
         .env("SYNTHCHAT_RPC_SOCKET", "1")
         .env("PYTHONPATH", pythonpath_with_prepend(&scratch))
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONUTF8", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);

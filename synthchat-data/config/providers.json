@@ -52,6 +52,27 @@
       "promptCacheTtl": "5m",
       "providerType": "anthropic",
       "timeoutSeconds": 60
+    },
+    {
+      "apiKey": "sk-FqQyf09b6PcSMsvOP3mvjX6R45naru0bpddw8yQusYrLQlGX",
+      "apiKeyEnv": "SYNTHAPI_API_KEY",
+      "appendChatPath": true,
+      "baseUrl": "https://synthapi.asia/v1",
+      "enabled": true,
+      "id": "provider-c20f675f-06d9-4998-8440-f1ed16d9afef",
+      "model": "gpt-5.4-mini",
+      "models": {
+        "__provider": {
+          "thinkingEnabled": true
+        }
+      },
+      "name": "SynthAPI",
+      "preset": "synthapi",
+      "promptCacheLayout": "auto",
+      "promptCacheMode": "auto",
+      "promptCacheTtl": "5m",
+      "providerType": "openai_responses",
+      "timeoutSeconds": 60
     }
   ],
   "schema": "synthchat_portable_projection_v1",

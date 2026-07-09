@@ -205,6 +205,14 @@ export function arrayValue(value: unknown): unknown[] {
 
 // ── Thinking card utilities ───────────────────────────────────────────────────
 
+function stripPastePlaceholders(text: string): string {
+  return text
+    .replace(/\[Pasted text[^\]]*\]/g, "")  // [Pasted text #N +M lines] 占位符
+    .replace(/<!--\s*-->/g, "")              // <!-- --> HTML注释占位符
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function thinkingCardsFromProviderData(providerData: unknown): ThinkingCard[] {
   const root = recordValue(providerData);
   if (!root) return [];
@@ -217,7 +225,7 @@ export function thinkingCardsFromProviderData(providerData: unknown): ThinkingCa
     .map((item, index) => {
       const card = recordValue(item);
       if (!card) return null;
-      const summary = typeof card.summary === "string" ? card.summary.trim() : "";
+      const summary = typeof card.summary === "string" ? stripPastePlaceholders(card.summary).trim() : "";
       const redacted = card.redacted === true;
       const encrypted = card.encrypted === true || card.signature === true;
       const streaming = card.streaming === true;

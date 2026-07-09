@@ -14,71 +14,71 @@
       "tired"
     ],
     "images": [
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\angry\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\angry\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\confused\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\evasive\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\3.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\4.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\5.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\3.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\4.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\reminded\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\reminded\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\sad\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\sad\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\surprised\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\surprised\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\1.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\2.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\3.gif",
-      "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\4.gif"
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\angry\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\angry\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\confused\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\evasive\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\3.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\4.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\5.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\3.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\4.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\reminded\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\reminded\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\sad\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\sad\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\surprised\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\surprised\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\1.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\2.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\3.gif",
+      "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\4.gif"
     ],
     "emotionImages": {
-      "reminded": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\reminded\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\reminded\\2.gif"
-      ],
-      "angry": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\angry\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\angry\\2.gif"
+      "happy": [
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\2.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\3.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\4.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\5.gif"
       ],
       "evasive": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\evasive\\1.gif"
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\evasive\\1.gif"
       ],
-      "happy": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\2.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\3.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\4.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\happy\\5.gif"
+      "angry": [
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\angry\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\angry\\2.gif"
       ],
       "surprised": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\surprised\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\surprised\\2.gif"
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\surprised\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\surprised\\2.gif"
       ],
-      "tired": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\2.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\3.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\tired\\4.gif"
+      "reminded": [
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\reminded\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\reminded\\2.gif"
       ],
       "confused": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\confused\\1.gif"
-      ],
-      "sad": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\sad\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\sad\\2.gif"
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\confused\\1.gif"
       ],
       "loved": [
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\1.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\2.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\3.gif",
-        "E:\\SynthChat\\SynthChat-Dev\\synthchat-data\\emoji\\default\\loved\\4.gif"
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\2.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\3.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\loved\\4.gif"
+      ],
+      "sad": [
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\sad\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\sad\\2.gif"
+      ],
+      "tired": [
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\1.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\2.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\3.gif",
+        "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\tired\\4.gif"
       ]
     }
   }

@@ -1360,6 +1360,13 @@ fn responses_reasoning_summary_text(item: &Value) -> String {
         .filter(|text| !text.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
+        .replace("<!-- -->", "")
+        .split('\n')
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
 }
 
 fn collect_responses_reasoning_texts(value: Option<&Value>, texts: &mut Vec<String>) {

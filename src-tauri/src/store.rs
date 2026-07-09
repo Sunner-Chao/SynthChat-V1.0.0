@@ -2912,6 +2912,7 @@ pub struct AppStore {
     messaging_gateway_adapter_state: Arc<Mutex<Value>>,
     messaging_gateway_adapter_task: Arc<Mutex<Option<AbortHandle>>>,
     managed_processes: Arc<Mutex<HashMap<String, ManagedProcess>>>,
+    last_persist: Arc<Mutex<Option<StdInstant>>>,
 }
 
 pub struct ManagedProcess {
@@ -7719,6 +7720,7 @@ impl AppStore {
             }))),
             messaging_gateway_adapter_task: Arc::new(Mutex::new(None)),
             managed_processes: Arc::new(Mutex::new(HashMap::new())),
+            last_persist: Arc::new(Mutex::new(None)),
         };
         store.save()?;
         let _ = store.recover_managed_processes_from_checkpoint();
@@ -8791,7 +8793,7 @@ impl AppStore {
         Ok(())
     }
 
-    fn persist(&self, state: &PersistedState) -> AppResult<()> {
+    fn do_persist(&self, state: &PersistedState) -> AppResult<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -8800,7 +8802,30 @@ impl AppStore {
         backup_current_state_file(&self.path);
         fs::rename(tmp, &self.path)?;
         project_portable_profile_state_best_effort(&self.path, state, "persist");
+        if let Ok(mut last) = self.last_persist.lock() {
+            *last = Some(StdInstant::now());
+        }
         Ok(())
+    }
+
+    /// Debounced persist: skips the write if a persist occurred within the last 500ms.
+    /// Use for high-frequency callers such as append_message and save_agent_run.
+    fn persist(&self, state: &PersistedState) -> AppResult<()> {
+        const DEBOUNCE: StdDuration = StdDuration::from_millis(500);
+        if let Ok(last) = self.last_persist.lock() {
+            if let Some(t) = *last {
+                if t.elapsed() < DEBOUNCE {
+                    return Ok(());
+                }
+            }
+        }
+        self.do_persist(state)
+    }
+
+    /// Force-persist regardless of debounce window.
+    /// Use for explicit save requests where the write must happen immediately.
+    fn persist_force(&self, state: &PersistedState) -> AppResult<()> {
+        self.do_persist(state)
     }
 
     fn state_snapshot_dir(&self) -> PathBuf {

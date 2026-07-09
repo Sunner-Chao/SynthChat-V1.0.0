@@ -325,6 +325,15 @@ fn environment_probe_prompt_block() -> String {
 }
 
 fn build_environment_probe_line() -> String {
+    // Always prepend OS/shell context so the model knows the platform upfront.
+    let os_hint = if cfg!(windows) {
+        "Host OS: windows, shell: PowerShell/cmd.exe — use PowerShell syntax (semicolons, not &&; Get-ChildItem not ls; where.exe not which; no bash heredocs).".to_string()
+    } else if cfg!(target_os = "macos") {
+        format!("Host OS: macos ({})", std::env::consts::ARCH)
+    } else {
+        format!("Host OS: {} ({})", std::env::consts::OS, std::env::consts::ARCH)
+    };
+
     let py3_ver = python_version_of("python3");
     let py_ver = python_version_of("python");
     let py3_has_pip = py3_ver
@@ -343,7 +352,7 @@ fn build_environment_probe_line() -> String {
         .map(|(pip, py3)| !py3.starts_with(pip))
         .unwrap_or(false);
     if py3_ver.is_some() && py3_has_pip && !mismatch && (!py3_pep668 || has_uv) {
-        return String::new();
+        return os_hint;
     }
     let mut bits = Vec::new();
     if let Some(py3_ver) = py3_ver.as_deref() {
@@ -378,9 +387,9 @@ fn build_environment_probe_line() -> String {
         bits.push("uv=installed".into());
     }
     if bits.is_empty() {
-        String::new()
+        os_hint
     } else {
-        format!("Python toolchain: {}.", bits.join(", "))
+        format!("{os_hint} Python toolchain: {}.", bits.join(", "))
     }
 }
 

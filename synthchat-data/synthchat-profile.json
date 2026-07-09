@@ -10,7 +10,7 @@
     "chattts": "data/models/ChatTTS",
     "note": "Large model files are profile resources. Copying synthchat-data moves them together with conversations and config."
   },
-  "portableCopyRoot": "E:\\SynthChat\\SynthChat-Dev\\synthchat-data",
+  "portableCopyRoot": "D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data",
   "projection": {
     "canonical": "state.json",
     "configFiles": [

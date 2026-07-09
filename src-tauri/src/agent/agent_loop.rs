@@ -55,7 +55,7 @@ fn is_wechat_drain_active(conversation_id: &str) -> bool {
 }
 
 const PET_WINDOW_LABEL: &str = "pet";
-const DESKTOP_STREAM_EVENT_MIN_INTERVAL: Duration = Duration::from_millis(80);
+const DESKTOP_STREAM_EVENT_MIN_INTERVAL: Duration = Duration::from_millis(150);
 const DESKTOP_STREAM_EVENT_MIN_BYTES: usize = 96;
 
 // Maximum per-conversation lock entries kept in memory. When this limit is
