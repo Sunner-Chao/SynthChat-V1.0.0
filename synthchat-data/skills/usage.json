@@ -97,14 +97,14 @@
     },
     {
       "contexts": {
-        "prompt": 1079
+        "prompt": 1083
       },
       "firstSeenAt": "2026-06-26T10:36:37.856008600+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-09T12:21:18.549433500+00:00",
+      "lastUsedAt": "2026-07-10T07:18:50.607262200+00:00",
       "name": "claude-code",
-      "path": "\\\\?\\E:\\SynthChat\\SynthChat-Dev\\skills\\autonomous-ai-agents\\claude-code\\SKILL.md",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\skills\\autonomous-ai-agents\\claude-code\\SKILL.md",
       "provenance": {
         "agentCreated": false,
         "backgroundCreated": false,
@@ -112,18 +112,18 @@
       },
       "skillId": "autonomous-ai-agents/claude-code",
       "source": "project",
-      "useCount": 1079
+      "useCount": 1083
     },
     {
       "contexts": {
-        "prompt": 1079
+        "prompt": 1083
       },
       "firstSeenAt": "2026-06-26T10:36:37.857472500+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-09T12:21:18.553575100+00:00",
+      "lastUsedAt": "2026-07-10T07:18:50.609280900+00:00",
       "name": "codex",
-      "path": "\\\\?\\E:\\SynthChat\\SynthChat-Dev\\skills\\autonomous-ai-agents\\codex\\SKILL.md",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\skills\\autonomous-ai-agents\\codex\\SKILL.md",
       "provenance": {
         "agentCreated": false,
         "backgroundCreated": false,
@@ -131,17 +131,17 @@
       },
       "skillId": "autonomous-ai-agents/codex",
       "source": "project",
-      "useCount": 1079
+      "useCount": 1083
     },
     {
       "contexts": {
         "install": 1,
-        "prompt": 982
+        "prompt": 986
       },
       "firstSeenAt": "2026-06-27T01:12:49.485008900+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-09T08:48:15.926289500+00:00",
+      "lastUsedAt": "2026-07-10T07:18:50.610895500+00:00",
       "name": "agent-browser",
       "path": "C:\\Users\\33908\\AppData\\Roaming\\cc.synthchat.v1\\synthchat-data\\skills\\external\\agent-browser\\SKILL.md",
       "provenance": {
@@ -151,17 +151,17 @@
       },
       "skillId": "external/agent-browser",
       "source": "external",
-      "useCount": 983
+      "useCount": 987
     },
     {
       "contexts": {
         "install": 1,
-        "prompt": 990
+        "prompt": 994
       },
       "firstSeenAt": "2026-06-27T00:59:09.296644700+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-09T08:48:15.928156900+00:00",
+      "lastUsedAt": "2026-07-10T07:18:50.612814800+00:00",
       "name": "find-skills",
       "path": "C:\\Users\\33908\\AppData\\Roaming\\cc.synthchat.v1\\synthchat-data\\skills\\external\\find-skills\\SKILL.md",
       "provenance": {
@@ -171,19 +171,19 @@
       },
       "skillId": "external/find-skills",
       "source": "external",
-      "useCount": 991
+      "useCount": 995
     },
     {
       "contexts": {
-        "prompt": 1085,
+        "prompt": 1089,
         "view": 3
       },
       "firstSeenAt": "2026-06-26T09:02:27.058018200+00:00",
       "lastContext": "prompt",
       "lastOrigin": "foreground",
-      "lastUsedAt": "2026-07-09T12:21:18.556423600+00:00",
+      "lastUsedAt": "2026-07-10T07:18:50.614779800+00:00",
       "name": "bilibili-clip",
-      "path": "\\\\?\\E:\\SynthChat\\SynthChat-Dev\\skills\\media\\bilibili-clip\\SKILL.md",
+      "path": "\\\\?\\D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\skills\\media\\bilibili-clip\\SKILL.md",
       "provenance": {
         "agentCreated": false,
         "backgroundCreated": false,
@@ -191,7 +191,7 @@
       },
       "skillId": "media/bilibili-clip",
       "source": "project",
-      "useCount": 1088
+      "useCount": 1092
     },
     {
       "contexts": {
@@ -234,5 +234,5 @@
     }
   ],
   "schema": "synthchat.skills.usage.v1",
-  "updatedAt": "2026-07-09T12:21:18.556850900+00:00"
+  "updatedAt": "2026-07-10T07:18:50.614982900+00:00"
 }

@@ -871,7 +871,7 @@ pub(super) async fn run_pre_tool_call_hooks(
             Err(err) => {
                 eprintln!(
                     "SynthChat: pre_tool_call hook '{}' failed to run (skipping): {err}",
-                    spec.description.as_deref().unwrap_or(tool_name)
+                    spec.command
                 );
             }
         }

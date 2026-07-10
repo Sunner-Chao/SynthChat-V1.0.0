@@ -20,6 +20,123 @@ export function isMediaDirectiveLine(line: string) {
   return trimmed.includes("[media attached:") || /^`?MEDIA:\s*(?:"[^"]+"|'[^']+'|`[^`]+`|.+)`?$/i.test(trimmed);
 }
 
+const FINAL_ANSWER_ACTIONS = new Set([
+  "final",
+  "answer",
+  "respond",
+  "finish",
+  "done"
+]);
+
+function finalAnswerJsonCandidate(content: string) {
+  const trimmed = content.trim();
+  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
+function finalAnswerTextFromValue(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const rawAction = [record.action, record.type, record.decision]
+    .find((candidate) => typeof candidate === "string");
+  const action = typeof rawAction === "string"
+    ? rawAction.trim().toLowerCase()
+    : "";
+  if (!FINAL_ANSWER_ACTIONS.has(action)) return null;
+  const text = [record.content, record.answer, record.message]
+    .find((candidate) => typeof candidate === "string");
+  return typeof text === "string" ? text : null;
+}
+
+type PartialJsonStringField = {
+  index: number;
+  value: string;
+};
+
+function extractPartialJsonStringField(
+  raw: string,
+  key: string
+): PartialJsonStringField | null {
+  const needle = `"${key}"`;
+  const keyIndex = raw.indexOf(needle);
+  if (keyIndex < 0 || raw[keyIndex - 1] === "\\") return null;
+  const colonIndex = raw.indexOf(":", keyIndex + needle.length);
+  if (colonIndex < 0) return null;
+  let cursor = colonIndex + 1;
+  while (cursor < raw.length && /\s/.test(raw[cursor])) cursor++;
+  if (raw[cursor] !== "\"") return null;
+  cursor++;
+
+  let value = "";
+  let escaped = false;
+  while (cursor < raw.length) {
+    const char = raw[cursor++];
+    if (!escaped) {
+      if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        return { index: keyIndex, value };
+      } else {
+        value += char;
+      }
+      continue;
+    }
+    escaped = false;
+    if (char === "u") {
+      const hex = raw.slice(cursor, cursor + 4);
+      if (/^[0-9a-f]{4}$/i.test(hex)) {
+        value += String.fromCharCode(Number.parseInt(hex, 16));
+        cursor += 4;
+      }
+      continue;
+    }
+    const escapes: Record<string, string> = {
+      "\"": "\"",
+      "\\": "\\",
+      "/": "/",
+      b: "\b",
+      f: "\f",
+      n: "\n",
+      r: "\r",
+      t: "\t"
+    };
+    value += escapes[char] ?? char;
+  }
+  return { index: keyIndex, value };
+}
+
+function partialFinalAnswerText(raw: string): string | null {
+  const actionField = ["action", "type", "decision"]
+    .map((key) => extractPartialJsonStringField(raw, key))
+    .filter((field): field is PartialJsonStringField => field !== null)
+    .sort((left, right) => left.index - right.index)[0];
+  if (
+    !actionField ||
+    actionField.index > 512 ||
+    !FINAL_ANSWER_ACTIONS.has(actionField.value.trim().toLowerCase())
+  ) {
+    return null;
+  }
+  const contentField = ["content", "answer", "message"]
+    .map((key) => extractPartialJsonStringField(raw, key))
+    .filter((field): field is PartialJsonStringField => field !== null)
+    .filter((field) => field.index > actionField.index)
+    .sort((left, right) => left.index - right.index)[0];
+  return contentField?.value ?? null;
+}
+
+export function unwrapFinalAnswerEnvelope(content: string) {
+  const candidate = finalAnswerJsonCandidate(content);
+  if (!candidate.startsWith("{")) return content;
+  try {
+    const parsed = JSON.parse(candidate);
+    const text = finalAnswerTextFromValue(parsed);
+    return text === null ? content : text;
+  } catch {
+    return partialFinalAnswerText(candidate) ?? content;
+  }
+}
+
 export function renderTextForMessage(content: string) {
   return stripToolDirectiveBlocks(content.trim())
     .split(/\r?\n/)

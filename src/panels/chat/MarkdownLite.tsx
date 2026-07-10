@@ -1,5 +1,9 @@
 import { memo, useEffect, useRef } from "react";
-import { parseMediaSegments } from "../../lib/mediaUtils";
+import {
+  mergeMessageMediaSegments,
+  parseMediaSegments,
+  type MediaSegment
+} from "../../lib/mediaUtils";
 import type { EmojiPathIndexes } from "../../lib/emojiUtils";
 import { InlineImage, InlineFile } from "./InlineMedia";
 
@@ -8,13 +12,15 @@ export const MarkdownLite = memo(function MarkdownLite({
   onImageClick,
   streaming,
   onFirstChar,
-  emojiPathIndexes
+  emojiPathIndexes,
+  supplementalMedia = []
 }: {
   text: string;
   onImageClick?: (path: string) => void;
   streaming?: boolean;
   onFirstChar?: () => void;
   emojiPathIndexes: EmojiPathIndexes;
+  supplementalMedia?: MediaSegment[];
 }) {
   const firstCharFiredRef = useRef(false);
 
@@ -29,7 +35,7 @@ export const MarkdownLite = memo(function MarkdownLite({
     }
   }, [onFirstChar, streaming, text.length]);
 
-  const segments = parseMediaSegments(text);
+  const segments = mergeMessageMediaSegments(parseMediaSegments(text), supplementalMedia);
   const handleClick = onImageClick ?? (() => {});
   return (
     <>

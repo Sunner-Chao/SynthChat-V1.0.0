@@ -73,7 +73,7 @@ import {
   toolEventStartKey,
   withToolEventStartedAt
 } from "../lib/toolEventUtils";
-import { displayTextForMessage, renderTextForMessage, speechTextForMessage } from "../lib/messageText";
+import { displayTextForMessage, renderTextForMessage, speechTextForMessage, unwrapFinalAnswerEnvelope } from "../lib/messageText";
 import { resolvePersonaAgentBinding, resolvePersonaBoundAgent } from "../lib/personaAgentBinding";
 import { PET_THINKING_STATE_EVENT, publishPetThinkingState, type PetThinkingState } from "../lib/petContext";
 import { useAppStore } from "../lib/store";
@@ -553,7 +553,7 @@ export const ChatExperience = memo(function ChatExperience() {
       if (message.role !== "assistant" || message.source === "desktop-stream") continue;
       if (mode === "tokens") {
         stats.set(message.id, {
-          label: `本轮回复约 ${estimateMessageTokens(message.content).toLocaleString()} tokens`,
+          label: `本轮回复约 ${estimateMessageTokens(visibleMessageText(message)).toLocaleString()} tokens`,
           tone: "tokens"
         });
       } else {
@@ -973,9 +973,10 @@ export const ChatExperience = memo(function ChatExperience() {
   const filteredConversations = useMemo(() => {
     const needle = deferredQuery.toLowerCase();
     if (!needle) return conversations;
-    return conversations.filter((item) =>
-      `${item.title ?? ""} ${item.lastMessage ?? ""}`.toLowerCase().includes(needle)
-    );
+    return conversations.filter((item) => {
+      const lastMessage = unwrapFinalAnswerEnvelope(item.lastMessage ?? "");
+      return `${item.title ?? ""} ${lastMessage}`.toLowerCase().includes(needle);
+    });
   }, [conversations, deferredQuery]);
   const enabledMcpCount = useMemo(
     () => availableMcpServers.filter((server) => activeMcpServerIdSet.has(server.id)).length,
@@ -2092,6 +2093,9 @@ export const ChatExperience = memo(function ChatExperience() {
         <div className="claw-session-list">
           {filteredConversations.map((conversation) => {
             const persona = personaById.get(conversation.personaId || "");
+            const lastMessage = displayTextForMessage(
+              unwrapFinalAnswerEnvelope(conversation.lastMessage ?? "")
+            ) || "暂无消息";
             return (
               <div className={[
                 "claw-session",
@@ -2105,7 +2109,7 @@ export const ChatExperience = memo(function ChatExperience() {
                   />
                   <span>
                     <strong>{persona?.name || conversation.title}</strong>
-                    <small>{settlingConversationId === conversation.id ? "删除中，记忆稍后整理..." : conversation.lastMessage || "暂无消息"}</small>
+                    <small>{settlingConversationId === conversation.id ? "删除中，记忆稍后整理..." : lastMessage}</small>
                   </span>
                   {(() => {
                     const count = conversation.id === activeConversationId

@@ -5,7 +5,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Eye, EyeOff, FileText, Loader2, Menu, Palette, SendHorizontal, Volume2, VolumeX, X } from "lucide-react";
 import { api, convertFileSrc, isTauri } from "./lib/api";
-import { isAttachmentContextLine, isMediaDirectiveLine, sanitizeSpeechText, stripToolDirectiveBlocks } from "./lib/messageText";
+import { isAttachmentContextLine, isMediaDirectiveLine, sanitizeSpeechText, stripToolDirectiveBlocks, unwrapFinalAnswerEnvelope } from "./lib/messageText";
 import { PetStartupAwakening } from "./components/PetStartupAwakening";
 import type { AgentRunEvent, ChatAttachment, ChatMessage, Conversation, EmojiGroup, Persona } from "./lib/types";
 import {
@@ -446,7 +446,7 @@ function latestAssistantMessage(messages: ChatMessage[]) {
 // leak into the visible cloud text.
 function messageToCloudText(message: ChatMessage | null | undefined) {
   if (!message) return "";
-  const textLines = stripToolDirectiveBlocks(message.content)
+  const textLines = stripToolDirectiveBlocks(unwrapFinalAnswerEnvelope(message.content))
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
@@ -456,7 +456,7 @@ function messageToCloudText(message: ChatMessage | null | undefined) {
 
 function extractCloudAttachments(message: ChatMessage | null | undefined): PetAttachment[] {
   const results = structuredMessageAttachments(message);
-  for (const item of extractCloudAttachmentsFromContent(message?.content ?? "")) {
+  for (const item of extractCloudAttachmentsFromContent(unwrapFinalAnswerEnvelope(message?.content ?? ""))) {
     if (!results.some((existing) => existing.path === item.path && existing.fileName === item.fileName)) {
       results.push(item);
     }
@@ -2206,7 +2206,7 @@ export function PetWindow() {
       return;
     }
     const payload = assistantCloudPayload(message);
-    const finalText = payload?.text ?? formatCloudText(message.content);
+    const finalText = payload?.text ?? formatCloudText(unwrapFinalAnswerEnvelope(message.content));
     const currentText = runtime.text;
     const missing = finalText.startsWith(currentText) ? finalText.slice(currentText.length) : "";
     runtime.attachments = payload?.attachments.length ? payload.attachments : runtime.attachments;

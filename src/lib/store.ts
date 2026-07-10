@@ -289,6 +289,43 @@ function providerDataRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function mergeProviderDataValues(previous: unknown, incoming: unknown): unknown {
+  if (incoming === undefined || incoming === null) return previous ?? incoming;
+  if (previous === undefined || previous === null) return incoming;
+  if (Array.isArray(incoming)) {
+    return incoming.length === 0 && Array.isArray(previous) && previous.length > 0
+      ? previous
+      : incoming;
+  }
+  const previousRecord = providerDataRecord(previous);
+  const incomingRecord = providerDataRecord(incoming);
+  if (!previousRecord || !incomingRecord) return incoming;
+  const merged: Record<string, unknown> = { ...previousRecord };
+  for (const [key, value] of Object.entries(incomingRecord)) {
+    merged[key] = mergeProviderDataValues(previousRecord[key], value);
+  }
+  return merged;
+}
+
+function richerMessageContent(previous: string, incoming: string) {
+  if (!incoming && previous) return previous;
+  if (previous.length > incoming.length && previous.startsWith(incoming)) return previous;
+  return incoming;
+}
+
+export function mergeChatMessageSnapshots(
+  previous: ChatMessage,
+  incoming: ChatMessage
+): ChatMessage {
+  if (previous.id !== incoming.id) return incoming;
+  return {
+    ...previous,
+    ...incoming,
+    content: richerMessageContent(previous.content, incoming.content),
+    providerData: mergeProviderDataValues(previous.providerData, incoming.providerData)
+  };
+}
+
 function truncateTextForUi(text: string, maxChars: number) {
   if (text.length <= maxChars) return null;
   return `${text.slice(0, maxChars)}\n\n[内容过长，界面仅预览前 ${maxChars} 个字符；完整内容仍保存在本地数据中。]`;
@@ -490,13 +527,36 @@ function finalizedThinkingCards(cards: unknown[]) {
   });
 }
 
+function finalizedThinkingProviderData(providerData: unknown) {
+  const cloned = cloneJsonValue(providerData);
+  const root = providerDataRecord(cloned);
+  if (!root) return providerData;
+  const containers = [
+    root,
+    providerDataRecord(root.responses),
+    providerDataRecord(root.anthropic)
+  ].filter((value): value is Record<string, unknown> => value !== null);
+  let changed = false;
+  for (const container of containers) {
+    if (!Array.isArray(container.thinkingCards) || container.thinkingCards.length === 0) continue;
+    container.thinkingCards = finalizedThinkingCards(container.thinkingCards);
+    changed = true;
+  }
+  return changed ? root : providerData;
+}
+
 function preserveLiveThinkingCardsForFinalMessage(
   message: ChatMessage,
   previousMessage: ChatMessage | null,
   options?: IncomingMessageUpsertOptions
 ) {
   if (!options?.final || message.role !== "assistant") return message;
-  if (providerDataThinkingCards(message.providerData).length > 0) return message;
+  if (providerDataThinkingCards(message.providerData).length > 0) {
+    return {
+      ...message,
+      providerData: finalizedThinkingProviderData(message.providerData)
+    };
+  }
   if (!previousMessage) return message;
   const liveCards = providerDataThinkingCards(previousMessage.providerData);
   if (liveCards.length === 0) return message;
@@ -532,8 +592,9 @@ function visibleChatMessages(messages: ChatMessage[]) {
 function rememberPendingIncomingMessage(message: ChatMessage) {
   if (!message.conversationId || !isVisibleChatMessage(message)) return;
   const pending = pendingIncomingMessagesByConversation.get(message.conversationId) ?? [];
+  const previous = pending.find((item) => item.id === message.id);
   const next = pending.filter((item) => item.id !== message.id);
-  next.push(message);
+  next.push(previous ? mergeChatMessageSnapshots(previous, message) : message);
   pendingIncomingMessagesByConversation.set(message.conversationId, next.slice(-80));
 }
 
@@ -575,7 +636,10 @@ function clearPendingStreamingAssistantMessages(
 
 function mergeUniqueMessagesById(messages: ChatMessage[]) {
   const byId = new Map<string, ChatMessage>();
-  for (const message of messages) byId.set(message.id, message);
+  for (const message of messages) {
+    const previous = byId.get(message.id);
+    byId.set(message.id, previous ? mergeChatMessageSnapshots(previous, message) : message);
+  }
   return Array.from(byId.values());
 }
 
@@ -718,9 +782,10 @@ function mergeLocalUiMessages(
   const currentById = new Map(currentMessages.map((message) => [message.id, message]));
   const backendMessagesWithLiveStreams = backendMessages.map((backend) => {
     const live = currentById.get(backend.id);
-    return live && shouldPreferLiveStreamingAssistant(live, backend, conversationId, streamedAssistantIds)
-      ? live
-      : backend;
+    if (!live) return backend;
+    return shouldPreferLiveStreamingAssistant(live, backend, conversationId, streamedAssistantIds)
+      ? mergeChatMessageSnapshots(backend, live)
+      : mergeChatMessageSnapshots(live, backend);
   });
   const backendIds = new Set(backendMessagesWithLiveStreams.map((message) => message.id));
   const localMessages = currentMessages.filter((message) => {
@@ -977,16 +1042,27 @@ function agentWithPersonaRuntime(agent: AgentDefinition, persona: Persona): Agen
   };
 }
 
+function sameProviderData(left: unknown, right: unknown) {
+  if (left === right) return true;
+  try {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  } catch {
+    return false;
+  }
+}
+
 function sameMessages(left: ChatMessage[], right: ChatMessage[]) {
   return left.length === right.length && left.every((item, index) => {
     const other = right[index];
     return Boolean(other)
       && item.id === other.id
+      && item.conversationId === other.conversationId
       && item.role === other.role
       && item.content === other.content
       && item.createdAt === other.createdAt
       && item.source === other.source
-      && item.accountId === other.accountId;
+      && item.accountId === other.accountId
+      && sameProviderData(item.providerData, other.providerData);
   });
 }
 
@@ -2004,11 +2080,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const uiMessage = previewMessageForUi(message, uiMessagePreviewChars(state.config));
       if (state.activeConversationId && message.conversationId !== state.activeConversationId) {
-        let pendingMessage = uiMessage;
+        const previousPendingMessage = pendingIncomingMessagesForConversation(uiMessage.conversationId)
+          .find((item) => item.id === uiMessage.id) ?? null;
+        let pendingMessage = previousPendingMessage
+          ? mergeChatMessageSnapshots(previousPendingMessage, uiMessage)
+          : uiMessage;
+        pendingMessage = preserveLiveThinkingCardsForFinalMessage(
+          pendingMessage,
+          previousPendingMessage,
+          options
+        );
         let streamedAssistantIds = state.streamedAssistantIds;
         if (uiMessage.role === "assistant") {
           if (options?.streaming) {
-            pendingMessage = { ...uiMessage, source: "desktop-stream" };
+            pendingMessage = { ...pendingMessage, source: "desktop-stream" };
             streamedAssistantIds = new Set(streamedAssistantIds);
             streamedAssistantIds.add(uiMessage.id);
           } else if (options?.final && streamedAssistantIds.has(uiMessage.id)) {
@@ -2022,7 +2107,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       const index = state.messages.findIndex((item) => item.id === uiMessage.id);
       const messageLimit = conversationMessageLimit(state.config, uiMessage.conversationId, state.conversationMessageLimits);
       const previousMessage = index >= 0 ? state.messages[index] : null;
-      const incomingMessage = preserveLiveThinkingCardsForFinalMessage(uiMessage, previousMessage, options);
+      const mergedMessage = previousMessage
+        ? mergeChatMessageSnapshots(previousMessage, uiMessage)
+        : uiMessage;
+      const incomingMessage = preserveLiveThinkingCardsForFinalMessage(mergedMessage, previousMessage, options);
       const shouldKeepStreamingPresentation =
         incomingMessage.role === "assistant"
         && !options?.final
@@ -2387,10 +2475,36 @@ export const useAppStore = create<AppState>((set, get) => ({
               if (hasVisibleResponse && isLocalStatusMessage(m)) return false;
               return true;
             });
-            const existingIds = new Set(withoutTemp.map((m) => m.id));
-            const newMessages = visibleResponseMessages.filter((m) => !existingIds.has(m.id));
-            const merged = [...withoutTemp, ...newMessages];
-            return { messages: displayMessages(merged, messageLimit) };
+            const merged = [...withoutTemp];
+            for (const responseMessage of visibleResponseMessages) {
+              const existingIndex = merged.findIndex((item) => item.id === responseMessage.id);
+              if (existingIndex < 0) {
+                merged.push(responseMessage);
+                continue;
+              }
+              const previousMessage = merged[existingIndex];
+              const nextMessage = mergeChatMessageSnapshots(previousMessage, responseMessage);
+              merged[existingIndex] = preserveLiveThinkingCardsForFinalMessage(
+                nextMessage,
+                previousMessage,
+                { final: responseMessage.role === "assistant" }
+              );
+            }
+            const finalAssistantIds = new Set(
+              visibleResponseMessages
+                .filter((message) => message.role === "assistant")
+                .map((message) => message.id)
+            );
+            const streamedAssistantIds = finalAssistantIds.size === 0
+              ? current.streamedAssistantIds
+              : new Set(
+                  Array.from(current.streamedAssistantIds)
+                    .filter((id) => !finalAssistantIds.has(id))
+                );
+            return {
+              messages: displayMessages(merged, messageLimit),
+              streamedAssistantIds
+            };
           });
         }
         if (get().activeConversationId === conversationIdForSend) {

@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { __chatStoreTestUtils, useAppStore } from "../store";
+import { thinkingCardsFromProviderData } from "../messageRenderUtils";
 import type { ChatMessage } from "../types";
 import { testMessage } from "./chatTestHarness";
 
@@ -193,6 +194,116 @@ describe("chat store message merge", () => {
       source: "desktop"
     });
     expect(finalState.streamedAssistantIds.has("assistant-stream-1")).toBe(false);
+  });
+
+  it("does not let a later agent-run snapshot erase streamed text or thinking cards", () => {
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-rich-stream",
+        role: "assistant",
+        content: "哇",
+        source: "desktop-agent",
+        providerData: {
+          thinkingCards: [{
+            provider: "llm",
+            kind: "thinking",
+            title: "模型思考",
+            summary: "正在理解图片",
+            streaming: true
+          }]
+        }
+      }),
+      { streaming: true }
+    );
+
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-rich-stream",
+        role: "assistant",
+        content: "",
+        source: "desktop-agent",
+        providerData: {
+          responses: {
+            thinkingCards: []
+          }
+        }
+      })
+    );
+
+    const state = useAppStore.getState();
+    expect(state.messages[0].content).toBe("哇");
+    expect(thinkingCardsFromProviderData(state.messages[0].providerData)).toMatchObject([{
+      summary: "正在理解图片",
+      streaming: true
+    }]);
+    expect(state.messages[0].source).toBe("desktop-stream");
+  });
+
+  it("finalizes preserved thinking cards and keeps them through a backend refresh", () => {
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-thinking-final",
+        role: "assistant",
+        content: "哇",
+        source: "desktop-agent",
+        providerData: {
+          thinkingCards: [{
+            provider: "llm",
+            kind: "thinking",
+            title: "模型思考",
+            summary: "正在组织答案",
+            streaming: true
+          }]
+        }
+      }),
+      { streaming: true }
+    );
+
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-thinking-final",
+        role: "assistant",
+        content: "哇，这张图很可爱。",
+        source: "desktop-agent",
+        providerData: {
+          responses: {
+            thinkingCards: []
+          }
+        }
+      }),
+      { final: true }
+    );
+
+    const finalState = useAppStore.getState();
+    expect(finalState.messages[0].content).toBe("哇，这张图很可爱。");
+    expect(thinkingCardsFromProviderData(finalState.messages[0].providerData)).toMatchObject([{
+      summary: "正在组织答案",
+      streaming: false
+    }]);
+    expect(finalState.streamedAssistantIds.has("assistant-thinking-final")).toBe(false);
+
+    const refreshed = __chatStoreTestUtils.mergeBackendMessagesWithLiveState(
+      [testMessage({
+        id: "assistant-thinking-final",
+        role: "assistant",
+        content: "哇，这张图很可爱。",
+        source: "desktop-agent",
+        providerData: {
+          responses: {
+            thinkingCards: []
+          }
+        }
+      })],
+      finalState.messages,
+      "conv-1",
+      20,
+      finalState.streamedAssistantIds
+    );
+
+    expect(thinkingCardsFromProviderData(refreshed[0].providerData)).toMatchObject([{
+      summary: "正在组织答案",
+      streaming: false
+    }]);
   });
 
   it("drops an orphan live assistant stream during stale refresh when no active work remains", () => {

@@ -54,12 +54,12 @@
       "timeoutSeconds": 60
     },
     {
-      "apiKey": "sk-FqQyf09b6PcSMsvOP3mvjX6R45naru0bpddw8yQusYrLQlGX",
+      "apiKey": "sk-8fDvyG9uxEMFwEoEfoHiQqz7xXaoXIYFBMTPVKpKvhXWerNQ",
       "apiKeyEnv": "SYNTHAPI_API_KEY",
       "appendChatPath": true,
       "baseUrl": "https://synthapi.asia/v1",
       "enabled": true,
-      "id": "provider-74296a62-ea5f-45bb-be55-22b685e84399",
+      "id": "provider-c20f675f-06d9-4998-8440-f1ed16d9afef",
       "model": "gpt-5.4-mini",
       "models": {
         "__provider": {

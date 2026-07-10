@@ -1,5 +1,6 @@
 import type { ChatMessage, LlmProvider } from "./types";
 import { fileNameFromPath } from "./emojiUtils";
+import { unwrapFinalAnswerEnvelope } from "./messageText";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -279,7 +280,9 @@ export function stripThinkingCardsFromText(
 }
 
 export function visibleMessageText(message: ChatMessage): string {
-  const base = message.content.trim();
+  const base = message.role === "assistant"
+    ? unwrapFinalAnswerEnvelope(message.content).trim()
+    : message.content.trim();
   if (
     message.role === "user" ||
     message.role === "tool" ||

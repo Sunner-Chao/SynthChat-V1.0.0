@@ -36,7 +36,7 @@ import {
   Users,
   X
 } from "lucide-react";
-import { useAppStore } from "./lib/store";
+import { mergeChatMessageSnapshots, useAppStore } from "./lib/store";
 import {
   maskSecret,
   formatTime,
@@ -309,7 +309,7 @@ export function App() {
     const key = message.id.trim() || `${message.conversationId}:${message.role}:${message.createdAt}`;
     const previous = pendingStreamMessagesRef.current.get(key);
     pendingStreamMessagesRef.current.set(key, {
-      message,
+      message: previous ? mergeChatMessageSnapshots(previous.message, message) : message,
       // preserveStreaming keeps a prior streaming=true alive when a non-streaming
       // write (e.g. from agent-run-event) arrives mid-stream.
       streaming: Boolean(options.preserveStreaming ? (previous?.streaming || options.streaming) : options.streaming),

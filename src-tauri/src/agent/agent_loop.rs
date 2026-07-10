@@ -179,6 +179,60 @@ fn provider_data_has_thinking_cards(provider_data: &Option<Value>) -> bool {
     .any(|value| value.as_array().is_some_and(|items| !items.is_empty()))
 }
 
+fn finalized_thinking_cards_from_provider_data(provider_data: &Option<Value>) -> Vec<Value> {
+    let Some(root) = provider_data.as_ref() else {
+        return Vec::new();
+    };
+    let mut cards = Vec::new();
+    for value in [
+        root.get("thinkingCards"),
+        root.pointer("/responses/thinkingCards"),
+        root.pointer("/anthropic/thinkingCards"),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let Some(items) = value.as_array() else {
+            continue;
+        };
+        for item in items {
+            let mut card = item.clone();
+            if let Some(object) = card.as_object_mut() {
+                object.insert("streaming".into(), json!(false));
+            }
+            if !cards.contains(&card) {
+                cards.push(card);
+            }
+        }
+    }
+    cards
+}
+
+fn preserve_streaming_thinking_cards(
+    streaming_message: &ChatMessage,
+    final_provider_data: &mut Option<Value>,
+) {
+    if provider_data_has_thinking_cards(final_provider_data) {
+        finalize_streaming_thinking_cards(final_provider_data);
+        return;
+    }
+    let cards = finalized_thinking_cards_from_provider_data(&streaming_message.provider_data);
+    if cards.is_empty() {
+        return;
+    }
+    let mut root = match final_provider_data.take() {
+        Some(Value::Object(root)) => root,
+        Some(original) => {
+            let mut root = serde_json::Map::new();
+            root.insert("originalProviderData".into(), original);
+            root
+        }
+        None => serde_json::Map::new(),
+    };
+    root.insert("thinkingCards".into(), Value::Array(cards));
+    *final_provider_data = Some(Value::Object(root));
+}
+
 fn emit_streaming_thinking_finished(
     app: &AppHandle,
     message: &Arc<Mutex<ChatMessage>>,
@@ -3115,16 +3169,20 @@ pub(super) async fn run_chat_turn_with_toolset_policy_and_iteration_limit(
         assistant_text.clone(),
         "desktop-agent",
     );
+    assistant_message.provider_data = assistant_provider_data;
     if desktop_stream_state
-        .emitted_answer_text
+        .emitted_any_delta
         .load(Ordering::SeqCst)
     {
         if let Ok(streaming_message) = desktop_stream_state.message.lock() {
             assistant_message.id = streaming_message.id.clone();
             assistant_message.created_at = streaming_message.created_at.clone();
+            preserve_streaming_thinking_cards(
+                &streaming_message,
+                &mut assistant_message.provider_data,
+            );
         }
     }
-    assistant_message.provider_data = assistant_provider_data;
     if silent_pet_vision {
         assistant_message.source = "pet-vision".into();
         mark_message_visible_for_pet_vision(&mut assistant_message);

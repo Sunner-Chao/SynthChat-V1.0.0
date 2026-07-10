@@ -1,7 +1,11 @@
+import type { ChatMessage } from "./types";
+
 export type MediaSegment =
   | { kind: "text"; value: string }
   | { kind: "image"; path: string; mimeType: string }
   | { kind: "file"; path: string; mimeType: string };
+
+type MediaFileSegment = Exclude<MediaSegment, { kind: "text" }>;
 
 export const MEDIA_MARKER = /\[media attached:\s*(?:"([^"]+)"|`([^`]+)`|([^\]\(]+?))\s*(?:\(([^)]+)\))?\]/gi;
 export const MEDIA_TAG_MARKER = /`?MEDIA:\s*(?:"([^"\n]+)"|'([^'\n]+)'|`([^`\n]+)`|([A-Za-z]:[\\/][^\n]+|\/[^\n]+|~\/[^\n]+))`?/gi;
@@ -53,4 +57,94 @@ export function parseMediaSegments(text: string): MediaSegment[] {
   }
   if (lastIndex < text.length) segments.push({ kind: "text", value: text.slice(lastIndex) });
   return segments.flatMap((segment) => segment.kind === "text" ? parseMediaTagSegments(segment.value) : [segment]);
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function stringValue(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function structuredMediaSegment(value: unknown): MediaFileSegment | null {
+  const record = recordValue(value);
+  if (!record) return null;
+  const path = stringValue(record, [
+    "path",
+    "mediaPath",
+    "media_path",
+    "visiblePath",
+    "visible_path",
+    "localPath",
+    "local_path",
+    "url"
+  ]);
+  if (!path) return null;
+  const mimeType = stringValue(record, ["mimeType", "mime_type", "contentType", "content_type"])
+    || (isImagePath(path) ? imageMimeType(path) : "application/octet-stream");
+  return {
+    kind: isImagePath(path) || mimeType.startsWith("image/") ? "image" : "file",
+    path,
+    mimeType
+  };
+}
+
+export function structuredMessageMedia(message: ChatMessage): MediaSegment[] {
+  const root = recordValue(message.providerData);
+  if (!root) return [];
+  const segments: MediaSegment[] = [];
+  const seen = new Set<string>();
+  const push = (value: unknown) => {
+    const segment = structuredMediaSegment(value);
+    if (!segment) return;
+    const key = segment.path.replace(/\\/g, "/").toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    segments.push(segment);
+  };
+  if (
+    root.type === "attachment"
+    || typeof root.fileName === "string"
+    || typeof root.file_name === "string"
+  ) {
+    push(root);
+  }
+  for (const key of [
+    "attachments",
+    "attachmentContexts",
+    "attachment_contexts",
+    "mediaFiles",
+    "media_files"
+  ]) {
+    const values = root[key];
+    if (!Array.isArray(values)) continue;
+    for (const value of values) push(value);
+  }
+  return segments;
+}
+
+export function mergeMessageMediaSegments(
+  contentSegments: MediaSegment[],
+  structuredSegments: MediaSegment[]
+) {
+  const seen = new Set(
+    contentSegments
+      .filter((segment): segment is Exclude<MediaSegment, { kind: "text" }> => segment.kind !== "text")
+      .map((segment) => segment.path.replace(/\\/g, "/").toLowerCase())
+  );
+  const supplements = structuredSegments.filter((segment) => {
+    if (segment.kind === "text") return false;
+    const key = segment.path.replace(/\\/g, "/").toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return [...contentSegments, ...supplements];
 }

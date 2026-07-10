@@ -8,7 +8,7 @@ import {
   parseToolEvent,
   withToolEventStartedAt
 } from "../../lib/toolEventUtils";
-import { renderTextForMessage } from "../../lib/messageText";
+import { renderTextForMessage, unwrapFinalAnswerEnvelope } from "../../lib/messageText";
 import {
   messageThinkingCards,
   previewText,
@@ -17,6 +17,7 @@ import {
   type ThinkingCard
 } from "../../lib/messageRenderUtils";
 import type { EmojiPathIndexes } from "../../lib/emojiUtils";
+import { structuredMessageMedia } from "../../lib/mediaUtils";
 import type { ChatMessage } from "../../lib/types";
 import { Avatar } from "../../components/common";
 import { ThinkingCards } from "./ThinkingCards";
@@ -192,10 +193,14 @@ export const MessageRow = memo(function MessageRow({
   const isAgentError = message.source === "desktop-agent-error";
   const rawThinkingCards = thinkingCardsOverride ?? messageThinkingCards(message);
   const thinkingCards = mode !== "content" ? rawThinkingCards : [];
-  const visibleText = !isUser && rawThinkingCards.length > 0
-    ? stripThinkingCardsFromText(message.content.trim(), rawThinkingCards)
+  const protocolText = message.role === "assistant"
+    ? unwrapFinalAnswerEnvelope(message.content).trim()
     : message.content.trim();
+  const visibleText = !isUser && rawThinkingCards.length > 0
+    ? stripThinkingCardsFromText(protocolText, rawThinkingCards)
+    : protocolText;
   const text = mode === "thinking" ? "" : previewText(renderTextForMessage(visibleText), previewCharLimit);
+  const supplementalMedia = mode === "thinking" ? [] : structuredMessageMedia(message);
   const canRevealText = mode !== "thinking" && !isUser && !toolEvent && !processEvent;
   const isLiveStreaming = canRevealText && message.source === "desktop-stream";
   const [settlingAfterStream, setSettlingAfterStream] = useState(isLiveStreaming);
@@ -242,6 +247,7 @@ export const MessageRow = memo(function MessageRow({
               streaming={revealText}
               onFirstChar={onFirstStreamChar}
               emojiPathIndexes={emojiPathIndexes}
+              supplementalMedia={supplementalMedia}
             />
           </div>
         ) : null}

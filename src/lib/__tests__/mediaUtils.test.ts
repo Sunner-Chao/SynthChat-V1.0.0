@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { isImagePath, imageMimeType, parseMediaSegments, parseMediaTagSegments } from "../mediaUtils";
+import {
+  imageMimeType,
+  isImagePath,
+  mergeMessageMediaSegments,
+  parseMediaSegments,
+  parseMediaTagSegments,
+  structuredMessageMedia
+} from "../mediaUtils";
 
 describe("isImagePath", () => {
   it("returns true for image extensions", () => {
@@ -95,5 +102,49 @@ describe("parseMediaSegments", () => {
     const segments = parseMediaSegments(text);
     const kinds = segments.map((s) => s.kind);
     expect(kinds).toContain("image");
+  });
+});
+
+describe("structuredMessageMedia", () => {
+  it("reads persisted attachment metadata even when message content has no media marker", () => {
+    const segments = structuredMessageMedia({
+      id: "message-1",
+      conversationId: "conversation-1",
+      role: "user",
+      content: "请看这张图",
+      createdAt: "2026-07-10T00:00:00.000Z",
+      providerData: {
+        attachments: [{
+          fileName: "photo.png",
+          mimeType: "image/png",
+          path: "D:\\data\\photo.png"
+        }]
+      }
+    });
+
+    expect(segments).toEqual([{
+      kind: "image",
+      path: "D:\\data\\photo.png",
+      mimeType: "image/png"
+    }]);
+  });
+
+  it("does not duplicate structured attachments already represented by content markers", () => {
+    const content = parseMediaSegments('[media attached: "D:\\data\\photo.png" (image/png)]');
+    const structured = structuredMessageMedia({
+      id: "message-1",
+      conversationId: "conversation-1",
+      role: "user",
+      content: "",
+      createdAt: "2026-07-10T00:00:00.000Z",
+      providerData: {
+        attachments: [{
+          mime_type: "image/png",
+          path: "d:/data/photo.png"
+        }]
+      }
+    });
+
+    expect(mergeMessageMediaSegments(content, structured)).toHaveLength(1);
   });
 });

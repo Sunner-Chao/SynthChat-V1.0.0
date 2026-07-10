@@ -6,6 +6,7 @@ import {
   renderTextForMessage,
   displayTextForMessage,
   sanitizeSpeechText,
+  unwrapFinalAnswerEnvelope,
 } from "../messageText";
 
 describe("stripToolDirectiveBlocks", () => {
@@ -70,6 +71,46 @@ describe("renderTextForMessage", () => {
     const attachmentLine = JSON.stringify({ type: "attachment", url: "x.jpg" });
     const input = `Hello\n${attachmentLine}\nWorld`;
     expect(renderTextForMessage(input)).toBe("Hello\nWorld");
+  });
+});
+
+describe("unwrapFinalAnswerEnvelope", () => {
+  it("unwraps a final planner JSON envelope", () => {
+    const input = JSON.stringify({
+      action: "final",
+      content: "# 标题\n\n正文"
+    });
+    expect(unwrapFinalAnswerEnvelope(input)).toBe("# 标题\n\n正文");
+  });
+
+  it("unwraps a fenced final planner JSON envelope", () => {
+    const input = `\`\`\`json
+${JSON.stringify({ type: "answer", message: "完成" })}
+\`\`\``;
+    expect(unwrapFinalAnswerEnvelope(input)).toBe("完成");
+  });
+
+  it("keeps tool decisions and ordinary JSON unchanged", () => {
+    const tool = JSON.stringify({
+      action: "tool",
+      tool_name: "read_file",
+      payload: { path: "notes.txt" }
+    });
+    const ordinary = JSON.stringify({
+      content: "这是用户真正需要查看的 JSON"
+    });
+    expect(unwrapFinalAnswerEnvelope(tool)).toBe(tool);
+    expect(unwrapFinalAnswerEnvelope(ordinary)).toBe(ordinary);
+  });
+
+  it("unwraps a truncated final envelope preview", () => {
+    const input = '{"action":"final","content":"第一行\\n第二行\\u4f60\\u597d';
+    expect(unwrapFinalAnswerEnvelope(input)).toBe("第一行\n第二行你好");
+  });
+
+  it("keeps malformed non-string envelopes unchanged", () => {
+    const input = '{"action":"final","content":123';
+    expect(unwrapFinalAnswerEnvelope(input)).toBe(input);
   });
 });
 
