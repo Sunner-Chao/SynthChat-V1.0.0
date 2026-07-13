@@ -981,7 +981,9 @@ export function PetWindow() {
             try {
               const dataUrl = await api.localAssetDataUrl(path);
               if (dataUrl) return dataUrl;
-            } catch { /* fall through */ }
+            } catch {
+              return "";
+            }
           }
           return convertFileSrc(path);
         }
@@ -3490,6 +3492,7 @@ export function PetWindow() {
                 src={personaAvatarSrc}
                 alt="角色头像"
                 aria-hidden="true"
+                onError={() => setPersonaAvatarSrc("")}
               />
             ) : null}
             <span className="pet-cloud-tail" aria-hidden="true">
@@ -3543,7 +3546,12 @@ export function PetWindow() {
           {/* User avatar slot — always rendered to keep grid columns stable */}
           <span className="pet-input-user-avatar-slot" aria-hidden="true">
             {profileAvatarSrc ? (
-              <img className="pet-input-user-avatar" src={profileAvatarSrc} alt="" />
+              <img
+                className="pet-input-user-avatar"
+                src={profileAvatarSrc}
+                alt=""
+                onError={() => setProfileAvatarSrc("")}
+              />
             ) : null}
           </span>
           <input

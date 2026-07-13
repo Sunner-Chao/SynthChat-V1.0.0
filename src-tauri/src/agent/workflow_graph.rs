@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
@@ -3246,6 +3248,29 @@ impl TaskRequirement {
             Self::WechatDelivery => evidence.wechat_delivered || evidence.message_sent,
         }
     }
+
+    fn is_attempted_by(self, tool_name: &str) -> bool {
+        match self {
+            Self::WebResult => {
+                matches!(
+                    tool_name,
+                    "web_search" | "x_search" | "web_extract" | "web_request"
+                ) || tool_name.starts_with("browser_")
+            }
+            Self::ImageArtifact => tool_name == "image_generate",
+            Self::FileArtifact => matches!(
+                tool_name,
+                "write_file"
+                    | "patch"
+                    | "artifact"
+                    | "document"
+                    | "image_generate"
+                    | "video_generate"
+                    | "text_to_speech"
+            ),
+            Self::MessageDelivery | Self::WechatDelivery => tool_name == "send_message",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -3258,59 +3283,62 @@ impl TaskContract {
         let mut contract = Self::default();
         let request = run.user_request.as_str();
         let normalized = request.to_ascii_lowercase();
+        let capability_inquiry = request_is_capability_inquiry(request, &normalized);
 
-        if text_contains_any(
-            request,
-            &[
-                "搜索", "查询", "查找", "联网", "网上", "最新", "今天", "新闻", "价格",
-            ],
-        ) || ascii_contains_any(
-            &normalized,
-            &[
-                "search", "web", "look up", "latest", "today", "news", "price",
-            ],
-        ) {
+        if !capability_inquiry
+            && (text_contains_any(
+                request,
+                &[
+                    "搜索", "查询", "查找", "联网", "网上", "最新", "今天", "新闻", "价格",
+                ],
+            ) || ascii_contains_any(
+                &normalized,
+                &[
+                    "search", "web", "look up", "latest", "today", "news", "price",
+                ],
+            ))
+        {
             contract.require(TaskRequirement::WebResult);
         }
 
-        if text_contains_any(request, &["生图", "生成图片", "画一张", "绘制", "图片生成"])
-            || ascii_contains_any(
-                &normalized,
-                &["generate image", "draw an image", "image generation"],
-            )
+        if !capability_inquiry
+            && (text_contains_any(request, &["生图", "生成图片", "画一张", "绘制", "图片生成"])
+                || ascii_contains_any(
+                    &normalized,
+                    &["generate image", "draw an image", "image generation"],
+                ))
         {
             contract.require(TaskRequirement::ImageArtifact);
         }
 
-        let asks_for_file =
-            text_contains_any(request, &["生成", "创建", "导出", "保存", "写入", "下载"])
+        let asks_for_file = !capability_inquiry
+            && ((text_contains_any(request, &["生成", "创建", "导出", "保存", "写入", "下载"])
                 && text_contains_any(
                     request,
                     &[
                         "文件", "文档", "桌面", "报告", "Word", "PDF", "Excel", "PPT", "docx",
                         "xlsx", "pptx",
                     ],
-                );
-        if asks_for_file
-            || ascii_contains_any(
-                &normalized,
-                &[
-                    "create file",
-                    "save file",
-                    "export",
-                    "download",
-                    "generate word",
-                    "generate pdf",
-                    "save to desktop",
-                ],
-            )
-        {
+                ))
+                || ascii_contains_any(
+                    &normalized,
+                    &[
+                        "create file",
+                        "save file",
+                        "export",
+                        "download",
+                        "generate word",
+                        "generate pdf",
+                        "save to desktop",
+                    ],
+                ));
+        if asks_for_file {
             contract.require(TaskRequirement::FileArtifact);
         }
 
-        let asks_for_delivery =
-            text_contains_any(request, &["发送", "发给", "通知", "转发", "推送"])
-                || ascii_contains_any(&normalized, &["send", "deliver", "notify", "message"]);
+        let asks_for_delivery = !capability_inquiry
+            && (text_contains_any(request, &["发送", "发给", "通知", "转发", "推送"])
+                || ascii_contains_any(&normalized, &["send", "deliver", "notify", "message"]));
         let mentions_wechat = text_contains_any(request, &["微信", "企微", "微信群"])
             || ascii_contains_any(&normalized, &["wechat", "weixin", "wecom"]);
         let mentions_messaging = mentions_wechat
@@ -3329,16 +3357,18 @@ impl TaskContract {
             contract.require(TaskRequirement::WechatDelivery);
         }
 
-        for event in &run.tool_events {
-            match tool_event_name(event).as_str() {
-                "web_search" | "x_search" | "web_extract" | "web_request" => {
-                    contract.require(TaskRequirement::WebResult)
+        if !capability_inquiry {
+            for event in &run.tool_events {
+                match tool_event_name(event).as_str() {
+                    "web_search" | "x_search" | "web_extract" | "web_request" => {
+                        contract.require(TaskRequirement::WebResult)
+                    }
+                    "image_generate" => contract.require(TaskRequirement::ImageArtifact),
+                    "write_file" | "patch" | "artifact" | "document" | "text_to_speech"
+                    | "video_generate" => contract.require(TaskRequirement::FileArtifact),
+                    "send_message" => contract.require(TaskRequirement::MessageDelivery),
+                    _ => {}
                 }
-                "image_generate" => contract.require(TaskRequirement::ImageArtifact),
-                "write_file" | "patch" | "artifact" | "document" | "text_to_speech"
-                | "video_generate" => contract.require(TaskRequirement::FileArtifact),
-                "send_message" => contract.require(TaskRequirement::MessageDelivery),
-                _ => {}
             }
         }
 
@@ -3382,7 +3412,7 @@ struct EvidenceRegistry {
 impl EvidenceRegistry {
     fn from_run(run: &AgentRunRecord) -> Self {
         let mut evidence = Self::default();
-        for event in &run.tool_events {
+        for event in latest_tool_events(run) {
             let tool_name = tool_event_name(event);
             let status = tool_event_status(event);
             if matches!(status, Some("running" | "pending")) {
@@ -3485,6 +3515,7 @@ impl CompletionGateAssessment {
 struct CompletionGateDecision {
     assessment: CompletionGateAssessment,
     observation: Option<String>,
+    terminal_content: Option<String>,
 }
 
 fn final_answer_completion_gate_decision(
@@ -3500,7 +3531,9 @@ fn final_answer_completion_gate_decision(
     let has_blocker = final_answer_reports_blocker(trimmed);
     let looks_intermediate = final_answer_looks_like_intermediate_progress(trimmed);
     let looks_tool_or_transport_leak = final_answer_looks_like_tool_or_transport_leak(trimmed);
-    let assessment = CompletionGateAssessment {
+    let rejection_count = completion_gate_rejection_count(&run, &unsatisfied);
+    let failed_required_tools = failed_tools_for_requirements(&run, &unsatisfied);
+    let mut assessment = CompletionGateAssessment {
         contract,
         evidence,
         unsatisfied,
@@ -3515,6 +3548,23 @@ fn final_answer_completion_gate_decision(
             observation: Some(
                 "final answer is empty; continue planning or report a concrete blocker".into(),
             ),
+            terminal_content: None,
+        });
+    }
+
+    if !assessment.unsatisfied.is_empty()
+        && !assessment.has_blocker
+        && assessment.evidence.running_tools.is_empty()
+        && (!failed_required_tools.is_empty()
+            || rejection_count >= COMPLETION_GATE_RECOVERY_LIMIT)
+    {
+        let terminal_content =
+            completion_gate_terminal_blocker(&assessment, &failed_required_tools);
+        assessment.has_blocker = true;
+        return Ok(CompletionGateDecision {
+            assessment,
+            observation: None,
+            terminal_content: Some(terminal_content),
         });
     }
 
@@ -3524,6 +3574,7 @@ fn final_answer_completion_gate_decision(
                 "completion gate rejected a raw tool/output-looking final answer. Summarize the tool evidence into a human-readable answer, retry the failed tool path, or return a concrete blocker instead of exposing stdout/stderr, function-call errors, or corrupted transport text.".into(),
             ),
             assessment,
+            terminal_content: None,
         });
     }
 
@@ -3534,6 +3585,7 @@ fn final_answer_completion_gate_decision(
                 assessment.evidence.running_tools.join(", ")
             )),
             assessment,
+            terminal_content: None,
         });
     }
 
@@ -3549,6 +3601,7 @@ fn final_answer_completion_gate_decision(
                 "completion gate rejected final answer because required evidence is missing: {missing}. Continue executing the required tool chain, or return a concrete blocker if the evidence cannot be produced."
             )),
             assessment,
+            terminal_content: None,
         });
     }
 
@@ -3558,52 +3611,203 @@ fn final_answer_completion_gate_decision(
                 "completion gate rejected a progress-style final answer. Continue execution until deliverables are ready, or return a final blocker with the missing evidence.".into(),
             ),
             assessment,
-        });
-    }
-
-    let latest_failed_tool = run
-        .tool_events
-        .iter()
-        .rev()
-        .find(|event| {
-            matches!(
-                event
-                    .get("status")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-                "completed" | "failed" | "canceled" | "cancelled"
-            )
-        })
-        .and_then(|event| {
-            let status = event.get("status").and_then(Value::as_str)?;
-            if status != "failed" {
-                return None;
-            }
-            let tool_name = event
-                .get("toolName")
-                .or_else(|| event.get("tool_name"))
-                .and_then(Value::as_str)
-                .unwrap_or("tool");
-            let error = event
-                .get("error")
-                .or_else(|| event.get("summary"))
-                .and_then(Value::as_str)
-                .unwrap_or("tool failed");
-            Some(format!("{tool_name}: {error}"))
-        });
-    if let Some(failure) = latest_failed_tool.filter(|_| assessment.looks_intermediate) {
-        return Ok(CompletionGateDecision {
-            observation: Some(format!(
-            "completion gate rejected an intermediate final answer after a failed tool ({failure}). Retry with an available tool, choose a fallback path, or return a final blocker that explicitly states what failed and what remains."
-        )),
-            assessment,
+            terminal_content: None,
         });
     }
 
     Ok(CompletionGateDecision {
         assessment,
         observation: None,
+        terminal_content: None,
     })
+}
+
+const COMPLETION_GATE_RECOVERY_LIMIT: usize = 2;
+
+fn request_is_capability_inquiry(request: &str, normalized: &str) -> bool {
+    let compact = request
+        .chars()
+        .filter(|ch| {
+            !ch.is_whitespace()
+                && !matches!(
+                    ch,
+                    '？' | '?' | '。' | '.' | '！' | '!' | '，' | ',' | '；' | ';' | '：' | ':'
+                )
+        })
+        .collect::<String>();
+    let without_suffix = compact
+        .strip_suffix('吗')
+        .or_else(|| compact.strip_suffix('么'))
+        .unwrap_or(&compact);
+    let chinese_core = [
+        "你是否支持",
+        "是否支持",
+        "你可不可以",
+        "可不可以",
+        "你能不能",
+        "能不能",
+        "你有没有",
+        "有没有",
+        "你可以",
+        "可以",
+        "你能",
+        "能",
+        "你会",
+        "会",
+        "你支持",
+        "支持",
+    ]
+    .iter()
+    .find_map(|prefix| without_suffix.strip_prefix(prefix));
+    if chinese_core.is_some_and(|core| {
+        matches!(
+            core,
+            "生图"
+                | "生成图片"
+                | "生成图像"
+                | "画图"
+                | "绘图"
+                | "联网"
+                | "联网搜索"
+                | "上网搜索"
+                | "搜索网页"
+                | "创建文件"
+                | "生成文件"
+                | "生成文档"
+                | "写文件"
+                | "发消息"
+                | "发送消息"
+                | "发微信"
+                | "发送微信"
+        )
+    }) {
+        return true;
+    }
+
+    let english = normalized
+        .trim()
+        .trim_matches(|ch: char| {
+            ch.is_whitespace() || matches!(ch, '?' | '.' | '!' | ',' | ';' | ':')
+        })
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let english_core = [
+        "can you ",
+        "are you able to ",
+        "do you support ",
+        "is it possible for you to ",
+    ]
+    .iter()
+    .find_map(|prefix| english.strip_prefix(prefix));
+    english_core.is_some_and(|core| {
+        matches!(
+            core,
+            "generate images"
+                | "generate an image"
+                | "create images"
+                | "draw images"
+                | "search the web"
+                | "browse the web"
+                | "create files"
+                | "generate documents"
+                | "send messages"
+                | "send wechat messages"
+        )
+    })
+}
+
+fn failed_tools_for_requirements(
+    run: &AgentRunRecord,
+    requirements: &[TaskRequirement],
+) -> Vec<String> {
+    latest_tool_events(run)
+        .into_iter()
+        .filter_map(|event| {
+            if tool_event_status(event) != Some("failed") {
+                return None;
+            }
+            let tool_name = tool_event_name(event);
+            requirements
+                .iter()
+                .any(|requirement| requirement.is_attempted_by(&tool_name))
+                .then(|| tool_event_label(event, &tool_name))
+        })
+        .collect()
+}
+
+fn completion_gate_rejection_count(run: &AgentRunRecord, unsatisfied: &[TaskRequirement]) -> usize {
+    let expected = unsatisfied
+        .iter()
+        .map(|requirement| requirement.as_str())
+        .collect::<Vec<_>>();
+    let mut count = 0;
+    for event in run.phase_events.iter().rev() {
+        if event.phase != WORKFLOW_PHASE_NODE
+            || event.detail.get("node").and_then(Value::as_str) != Some("completion_gate")
+        {
+            continue;
+        }
+        match event.detail.get("status").and_then(Value::as_str) {
+            Some("completed") => break,
+            Some("failed") => {
+                let previous = event
+                    .detail
+                    .get("detail")
+                    .and_then(|detail| {
+                        detail
+                            .get("completionGate")
+                            .or_else(|| detail.get("completion_gate"))
+                    })
+                    .and_then(|gate| gate.get("unsatisfied"))
+                    .and_then(Value::as_array)
+                    .map(|requirements| {
+                        requirements
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .collect::<Vec<_>>()
+                    });
+                if previous.as_deref() == Some(expected.as_slice()) {
+                    count += 1;
+                } else {
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    count
+}
+
+fn completion_gate_terminal_blocker(
+    assessment: &CompletionGateAssessment,
+    failed_required_tools: &[String],
+) -> String {
+    let missing = assessment
+        .unsatisfied
+        .iter()
+        .map(|requirement| requirement.description())
+        .collect::<Vec<_>>()
+        .join("、");
+    if let Some(failure) = failed_required_tools.last() {
+        let failure = truncate_completion_gate_detail(failure, 600);
+        return format!(
+            "本轮任务未能完成，已停止继续重试。\n\n失败原因：{failure}\n缺少交付结果：{missing}。"
+        );
+    }
+    format!("本轮任务未能完成：多次尝试后仍缺少{missing}。为避免持续循环，已停止继续重试。")
+}
+
+fn truncate_completion_gate_detail(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_string();
+    }
+    let mut truncated = value
+        .chars()
+        .take(max_chars.saturating_sub(3))
+        .collect::<String>();
+    truncated.push_str("...");
+    truncated
 }
 
 fn text_contains_any(content: &str, markers: &[&str]) -> bool {
@@ -3621,6 +3825,28 @@ fn tool_event_name(event: &Value) -> String {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string()
+}
+
+fn tool_event_call_id(event: &Value) -> Option<&str> {
+    event
+        .get("callId")
+        .or_else(|| event.get("call_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|call_id| !call_id.is_empty())
+}
+
+fn latest_tool_events(run: &AgentRunRecord) -> Vec<&Value> {
+    let mut seen_call_ids = HashSet::new();
+    run.tool_events
+        .iter()
+        .rev()
+        .filter(|event| {
+            tool_event_call_id(event)
+                .map(|call_id| seen_call_ids.insert(call_id.to_string()))
+                .unwrap_or(true)
+        })
+        .collect()
 }
 
 fn tool_event_status(event: &Value) -> Option<&str> {
@@ -3974,6 +4200,154 @@ fn final_answer_contains_tool_action_object(normalized: &str) -> bool {
 mod completion_gate_tests {
     use super::*;
 
+    fn test_store(name: &str) -> (std::path::PathBuf, AppStore) {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "synthchat-completion-gate-{name}-{}-{nonce}",
+            std::process::id()
+        ));
+        let store = AppStore::new(dir.join("state.json")).unwrap();
+        (dir, store)
+    }
+
+    #[test]
+    fn capability_question_does_not_require_image_artifact() {
+        let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+        run.user_request = "你可以生图吗？".into();
+
+        let contract = TaskContract::from_run(&run);
+
+        assert!(contract.requirements.is_empty());
+    }
+
+    #[test]
+    fn concrete_image_request_requires_image_artifact() {
+        let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+        run.user_request = "请生成图片：一只在花园挥爪的小狗".into();
+
+        let contract = TaskContract::from_run(&run);
+
+        assert_eq!(contract.requirements, vec![TaskRequirement::ImageArtifact]);
+    }
+
+    #[test]
+    fn capability_question_final_answer_passes_without_tool_evidence() {
+        let (dir, store) = test_store("capability");
+        let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+        run.user_request = "你可以生图吗？".into();
+        store.save_agent_run(run.clone()).unwrap();
+
+        let gate = final_answer_completion_gate_decision(
+            &store,
+            &run.run_id,
+            "可以，告诉我主体、风格和尺寸即可。",
+        )
+        .unwrap();
+
+        assert!(gate.observation.is_none());
+        assert!(gate.terminal_content.is_none());
+        assert!(gate.assessment.unsatisfied.is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn failed_required_tool_becomes_terminal_blocker() {
+        let (dir, store) = test_store("failed-tool");
+        let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+        run.user_request = "请生成图片：一只小狗".into();
+        run.tool_events.push(json!({
+            "toolName": "image_generate",
+            "callId": "call-image-1",
+            "status": "running",
+            "ok": true
+        }));
+        run.tool_events.push(json!({
+            "toolName": "image_generate",
+            "callId": "call-image-1",
+            "status": "failed",
+            "ok": false,
+            "error": "provider returned 503"
+        }));
+        store.save_agent_run(run.clone()).unwrap();
+
+        let gate =
+            final_answer_completion_gate_decision(
+                &store,
+                &run.run_id,
+                r#"{"name":"image_generate","arguments":{"prompt":"一只小狗"}}"#,
+            )
+            .unwrap();
+
+        assert!(gate.observation.is_none());
+        assert!(gate.assessment.has_blocker);
+        assert!(gate.assessment.evidence.running_tools.is_empty());
+        let terminal = gate.terminal_content.unwrap();
+        assert!(terminal.contains("已停止继续重试"));
+        assert!(terminal.contains("image_generate"));
+        assert!(terminal.contains("generated image artifact"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn unrelated_failed_tool_does_not_end_required_tool_recovery() {
+        let (dir, store) = test_store("unrelated-failed-tool");
+        let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+        run.user_request = "请生成图片：一只小狗".into();
+        run.tool_events.push(json!({
+            "toolName": "terminal",
+            "status": "failed",
+            "ok": false,
+            "error": "command failed"
+        }));
+        store.save_agent_run(run.clone()).unwrap();
+
+        let gate =
+            final_answer_completion_gate_decision(&store, &run.run_id, "正在继续生成。").unwrap();
+
+        assert!(gate.observation.is_some());
+        assert!(!gate.assessment.has_blocker);
+        assert!(gate.terminal_content.is_none());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn repeated_missing_evidence_stops_after_recovery_limit() {
+        let (dir, store) = test_store("recovery-limit");
+        let mut run = AgentRunRecord::new("conv".into(), "persona".into(), "agent".into());
+        run.user_request = "请生成图片：一只小狗".into();
+        store.save_agent_run(run.clone()).unwrap();
+
+        for iteration in 1..=COMPLETION_GATE_RECOVERY_LIMIT {
+            let gate =
+                final_answer_completion_gate_decision(&store, &run.run_id, "已经完成。").unwrap();
+            let observation = gate.observation.as_deref().unwrap().to_string();
+            assert!(gate.terminal_content.is_none());
+            record_workflow_completion_gate_rejected(
+                &store,
+                &run.run_id,
+                iteration as u32,
+                WorkflowMode::ChatTurn,
+                &gate.assessment,
+                &observation,
+            )
+            .unwrap();
+        }
+
+        let gate =
+            final_answer_completion_gate_decision(&store, &run.run_id, "已经完成。").unwrap();
+
+        assert!(gate.observation.is_none());
+        assert!(gate.assessment.has_blocker);
+        assert!(gate
+            .terminal_content
+            .as_deref()
+            .is_some_and(|content| content.contains("为避免持续循环")));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn rejects_corrupted_tool_output_as_final_answer() {
         assert!(final_answer_looks_like_tool_or_transport_leak(
@@ -4093,7 +4467,7 @@ pub(super) fn resolve_workflow_planner_route(
             })
         }
         _ => {
-            let final_content = decision
+            let mut final_content = decision
                 .get("content")
                 .or_else(|| decision.get("answer"))
                 .and_then(Value::as_str)
@@ -4124,6 +4498,9 @@ pub(super) fn resolve_workflow_planner_route(
                         observation
                     ),
                 });
+            }
+            if let Some(terminal_content) = gate.terminal_content.as_ref() {
+                final_content = terminal_content.clone();
             }
             record_workflow_planner_to_reviewer_with_completion_gate(
                 store,

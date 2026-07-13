@@ -23,6 +23,7 @@ try {
 
     . (Join-Path $ScriptRoot 'git-script-profile.ps1')
     $ProfileDefaults = Get-GitScriptProfile
+    Ensure-GitHubOriginInteractive -RemoteName $ProfileDefaults.RemoteName | Out-Null
     if (-not $GitHubRepo -or -not $GitHubRepo.Trim()) {
         $GitHubRepo = if ($ProfileDefaults.Repository) { $ProfileDefaults.Repository.Trim() } else { 'Sunner-Chao/SynthChat' }
     } else {
@@ -375,7 +376,7 @@ try {
     $remoteBranchExists = ($LASTEXITCODE -eq 0)
 
     if ($remoteBranchExists) {
-        & git fetch origin ("refs/heads/${branch}:refs/remotes/origin/${branch}")
+        & git fetch origin ("+refs/heads/${branch}:refs/remotes/origin/${branch}")
         if ($LASTEXITCODE -ne 0) {
             throw "git fetch 当前分支失败。请先检查远端仓库地址、SSH 配置或网络。"
         }

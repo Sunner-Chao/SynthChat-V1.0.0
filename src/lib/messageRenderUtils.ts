@@ -217,11 +217,21 @@ function stripPastePlaceholders(text: string): string {
 export function thinkingCardsFromProviderData(providerData: unknown): ThinkingCard[] {
   const root = recordValue(providerData);
   if (!root) return [];
-  const candidates = [
-    ...arrayValue(root.thinkingCards),
+  const liveCandidates = arrayValue(root.thinkingCards);
+  const providerCandidates = [
     ...arrayValue(recordValue(root.responses)?.thinkingCards),
     ...arrayValue(recordValue(root.anthropic)?.thinkingCards)
   ];
+  const candidates = providerCandidates.length > 0
+    ? [
+        ...providerCandidates,
+        ...liveCandidates.filter((item) => {
+          const card = recordValue(item);
+          return card && card.provider !== "llm";
+        })
+      ]
+    : liveCandidates;
+  const seen = new Set<string>();
   return candidates
     .map((item, index) => {
       const card = recordValue(item);
@@ -254,7 +264,20 @@ export function thinkingCardsFromProviderData(providerData: unknown): ThinkingCa
         streaming
       };
     })
-    .filter((card): card is ThinkingCard => card !== null);
+    .filter((card): card is ThinkingCard => {
+      if (card === null) return false;
+      const signature = [
+        card.provider,
+        card.kind,
+        card.title,
+        card.summary,
+        card.redacted ? "redacted" : "",
+        card.encrypted ? "encrypted" : ""
+      ].join("\u0000");
+      if (seen.has(signature)) return false;
+      seen.add(signature);
+      return true;
+    });
 }
 
 export function messageThinkingCards(message: ChatMessage) {

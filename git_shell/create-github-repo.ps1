@@ -16,8 +16,6 @@
 
     [switch]$NoPush,
 
-    [string]$Org,
-
     [switch]$OpenRepo,
 
     [switch]$NoConfig  # 跳过权限配置
@@ -29,6 +27,7 @@ $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ProjectRoot
 
 # 加载共享模块
+. (Join-Path $ProjectRoot 'git-script-profile.ps1')
 $helperModule = Join-Path $ProjectRoot 'git-remote-helper.ps1'
 . $helperModule
 
@@ -458,6 +457,16 @@ if (-not $Name) {
 }
 if (-not $Name) { throw "Name 不能为空。" }
 
+$profileDefaults = Get-GitScriptProfile
+$repositoryContext = Read-GitHubRepositoryContext `
+    -DefaultRepository $profileDefaults.Repository `
+    -DefaultType $profileDefaults.RepositoryType `
+    -DefaultRepositoryName $Name
+$Name = $repositoryContext.Name
+$RepositoryType = $repositoryContext.RepositoryType
+$RepositoryOwner = $repositoryContext.Owner
+$Org = $repositoryContext.Organization
+
 if ($Protocol -eq 'ssh' -and -not $PSBoundParameters.ContainsKey('SshHost')) {
     $SshHost = Get-SshHost -DefaultAlias 'github-sunner'
 }
@@ -497,6 +506,8 @@ if (-not (Check-Auth)) {
 
 Write-Host ""
 Write-Info "仓库名称: $Name"
+Write-Info "仓库类型: $(if ($RepositoryType -eq 'organization') { '组织仓库' } else { '个人仓库' })"
+Write-Info "归属者: $RepositoryOwner"
 Write-Info "可见性: $(Get-RepoVisibility)"
 Write-Info "描述: $(if ($Description) { $Description } else { '无' })"
 if ($Org) { Write-Info "组织: $Org" }
@@ -527,6 +538,16 @@ if ($NoSetRemote) {
 } else {
     Ensure-GitRemote -RemoteName $RemoteName -RemoteUrl $remoteUrl
 }
+
+Save-GitScriptProfile `
+    -Repository $repoInfo.NameWithOwner `
+    -RepositoryType $RepositoryType `
+    -Owner $RepositoryOwner `
+    -Organization $Org `
+    -RemoteUrl $remoteUrl `
+    -Protocol $Protocol `
+    -SshHost $SshHost `
+    -RemoteName $RemoteName
 
 Ensure-InitialPush -RepoNameWithOwner $repoInfo.NameWithOwner
 

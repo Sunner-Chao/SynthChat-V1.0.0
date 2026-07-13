@@ -5,6 +5,7 @@ import {
   composerErrorText,
   normalizeToolDetailText,
   estimateMessageTokens,
+  thinkingCardsFromProviderData,
 } from "../messageRenderUtils";
 
 describe("clampCount", () => {
@@ -99,5 +100,21 @@ describe("estimateMessageTokens", () => {
   it("handles Chinese characters", () => {
     const tokens = estimateMessageTokens("你好世界");
     expect(tokens).toBeGreaterThan(0);
+  });
+});
+
+describe("thinkingCardsFromProviderData", () => {
+  it("deduplicates identical cards projected into multiple provider containers", () => {
+    const card = {
+      provider: "openai_responses",
+      kind: "reasoning",
+      title: "模型思考",
+      summary: "先确认用户的请求，再给出简短回答。",
+      streaming: false
+    };
+
+    expect(thinkingCardsFromProviderData({
+      responses: { thinkingCards: [card, { ...card }] }
+    })).toHaveLength(1);
   });
 });

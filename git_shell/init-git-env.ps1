@@ -39,62 +39,26 @@ function Write-InfoLine {
 function Resolve-RepositoryUrlInteractive {
     $profileDefaults = Get-GitScriptProfile
 
-    if ($profileDefaults.RemoteUrl) {
-        $useSaved = Read-Host "检测到已保存的默认仓库地址，是否直接使用？(Y/n)"
-        if (-not $useSaved -or $useSaved -match '^(y|yes)$') {
-            return @{
-                Repository = $profileDefaults.Repository
-                RemoteUrl  = $profileDefaults.RemoteUrl
-                Protocol   = $profileDefaults.Protocol
-                SshHost    = $profileDefaults.SshHost
-                RemoteName = $profileDefaults.RemoteName
-            }
-        }
-    }
-
-    $repository = Read-Host "请输入 Repository (owner/repo)"
-    if (-not $repository -or -not $repository.Trim()) {
-        throw "Repository 不能为空。"
-    }
-
-    if ($repository -notmatch '^[^/]+/[^/]+$') {
-        throw "Repository 格式必须是 owner/repo，例如 Sunner-Chao/LStwinHR-dev。"
-    }
-
-    $protocol = Read-Host "请选择协议 ssh/https（直接回车默认 ssh）"
-    if (-not $protocol) {
-        $protocol = 'ssh'
-    }
-    $protocol = $protocol.Trim().ToLowerInvariant()
-    if ($protocol -notin @('ssh', 'https')) {
-        throw "协议必须是 ssh 或 https。"
-    }
-
-    $sshHost = 'github.com'
-    if ($protocol -eq 'ssh') {
-        $useAlias = Read-Host "是否使用 SSH Host 别名？(y/N)"
-        if ($useAlias -match '^(y|yes)$') {
-            $aliasInput = Read-Host "请输入 SSH Host 别名（直接回车默认 github-sunner）"
-            if ([string]::IsNullOrWhiteSpace($aliasInput)) {
-                $sshHost = 'github-sunner'
-            } else {
-                $sshHost = $aliasInput.Trim()
-            }
-        }
-    }
-
-    $remoteUrl = if ($protocol -eq 'https') {
-        "https://github.com/$repository.git"
+    $context = Read-GitHubRepositoryContext `
+        -DefaultRepository $profileDefaults.Repository `
+        -DefaultType $profileDefaults.RepositoryType
+    $protocol = Read-GitProtocolInteractive -DefaultProtocol $profileDefaults.Protocol
+    $sshHost = if ($protocol -eq 'ssh') {
+        Read-GitSshHostInteractive -DefaultAlias $profileDefaults.SshHost
     } else {
-        "git@${sshHost}:$repository.git"
+        'github.com'
     }
+    $remoteUrl = New-GitHubRemoteUrl -Repository $context.Repository -Protocol $protocol -SshHost $sshHost
 
     return @{
-        Repository = $repository
+        Repository     = $context.Repository
+        RepositoryType = $context.RepositoryType
+        Owner          = $context.Owner
+        Organization   = $context.Organization
         RemoteUrl  = $remoteUrl
         Protocol   = $protocol
         SshHost    = $sshHost
-        RemoteName = 'origin'
+        RemoteName = $profileDefaults.RemoteName
     }
 }
 

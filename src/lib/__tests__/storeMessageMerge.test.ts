@@ -306,6 +306,58 @@ describe("chat store message merge", () => {
     }]);
   });
 
+  it("replaces the generic live thinking card with the final provider card", () => {
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-thinking-provider-final",
+        role: "assistant",
+        content: "",
+        source: "desktop-agent",
+        providerData: {
+          thinkingCards: [{
+            provider: "llm",
+            kind: "thinking",
+            title: "模型思考",
+            summary: "正在组织简短问候。",
+            streaming: true
+          }]
+        }
+      }),
+      { streaming: true }
+    );
+
+    useAppStore.getState().upsertIncomingMessage(
+      testMessage({
+        id: "assistant-thinking-provider-final",
+        role: "assistant",
+        content: "你好呀，小孙～",
+        source: "desktop-agent",
+        providerData: {
+          responses: {
+            thinkingCards: [{
+              provider: "openai_responses",
+              kind: "reasoning",
+              title: "模型思考",
+              summary: "The user said hello, so I will answer with a concise greeting.",
+              streaming: false
+            }]
+          }
+        }
+      }),
+      { final: true }
+    );
+
+    const cards = thinkingCardsFromProviderData(
+      useAppStore.getState().messages[0].providerData
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({
+      provider: "openai_responses",
+      summary: "The user said hello, so I will answer with a concise greeting.",
+      streaming: false
+    });
+  });
+
   it("drops an orphan live assistant stream during stale refresh when no active work remains", () => {
     useAppStore.getState().upsertIncomingMessage(
       testMessage({

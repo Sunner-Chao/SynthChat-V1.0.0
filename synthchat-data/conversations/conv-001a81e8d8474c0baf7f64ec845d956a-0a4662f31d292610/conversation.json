@@ -1,7 +1,7 @@
 {
   "id": "conv-001a81e8d8474c0baf7f64ec845d956a",
   "title": "Subagent 1 · coder",
-  "updatedAt": "2026-07-10T05:22:08.375656700+00:00",
+  "updatedAt": "2026-07-13T09:32:37.754356800+00:00",
   "lastMessage": "```json\n{\n  \"action\": \"final\",\n  \"content\": \"# 基于OPENBIM的房屋建筑数据治理与编码管理系统\\n\\n**申报单位：** 嘉兴孪数光线科技有限公司（盖章）\\n**联系人：** 刘家权\\n**",
   "personaId": "default",
   "wechatAccountId": null,

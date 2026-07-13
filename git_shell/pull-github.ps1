@@ -35,56 +35,26 @@ function Resolve-RepositoryUrl {
         return $RepositoryUrl
     }
 
-    if ($ProfileDefaults.RemoteUrl) {
-        return $ProfileDefaults.RemoteUrl
-    }
-
-    if ($ProfileDefaults.Repository) {
-        if ($ProfileDefaults.Protocol -eq 'https') {
-            return "https://github.com/$($ProfileDefaults.Repository).git"
-        }
-
-        return "git@$($ProfileDefaults.SshHost):$($ProfileDefaults.Repository).git"
-    }
-
-    $repository = Read-Host "未找到默认仓库配置，请输入 Repository (owner/repo)"
-    if (-not $repository -or -not $repository.Trim()) {
-        throw "Repository 不能为空。"
-    }
-
-    if ($repository -notmatch '^[^/]+/[^/]+$') {
-        throw "Repository 格式必须是 owner/repo，例如 Sunner-Chao/LStwinHR-dev。"
-    }
-
-    $protocol = Read-Host "请选择协议 ssh/https（直接回车默认 ssh）"
-    if (-not $protocol) {
-        $protocol = 'ssh'
-    }
-    $protocol = $protocol.Trim().ToLowerInvariant()
-    if ($protocol -notin @('ssh', 'https')) {
-        throw "协议必须是 ssh 或 https。"
-    }
-
-    $sshHost = 'github.com'
-    if ($protocol -eq 'ssh') {
-        $useAlias = Read-Host "是否使用 SSH Host 别名？(y/N)"
-        if ($useAlias -match '^(y|yes)$') {
-            $aliasInput = Read-Host "请输入 SSH Host 别名（直接回车默认 github-sunner）"
-            if ([string]::IsNullOrWhiteSpace($aliasInput)) {
-                $sshHost = 'github-sunner'
-            } else {
-                $sshHost = $aliasInput.Trim()
-            }
-        }
-    }
-
-    $resolvedUrl = if ($protocol -eq 'https') {
-        "https://github.com/$repository.git"
+    $context = Read-GitHubRepositoryContext `
+        -DefaultRepository $ProfileDefaults.Repository `
+        -DefaultType $ProfileDefaults.RepositoryType
+    $protocol = Read-GitProtocolInteractive -DefaultProtocol $ProfileDefaults.Protocol
+    $sshHost = if ($protocol -eq 'ssh') {
+        Read-GitSshHostInteractive -DefaultAlias $ProfileDefaults.SshHost
     } else {
-        "git@${sshHost}:$repository.git"
+        'github.com'
     }
+    $resolvedUrl = New-GitHubRemoteUrl -Repository $context.Repository -Protocol $protocol -SshHost $sshHost
 
-    Save-GitScriptProfile -Repository $repository -RemoteUrl $resolvedUrl -Protocol $protocol -SshHost $sshHost -RemoteName $ProfileDefaults.RemoteName
+    Save-GitScriptProfile `
+        -Repository $context.Repository `
+        -RepositoryType $context.RepositoryType `
+        -Owner $context.Owner `
+        -Organization $context.Organization `
+        -RemoteUrl $resolvedUrl `
+        -Protocol $protocol `
+        -SshHost $sshHost `
+        -RemoteName $ProfileDefaults.RemoteName
     $script:ProfileDefaults = Get-GitScriptProfile
 
     Write-Host "[pull-github] 已保存默认仓库配置，后续可直接复用。" -ForegroundColor Green

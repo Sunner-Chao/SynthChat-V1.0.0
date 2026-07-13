@@ -14,7 +14,7 @@
       "personaId": "default",
       "title": "Subagent 1 · coder",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -29,7 +29,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -44,7 +44,7 @@
       "personaId": "default",
       "title": "Subagent 2 · planner",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -59,7 +59,7 @@
       "personaId": "default",
       "title": "Subagent 3 · coder",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -74,7 +74,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -89,7 +89,7 @@
       "personaId": "default",
       "title": "Subagent 1 · subagent",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -104,7 +104,7 @@
       "personaId": "default",
       "title": "Subagent 1 · subagent",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T07:55:24.216328100+00:00"
+      "updatedAt": "2026-07-13T09:53:57.463837400+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -119,7 +119,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -134,7 +134,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -149,7 +149,7 @@
       "personaId": "default",
       "title": "Subagent 2 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -164,7 +164,7 @@
       "personaId": "default",
       "title": "Subagent 3 · planner",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -179,7 +179,7 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -194,7 +194,7 @@
       "personaId": "default",
       "title": "Subagent 2 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -209,7 +209,7 @@
       "personaId": "default",
       "title": "Subagent 3 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
@@ -224,39 +224,39 @@
       "personaId": "default",
       "title": "Subagent 1 · researcher",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:22:08.375656700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     },
     {
       "agentId": "agent-1782466838742",
-      "agentRunCount": 2,
+      "agentRunCount": 7,
       "agentTodoCount": 0,
       "createdAt": "2026-07-10T05:25:33.465386700+00:00",
       "folder": "conv-6d5bc05648c049fe9e22922e221f475d-e0e5f5f858a6709c",
       "hasShortContext": true,
       "id": "conv-6d5bc05648c049fe9e22922e221f475d",
-      "lastMessage": "好可爱的小狗崽～举爪爪像在跟你打招呼，今天心情都被它治愈了😊",
-      "messageCount": 4,
+      "lastMessage": "已经帮你生成了一份**演讲稿**，文件路径：\n`D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\artifacts\\SynthChat 对话服务商配置指南演讲稿.md`\n\n",
+      "messageCount": 22,
       "personaId": "default",
       "title": "你好",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T05:27:24.107189300+00:00"
+      "updatedAt": "2026-07-13T10:11:01.064925200+00:00"
     },
     {
       "agentId": "agent-1782466838742",
-      "agentRunCount": 1,
+      "agentRunCount": 2,
       "agentTodoCount": 0,
-      "createdAt": "2026-07-10T07:18:44.598125900+00:00",
-      "folder": "conv-8852545d66d248ec953e1e843c849088-c51b12bcb57650c1",
+      "createdAt": "2026-07-13T09:14:31.280992200+00:00",
+      "folder": "conv-01fd3da6be7144eb844d5322cf4ed3da-8d62afa0ec1016b1",
       "hasShortContext": true,
-      "id": "conv-8852545d66d248ec953e1e843c849088",
-      "lastMessage": "哇\n\n[media attached: \"D:\\pro_sunner\\demo_vscode\\SynthChat-V1.0.0\\synthchat-data\\emoji\\default\\happy\\4.gif\" (image/gif)]",
-      "messageCount": 2,
+      "id": "conv-01fd3da6be7144eb844d5322cf4ed3da",
+      "lastMessage": "已为您生成Word版主持稿：\n\n**2026零碳建筑技术交流会主持稿.docx**\n\n文件包含开场白、嘉宾介绍、会议背景、主论坛环节、供需对接、展览参观引导及闭幕语等完整环节，您可以直接打开编辑使用。\n\nMEDIA:\"D:\\pro_sunn",
+      "messageCount": 7,
       "personaId": "default",
-      "title": "流式回归测试-20260710",
+      "title": "我需要一个会议主持稿件，具体会议可以参考给你的附",
       "toolApprovalCount": 0,
-      "updatedAt": "2026-07-10T07:19:03.261735700+00:00"
+      "updatedAt": "2026-07-13T09:32:37.754356800+00:00"
     }
   ],
-  "generatedAt": "2026-07-10T10:02:37.046515+00:00",
+  "generatedAt": "2026-07-13T10:54:13.257076700+00:00",
   "schema": "synthchat_portable_projection_v1"
 }

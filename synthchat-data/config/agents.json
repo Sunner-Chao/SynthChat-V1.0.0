@@ -31,8 +31,8 @@
     "name": "New Agent",
     "description": "A specialized assistant",
     "workspaceDir": "",
-    "llmProvider": "provider-c20f675f-06d9-4998-8440-f1ed16d9afef",
-    "llmModel": "gpt-5.4-mini",
+    "llmProvider": "provider-87c3c03b-1bb0-49e0-a314-ad44d5959235",
+    "llmModel": "step-3.7-flash",
     "enabled": true,
     "isDefault": false,
     "mcpEnabled": true,
@@ -55,6 +55,6 @@
     "enabledToolsets": [],
     "disabledToolsets": [],
     "createdAt": "2026-06-26T09:40:38.742Z",
-    "updatedAt": "2026-07-10T05:22:08.375621500+00:00"
+    "updatedAt": "2026-07-13T09:32:37.754317100+00:00"
   }
 ]
