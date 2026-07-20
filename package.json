@@ -1,38 +1,33 @@
 {
-  "name": "synthchat-v1",
+  "name": "synthchat-workspace",
   "version": "1.1.0",
   "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc && vite build",
-    "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "tauri": "tauri",
-    "desktop": "tauri dev",
-    "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build",
-    "desktop:build:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-native.ps1",
-    "desktop:build:macos": "bash scripts/build-macos-native.sh"
+  "engines": {
+    "node": ">=22.14.0 <23",
+    "npm": ">=10.9.2 <11"
   },
-  "dependencies": {
-    "@tauri-apps/api": "^2.1.1",
-    "@tauri-apps/plugin-dialog": "^2.2.0",
-    "lucide-react": "^0.468.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "zustand": "^5.0.2"
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "cargo run --manifest-path backend/Cargo.toml",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test",
+    "test:coverage": "npm --prefix frontend run test:coverage",
+    "test:e2e": "node scripts/e2e/run-local.mjs",
+    "test:mixed-runtime": "node scripts/verify-mixed-runtime.mjs --smoke",
+    "verify:mixed-runtime": "node scripts/verify-mixed-runtime.mjs --self-test",
+    "verify:mixed-runtime-evidence:self-test": "node scripts/verify-mixed-runtime-evidence.mjs --self-test",
+    "verify:mixed-runtime-evidence": "node scripts/verify-mixed-runtime-evidence.mjs --report docs/release-evidence/mixed-runtime-8h.json --manifest docs/release-evidence/mixed-runtime-8h.manifest.json",
+    "verify:release-inputs": "node scripts/verify-release-inputs.mjs",
+    "verify:release-ready": "node scripts/verify-release-inputs.mjs --require-clean --release-candidate",
+    "prepare:sidecar": "node scripts/prepare-backend-sidecar.mjs",
+    "build:desktop-assets": "npm run build && npm run prepare:sidecar",
+    "desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-desktop.ps1",
+    "desktop:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-desktop.ps1",
+    "desktop:build": "node scripts/run-tauri.mjs build"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.1.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^4.1.10",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.3",
-    "vitest": "^4.1.10"
+    "@playwright/test": "1.61.1"
   }
 }

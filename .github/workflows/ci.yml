@@ -2,44 +2,142 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, "codex/**"]
   pull_request:
     branches: [main]
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Frontend: TypeScript type-check + unit tests
-  # ---------------------------------------------------------------------------
-  frontend:
-    name: Frontend (TypeScript)
+  repository-hygiene:
+    name: Repository Hygiene
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      - name: Reject legacy runtime and generated data
+        shell: bash
+        run: |
+          forbidden="$(git ls-files -- \
+            'src-tauri/**' \
+            'synthchat-data/**' \
+            'skills/**' \
+            'data/mcp_servers/**' \
+            'data/tts/**' \
+            '.multi-agent/runs/**' \
+            '*.db' '*.sqlite' '*.sqlite3' \
+            '.env' '.env.*')"
+          if [[ -n "$forbidden" ]]; then
+            echo "Forbidden runtime or generated files are tracked:"
+            echo "$forbidden"
+            exit 1
+          fi
+      - name: Reject legacy frontend Agent IPC
+        shell: bash
+        run: |
+          if rg -n \
+            'synthchat-(chat|agent|managed-process|platform-adapter|wechat|persona|skill).*event|AgentRun|AgentDefinition|AppStore|run_chat_turn' \
+            frontend/src; then
+            echo "Legacy Agent IPC or event symbols remain in the frontend."
+            exit 1
+          fi
+  release-inputs:
+    name: Release Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
+          node-version: "22.14.0"
+      - name: Verify Node and npm policy
+        shell: bash
+        run: |
+          test "$(node --version)" = "v22.14.0"
+          test "$(npm --version)" = "10.9.2"
+      - run: node scripts/verify-mixed-runtime.mjs --self-test
+      - run: node scripts/verify-mixed-runtime-evidence.mjs --self-test
+      - run: node scripts/verify-release-inputs.mjs --require-clean
 
-      - name: Install dependencies
-        run: npm ci
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify Node and npm policy
+        shell: bash
+        run: |
+          test "$(node --version)" = "v22.14.0"
+          test "$(npm --version)" = "10.9.2"
+      - run: npm ci
+      - run: node ../scripts/verify-frontend-tauri-bridges.mjs --self-test
+      - run: npm run api:check
+      - run: npm run build
+      - run: npm test
 
-      - name: Type check
-        run: npx tsc --noEmit
-
-      - name: Unit tests
-        run: npm test --if-present
-
-  # ---------------------------------------------------------------------------
-  # Backend: Rust check + clippy
-  # ---------------------------------------------------------------------------
-  backend:
-    name: Backend (Rust)
+  ui-e2e:
+    name: Browser UI E2E
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.88.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Verify Node and npm policy
+        shell: bash
+        run: |
+          test "$(node --version)" = "v22.14.0"
+          test "$(npm --version)" = "10.9.2"
+      - run: npm ci
+      - run: npm ci --prefix frontend
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          SYNTHCHAT_E2E_RUST_TOOLCHAIN: "1.88.0"
 
-      - name: Install system dependencies
+  backend:
+    name: Rust Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.88.0"
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - run: cargo fmt -- --check
+      - run: cargo check --locked --all-targets
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --all-targets
+
+  desktop:
+    name: Desktop Shell
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -49,23 +147,36 @@ jobs:
             patchelf \
             libgtk-3-dev \
             pkg-config
-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
-
+          toolchain: "1.88.0"
+          components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: desktop
+      - run: cargo fmt -- --check
+      - run: cargo check --locked --all-targets
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --all-targets
 
-      - name: Cargo check
-        working-directory: src-tauri
-        run: cargo check
-
-      - name: Clippy
-        working-directory: src-tauri
-        run: cargo clippy -- -D warnings
-
-      - name: Cargo test
-        working-directory: src-tauri
-        run: cargo test
+  contract:
+    name: API Contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify Node and npm policy
+        shell: bash
+        run: |
+          test "$(node --version)" = "v22.14.0"
+          test "$(npm --version)" = "10.9.2"
+      - run: npm ci
+      - run: npm run api:lint
+      - run: npm run api:check

@@ -1,1 +1,0 @@
-codex -a never exec -m gpt-5.5 -c model_provider=yujianwudi -C "D:\pro_sunner\demo_vscode\SynthChat-V1.0.0" -s read-only --ephemeral --color never -o "D:\pro_sunner\demo_vscode\SynthChat-V1.0.0\.multi-agent\runs\2026-07-08T09-35-54-707Z-review-你正在复审-synthchat-stage-7-的一个阻断问题修复-目标项目-d-pro-sun\codex-review.md" -

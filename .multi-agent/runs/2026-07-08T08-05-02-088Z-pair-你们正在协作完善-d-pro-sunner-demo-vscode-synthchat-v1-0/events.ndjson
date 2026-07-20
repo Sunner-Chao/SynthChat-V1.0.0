@@ -1,2 +1,0 @@
-{"ts":"2026-07-08T08:05:02.092Z","phase":"workflow-start","workflow":"pair","label":"workflow","agent":"orchestrator"}
-{"ts":"2026-07-08T08:05:02.099Z","phase":"workflow-exit","workflow":"pair","label":"workflow","agent":"orchestrator","code":0}

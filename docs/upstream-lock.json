@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-16",
+  "sources": {
+    "hermesDesktop": {
+      "repository": "https://github.com/fathah/hermes-desktop.git",
+      "commit": "8da8d212abd40b449d55957b2cff9a220797ff71",
+      "version": "0.7.3",
+      "license": "MIT",
+      "role": "compatibility-reference-only",
+      "runtimeDependency": false,
+      "evidence": [
+        {
+          "path": "src/main/sessions.ts",
+          "sha256": "A047447DAED7D64019E7C4C64D0016F6F75EAF34140534167A9E1ACE725476D9"
+        }
+      ]
+    },
+    "hermesAgent": {
+      "repository": "https://github.com/NousResearch/hermes-agent.git",
+      "commit": "3f2a389c7e1f1729cad91ae63c26fb08c7753c74",
+      "version": "0.18.2",
+      "license": "MIT",
+      "role": "compatibility-reference-only",
+      "runtimeDependency": false,
+      "evidence": [
+        {
+          "path": "hermes_state.py",
+          "sha256": "A4F6C6FBC11AFD2228979AABFC24368F370DFE73D212A0083D95E9CD25AEA2A8"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@synthchat/frontend",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "api:generate": "openapi-typescript ../docs/openapi.yaml --output src/api/generated/openapi.d.ts",
+    "api:check": "node ../scripts/check-openapi-types.mjs",
+    "api:lint": "redocly lint ../docs/openapi.yaml --extends=minimal",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "tauri": "node ../scripts/run-tauri.mjs",
+    "desktop": "node ../scripts/run-tauri.mjs dev",
+    "desktop:dev": "node ../scripts/run-tauri.mjs dev",
+    "desktop:build": "node ../scripts/run-tauri.mjs build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.39.0",
+    "@tauri-apps/cli": "^2.1.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "jsdom": "^26.1.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

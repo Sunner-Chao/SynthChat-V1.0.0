@@ -1,1 +1,0 @@
-Failed to authenticate. API Error: 403 The domain's DNS records point to a prohibited IP address, creating a conflict within Cloudflare's system. (request id: 20260708092109778600600AJJQiznqmYxJjzUU)

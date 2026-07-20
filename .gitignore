@@ -20,6 +20,10 @@ venv/
 .pytest_cache/
 release/
 .cache/
+frontend/coverage/
+test-results/
+playwright-report/
+blob-report/
 
 target/
 runtime/
@@ -33,17 +37,23 @@ release-dist/
 
 # Runtime user data — must never be committed (contains DB, attachments, personal files)
 synthchat-data/
-src-tauri/synthchat-data/
+desktop/synthchat-data/
+.multi-agent/runs/
 
 # Package manager lock-file consistency: this project uses npm (tauri.conf.json
 # references "npm run dev/build"). pnpm-lock.yaml should not be committed.
 pnpm-lock.yaml
+pnpm-workspace.yaml
 
 # Temporary / backup files left over from manual development snapshots
 PetWindow_1500_1738.txt
 PetWindow_backup.tsx
-src/App_part1.txt
+frontend/src/App_part1.txt
+desktop/temp_word.docx
 src-tauri/temp_word.docx
+temp_match.txt
+tick_logic.txt
+vision_helpers.txt
 
 # Windows path artifacts that can appear via symlink traversal
 %SystemDrive%/

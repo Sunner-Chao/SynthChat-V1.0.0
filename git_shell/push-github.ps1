@@ -252,7 +252,7 @@ try {
 
         if ($defaultAssets.Count -eq 0) {
             $defaultAssets = @(
-                Get-ChildItem -Path "src-tauri\target\release\bundle\nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
+                Get-ChildItem -Path "desktop\target\release\bundle\nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
                 Sort-Object LastWriteTime -Descending |
                 Select-Object -First 1 -ExpandProperty FullName
             )

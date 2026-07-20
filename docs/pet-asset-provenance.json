@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "releaseStatus": "unverified",
+  "scope": "Vendored Pet runtime libraries and Live2D model groups shipped under frontend/public/pet.",
+  "auditSummary": "This inventory is intentionally not a license assertion. The audit found reproducible upstream matches and a hard Natori terms conflict, but all provenance, license, redistribution, and human-review fields remain unverified.",
+  "groups": [
+    {
+      "id": "library-pixi",
+      "kind": "library",
+      "root": "frontend/public/pet/lib/pixi.min.js",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:c2bb26f8d5221939f1d7a6a45e7d2ea95b5b3a49dbc8c5e3df7f409f89ea797e"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The vendored file matches the upstream PixiJS 6.5.10 MIT distribution after newline normalization.",
+        "The original acquisition artifact and required local LICENSE/NOTICE evidence have not been preserved for release review."
+      ]
+    },
+    {
+      "id": "library-live2d",
+      "kind": "library",
+      "root": "frontend/public/pet/lib/live2d.min.js",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:f90aa594cc2aef9bd07d5614712794ccf13a0e703cbd0d06c5235b58bf9c882e"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The vendored source bytes were identified as the historical Live2D Cubism 2.1.00_1 runtime.",
+        "Live2D no longer provides that runtime download, and authoritative historical license and redistribution evidence remain unavailable."
+      ]
+    },
+    {
+      "id": "library-live2d-cubism-core",
+      "kind": "library",
+      "root": "frontend/public/pet/lib/live2dcubismcore.min.js",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:4924bb5685f8ee04f5a7a3ff7e2d0ae435082a3a313f5735e740584229665caa"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The vendored file matches Live2D Cubism SDK for Web 5-r.4 and carries a proprietary redistributable notice.",
+        "The applicable vendor license, SDK acquisition record, and redistribution entitlement remain unverified for release."
+      ]
+    },
+    {
+      "id": "library-pixi-live2d-display",
+      "kind": "library",
+      "root": "frontend/public/pet/lib/pixi-live2d-display.min.js",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:98d766c7b02981824189c4905b2b2c50f39335bc4c75053447b4cdf8cecdc254"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The vendored file matches pixi-live2d-display 0.4.0-beta.2 after newline normalization; the upstream package is MIT licensed.",
+        "The original acquisition artifact and required local LICENSE/NOTICE evidence have not been preserved for release review."
+      ]
+    },
+    {
+      "id": "model-hijiki",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Hijiki",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:0b991e1693fb40c1a23031392ebf73894c6155d257e00743c112551d8d2b64af"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "MODEL_SOURCES.md and Live2D's official sample page identify the tororo_hijiki sample ZIP as the source family.",
+        "The exact downloaded archive hash, applicable terms snapshot, and redistribution review have not been preserved."
+      ]
+    },
+    {
+      "id": "model-hiyori",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Hiyori",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:5397f9cff7df3fdd14143b82a8e3e2018087af01f0d8832f963dfac03b0db1d2"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The model maps to Live2D's official sample-data repository at commit ed1e0b714826d92469b9e51cacc3346f4e393f03.",
+        "The exact acquisition artifact, applicable terms snapshot, and redistribution review have not been preserved."
+      ]
+    },
+    {
+      "id": "model-mao",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Mao",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:aca70b11cf57f0536779305c1034ece99c76db6d4f51e1a5c3ae35d9a406ffab"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The model maps to Live2D's official sample-data repository at commit ed1e0b714826d92469b9e51cacc3346f4e393f03, but the local Mao.model3.json is modified.",
+        "The derived modification and redistribution rights require human review against preserved vendor terms."
+      ]
+    },
+    {
+      "id": "model-mark",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Mark",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:b4ba04da979bc675cc48e81fc6e139c3bc8c79ceaf69677c987497701e02e87e"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The model maps to Live2D's official sample-data repository at commit ed1e0b714826d92469b9e51cacc3346f4e393f03.",
+        "The exact acquisition artifact, applicable terms snapshot, and redistribution review have not been preserved."
+      ]
+    },
+    {
+      "id": "model-natori",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Natori",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:9fde4d59210f45fb92ce30d76cfc26df6def5ee5abd2cd7ccf2e616df582e82f"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The model maps to Live2D's official sample-data repository at commit ed1e0b714826d92469b9e51cacc3346f4e393f03.",
+        "Live2D's current Natori terms prohibit commercial use, modification, and redistribution, making this group a hard release blocker."
+      ]
+    },
+    {
+      "id": "model-tororo",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Tororo",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:47051bdb804c2ea537b979ba0496c5f610d8ecd7250261ed9e38973f756a63cc"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "MODEL_SOURCES.md and Live2D's official sample page identify the tororo_hijiki sample ZIP as the source family.",
+        "The exact downloaded archive hash, applicable terms snapshot, and redistribution review have not been preserved."
+      ]
+    },
+    {
+      "id": "model-wanko",
+      "kind": "model",
+      "root": "frontend/public/pet/model/Wanko",
+      "provenance": {
+        "sourceUrl": null,
+        "immutableRef": null,
+        "artifactSha256": null,
+        "retrievedAt": null
+      },
+      "license": {
+        "identifier": null,
+        "textUrl": null,
+        "noticePath": null,
+        "redistributionEvidence": null
+      },
+      "integrity": {
+        "algorithm": "sha256-tree-v1",
+        "sha256": "sha256:76060f6b9b9b9cb7d4e814491706d6b5194ba29e39904edd1787d95f2dce33e8"
+      },
+      "review": {
+        "status": "unverified",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "evidence": []
+      },
+      "auditNotes": [
+        "The local model is a subset of Live2D's official sample-data repository at commit ed1e0b714826d92469b9e51cacc3346f4e393f03.",
+        "The subset acquisition, applicable terms snapshot, and redistribution review have not been preserved."
+      ]
+    }
+  ]
+}
