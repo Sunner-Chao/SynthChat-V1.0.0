@@ -76,6 +76,12 @@ const CAPABILITIES: Capabilities = {
     mcpStdio: false,
     mcpStreamableHttp: false,
     mcpSse: false,
+    wechatAccounts: true,
+    wechatMessaging: true,
+    plugins: true,
+    personas: true,
+    moments: true,
+    worldbooks: true,
   },
 };
 
@@ -117,6 +123,7 @@ const PROFILES: ProfileSummary[] = [
 const SESSION: Session = {
   id: "session-1",
   profileId: "default",
+  personaId: "persona_0123456789abcdef0123456789abcdef",
   title: "Migration review",
   preview: "Review the Rust session store",
   source: "desktop",
@@ -231,7 +238,12 @@ function makeSessionClient(overrides: Partial<SessionsApi> = {}): SessionsApi {
       ranges: [{ start: 0, end: 4 }],
     } }])),
     createSession: vi.fn(async (input) => ({
-      value: { ...SESSION, profileId: input.profileId, title: input.title ?? "新会话" },
+      value: {
+        ...SESSION,
+        profileId: input.profileId,
+        personaId: input.personaId ?? null,
+        title: input.title ?? "新会话",
+      },
       etag: '"session_rev_1"',
     })),
     getSession: vi.fn(async (sessionId) => ({

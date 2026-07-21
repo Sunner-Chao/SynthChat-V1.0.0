@@ -29,7 +29,14 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     next_message_sequence INTEGER NOT NULL CHECK(next_message_sequence >= 1),
-    current_change INTEGER NOT NULL
+    current_change INTEGER NOT NULL,
+    persona_id TEXT CHECK(
+        persona_id IS NULL OR (
+            length(persona_id) = 40
+            AND substr(persona_id, 1, 8) = 'persona_'
+            AND substr(persona_id, 9) NOT GLOB '*[^0-9a-f]*'
+        )
+    )
 );
 
 CREATE TABLE IF NOT EXISTS session_versions (
@@ -46,6 +53,13 @@ CREATE TABLE IF NOT EXISTS session_versions (
     revision TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    persona_id TEXT CHECK(
+        persona_id IS NULL OR (
+            length(persona_id) = 40
+            AND substr(persona_id, 1, 8) = 'persona_'
+            AND substr(persona_id, 9) NOT GLOB '*[^0-9a-f]*'
+        )
+    ),
     PRIMARY KEY(session_id, valid_from_change),
     CHECK(valid_to_change IS NULL OR valid_to_change > valid_from_change)
 );
@@ -679,6 +693,29 @@ CREATE INDEX IF NOT EXISTS idx_async_tool_deliveries_pending
     WHERE state = 'pending';
 "#;
 
+const SESSION_PERSONA_COLUMNS_V13: [(&str, &str); 2] = [
+    (
+        "sessions",
+        r#"ALTER TABLE sessions ADD COLUMN persona_id TEXT CHECK(
+            persona_id IS NULL OR (
+                length(persona_id) = 40
+                AND substr(persona_id, 1, 8) = 'persona_'
+                AND substr(persona_id, 9) NOT GLOB '*[^0-9a-f]*'
+            )
+        )"#,
+    ),
+    (
+        "session_versions",
+        r#"ALTER TABLE session_versions ADD COLUMN persona_id TEXT CHECK(
+            persona_id IS NULL OR (
+                length(persona_id) = 40
+                AND substr(persona_id, 1, 8) = 'persona_'
+                AND substr(persona_id, 9) NOT GLOB '*[^0-9a-f]*'
+            )
+        )"#,
+    ),
+];
+
 const FTS_SCHEMA: &str = r#"
 CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
     searchable_text,
@@ -750,6 +787,7 @@ pub(crate) fn initialize(hermes_home: &Path) -> Result<(PathBuf, SearchMode), Se
     transaction
         .execute_batch(ASYNC_TOOL_DELIVERY_SCHEMA_V12)
         .map_err(map_sqlite)?;
+    migrate_session_persona_v13(&transaction)?;
     if version < SESSION_SCHEMA_VERSION {
         transaction
             .pragma_update(None, "user_version", SESSION_SCHEMA_VERSION)
@@ -762,6 +800,17 @@ pub(crate) fn initialize(hermes_home: &Path) -> Result<(PathBuf, SearchMode), Se
         Err(_) => SearchMode::Like,
     };
     Ok((db_path, search_mode))
+}
+
+fn migrate_session_persona_v13(
+    transaction: &rusqlite::Transaction<'_>,
+) -> Result<(), SessionError> {
+    for (table, statement) in SESSION_PERSONA_COLUMNS_V13 {
+        if !column_exists(transaction, table, "persona_id")? {
+            transaction.execute_batch(statement).map_err(map_sqlite)?;
+        }
+    }
+    Ok(())
 }
 
 fn migrate_approval_binding_v8(

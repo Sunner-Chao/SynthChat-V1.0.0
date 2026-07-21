@@ -26,6 +26,12 @@ tags:
     description: Dynamic Hermes toolset configuration.
   - name: Web
     description: Profile-scoped Rust web provider selection and readiness. Browser automation is a separate capability domain.
+  - name: WeChat
+    description: Profile-scoped QR login, keychain-backed account metadata and explicit bounded message polling/sending.
+  - name: Catalog
+    description: Profile-scoped Persona, Worldbook and Moment product data stored by the Rust backend.
+  - name: Plugins
+    description: Local manifest-only plugin registration and enablement. Registered plugin code is never executed.
   - name: Workspaces
     description: Opaque Profile-scoped registrations for user-approved local directory roots.
   - name: Skills
@@ -123,6 +129,96 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/plugins:
+    get:
+      tags: [Plugins]
+      operationId: listPlugins
+      summary: List registered local plugin manifests
+      responses:
+        "200":
+          description: Bounded manifest-only plugin catalog and its strong catalog ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PluginPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/plugins/install:
+    post:
+      tags: [Plugins]
+      operationId: installPlugin
+      summary: Register a bounded plugin.json already present in the local plugin directory
+      description: Registration stores metadata only. It does not copy, import, load or execute plugin code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InstallPlugin" }
+      responses:
+        "201":
+          description: Local plugin manifest registered in a disabled state.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Plugin" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/plugins/{pluginId}:
+    parameters:
+      - $ref: "#/components/parameters/PluginId"
+    patch:
+      tags: [Plugins]
+      operationId: updatePlugin
+      summary: Enable or disable a registered plugin manifest
+      description: Enablement is catalog metadata only and never authorizes plugin code execution.
+      parameters:
+        - $ref: "#/components/parameters/PluginIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: "#/components/schemas/PluginPatch" }
+      responses:
+        "200":
+          description: Updated manifest-only plugin registration.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Plugin" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      tags: [Plugins]
+      operationId: uninstallPlugin
+      summary: Remove a plugin registration without deleting its local directory
+      parameters:
+        - $ref: "#/components/parameters/PluginIfMatch"
+      responses:
+        "204":
+          description: Registration removed; source files remain untouched.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /api/v1/profiles:
     get:
@@ -310,6 +406,585 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "428": { $ref: "#/components/responses/PreconditionRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/wechat:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    get:
+      tags: [WeChat]
+      operationId: getWechatConfig
+      summary: Get Profile WeChat configuration and account metadata
+      responses:
+        "200":
+          description: Non-secret WeChat configuration. Account credentials remain in the OS keychain.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    patch:
+      tags: [WeChat]
+      operationId: updateWechatConfig
+      summary: Update Profile WeChat connection configuration
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: "#/components/schemas/WechatConfigPatch" }
+      responses:
+        "200":
+          description: Updated non-secret WeChat configuration.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatConfig" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/wechat/qr:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    post:
+      tags: [WeChat]
+      operationId: startWechatQr
+      summary: Start a WeChat QR login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WechatQrStartRequest" }
+      responses:
+        "200":
+          description: QR login challenge rendered by the local Rust backend.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatQrStartResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/wechat/qr/status:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    post:
+      tags: [WeChat]
+      operationId: checkWechatQrStatus
+      summary: Check a WeChat QR login challenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WechatQrStatusRequest" }
+      responses:
+        "200":
+          description: QR status. A confirmed account returns only non-secret metadata and stores its bot credential in the OS keychain.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatQrStatusResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/wechat/accounts/{accountId}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/WechatAccountId"
+    patch:
+      tags: [WeChat]
+      operationId: updateWechatAccountLink
+      summary: Bind or unbind one Profile Persona to a WeChat account
+      description: A Persona may be bound to at most one WeChat account in the same Profile.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WechatAccountLinkPatch" }
+      responses:
+        "200":
+          description: Updated non-secret account metadata and shared ProfileConfig ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatConfig" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/wechat/accounts/{accountId}/poll:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/WechatAccountId"
+    post:
+      tags: [WeChat]
+      operationId: pollWechatMessages
+      summary: Explicitly poll a bounded page of normalized inbound messages
+      description: The client owns cursor persistence. This route does not create Sessions or Runs automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WechatPollRequest" }
+      responses:
+        "200":
+          description: At most 100 normalized text messages; unknown or unsafe upstream records are counted as skipped.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatPollResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/wechat/accounts/{accountId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/WechatAccountId"
+    post:
+      tags: [WeChat]
+      operationId: sendWechatMessage
+      summary: Explicitly send one bounded text message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WechatSendRequest" }
+      responses:
+        "200":
+          description: Upstream accepted the message; no account credential or raw upstream response is returned.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WechatSendResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/profiles/{profileId}/personas:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    get:
+      tags: [Catalog]
+      operationId: listPersonas
+      summary: List Profile Personas
+      parameters:
+        - $ref: "#/components/parameters/ProductSearchQuery"
+      responses:
+        "200":
+          description: At most 2,000 Personas ordered by updatedAt descending and ID ascending. The optional query searches names and serialized Persona fields case-insensitively.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 2000
+                items: { $ref: "#/components/schemas/Persona" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    post:
+      tags: [Catalog]
+      operationId: createPersona
+      summary: Create a Persona
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonaInput" }
+      responses:
+        "201":
+          description: Created Persona. ETag is `"product-persona-1"`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Persona" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "413": { $ref: "#/components/responses/ProductCatalogLimit" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/personas/{personaId}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/PersonaId"
+    get:
+      tags: [Catalog]
+      operationId: getPersona
+      summary: Get a Persona
+      responses:
+        "200":
+          description: Persona snapshot with the strong product ETag required by mutations.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Persona" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    patch:
+      tags: [Catalog]
+      operationId: updatePersona
+      summary: Replace Persona input fields using strong ETag concurrency control
+      description: This is not JSON Merge Patch. Omitted fields take their PersonaInput defaults.
+      parameters:
+        - $ref: "#/components/parameters/PersonaIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonaInput" }
+      responses:
+        "200":
+          description: Updated Persona with its incremented strong product ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Persona" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    delete:
+      tags: [Catalog]
+      operationId: deletePersona
+      summary: Delete an unbound Persona
+      parameters:
+        - $ref: "#/components/parameters/PersonaIfMatch"
+      responses:
+        "204": { description: Persona deleted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/worldbooks:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    get:
+      tags: [Catalog]
+      operationId: listWorldbooks
+      summary: List Profile Worldbooks
+      parameters:
+        - $ref: "#/components/parameters/ProductSearchQuery"
+      responses:
+        "200":
+          description: At most 2,000 Worldbooks ordered by updatedAt descending and ID ascending. The optional query searches names and serialized Worldbook fields case-insensitively.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 2000
+                items: { $ref: "#/components/schemas/Worldbook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    post:
+      tags: [Catalog]
+      operationId: createWorldbook
+      summary: Create a Worldbook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorldbookInput" }
+      responses:
+        "201":
+          description: Created Worldbook. ETag is `"product-worldbook-1"`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worldbook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "413": { $ref: "#/components/responses/ProductCatalogLimit" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/worldbooks/{worldbookId}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/WorldbookId"
+    get:
+      tags: [Catalog]
+      operationId: getWorldbook
+      summary: Get a Worldbook
+      responses:
+        "200":
+          description: Worldbook snapshot with the strong product ETag required by mutations.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worldbook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    patch:
+      tags: [Catalog]
+      operationId: updateWorldbook
+      summary: Replace Worldbook input fields using strong ETag concurrency control
+      description: This is not JSON Merge Patch. Omitted description, bindings and sections reset to their defaults, and submitted sections receive new opaque IDs.
+      parameters:
+        - $ref: "#/components/parameters/WorldbookIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorldbookInput" }
+      responses:
+        "200":
+          description: Updated Worldbook with its incremented strong product ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worldbook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    delete:
+      tags: [Catalog]
+      operationId: deleteWorldbook
+      summary: Delete a Worldbook
+      parameters:
+        - $ref: "#/components/parameters/WorldbookIfMatch"
+      responses:
+        "204": { description: Worldbook deleted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/moments:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+    get:
+      tags: [Catalog]
+      operationId: listMoments
+      summary: List Profile Moments
+      responses:
+        "200":
+          description: At most 2,000 Moments ordered by updatedAt descending and ID ascending.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 2000
+                items: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    post:
+      tags: [Catalog]
+      operationId: createMoment
+      summary: Create a Moment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentInput" }
+      responses:
+        "201":
+          description: Created Moment. ETag is `"product-moment-1"`.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "413": { $ref: "#/components/responses/ProductCatalogLimit" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/moments/{momentId}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/MomentId"
+    get:
+      tags: [Catalog]
+      operationId: getMoment
+      summary: Get a Moment
+      responses:
+        "200":
+          description: Moment snapshot with the strong product ETag required by mutations.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    patch:
+      tags: [Catalog]
+      operationId: updateMoment
+      summary: Replace editable Moment fields using strong ETag concurrency control
+      description: Existing likes and comments are preserved. Omitted authorId and coverFileId take their MomentInput defaults.
+      parameters:
+        - $ref: "#/components/parameters/MomentIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentInput" }
+      responses:
+        "200":
+          description: Updated Moment with its incremented strong product ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+    delete:
+      tags: [Catalog]
+      operationId: deleteMoment
+      summary: Delete a Moment
+      parameters:
+        - $ref: "#/components/parameters/MomentIfMatch"
+      responses:
+        "204": { description: Moment deleted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/moments/{momentId}/comments:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/MomentId"
+    post:
+      tags: [Catalog]
+      operationId: addMomentComment
+      summary: Add a Moment comment
+      parameters:
+        - $ref: "#/components/parameters/MomentIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentCommentInput" }
+      responses:
+        "200":
+          description: Updated Moment snapshot with its incremented strong product ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "413": { $ref: "#/components/responses/ProductCatalogLimit" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/moments/{momentId}/comments/{commentId}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/MomentId"
+      - $ref: "#/components/parameters/CommentId"
+    delete:
+      tags: [Catalog]
+      operationId: deleteMomentComment
+      summary: Delete a Moment comment
+      parameters:
+        - $ref: "#/components/parameters/MomentIfMatch"
+      responses:
+        "200":
+          description: Updated Moment snapshot with replies to the removed comment cleared and an incremented strong product ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
+  /api/v1/profiles/{profileId}/moments/{momentId}/like:
+    parameters:
+      - $ref: "#/components/parameters/ProfileId"
+      - $ref: "#/components/parameters/MomentId"
+    put:
+      tags: [Catalog]
+      operationId: setMomentLike
+      summary: Set one actor's Moment like state
+      parameters:
+        - $ref: "#/components/parameters/MomentIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentLikeInput" }
+      responses:
+        "200":
+          description: Updated Moment snapshot with its incremented strong product ETag.
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/ProductNotFound" }
+        "409": { $ref: "#/components/responses/ProductRevisionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+        "503": { $ref: "#/components/responses/ProductCatalogUnavailable" }
   /api/v1/profiles/{profileId}/secrets:
     parameters:
       - $ref: "#/components/parameters/ProfileId"
@@ -1266,6 +1941,12 @@ components:
       required: true
       description: Revision-scoped opaque item identifier from the latest page for the same target. It must never be parsed, cached across a revision change or used with another target.
       schema: { type: string, minLength: 1, maxLength: 512 }
+    PersonaId: { name: personaId, in: path, required: true, schema: { type: string, pattern: '^persona_[0-9a-f]{32}$' } }
+    WechatAccountId: { name: accountId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 256 } }
+    PluginId: { name: pluginId, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9][a-z0-9_.-]{0,63}$' } }
+    WorldbookId: { name: worldbookId, in: path, required: true, schema: { type: string, pattern: '^worldbook_[0-9a-f]{32}$' } }
+    MomentId: { name: momentId, in: path, required: true, schema: { type: string, pattern: '^moment_[0-9a-f]{32}$' } }
+    CommentId: { name: commentId, in: path, required: true, schema: { type: string, pattern: '^comment_[0-9a-f]{32}$' } }
     McpServerId: { name: serverId, in: path, required: true, schema: { type: string, pattern: '^mcp_[0-9a-f]{32}$' } }
     SecretName: { name: secretName, in: path, required: true, schema: { $ref: "#/components/schemas/SecretName" } }
     Cursor:
@@ -1275,12 +1956,42 @@ components:
       description: Opaque, tamper-evident continuation bound to the endpoint filters and snapshot boundary.
       schema: { type: string, minLength: 1, maxLength: 4096 }
     Limit: { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+    ProductSearchQuery:
+      name: q
+      in: query
+      required: false
+      description: Optional case-insensitive substring search. Control characters are rejected.
+      schema: { type: string, maxLength: 200 }
     IfMatch:
       name: If-Match
       in: header
       required: true
       description: A single quoted strong ETag. Weak, wildcard, multiple or malformed values are invalid.
       schema: { type: string }
+    PersonaIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The single quoted strong Persona ETag returned by the last successful create or mutation.
+      schema: { type: string, pattern: '^"product-persona-[1-9][0-9]*"$' }
+    PluginIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The single quoted strong plugin catalog ETag returned by the latest catalog response.
+      schema: { type: string, pattern: '^"plugin-catalog-(0|[1-9][0-9]*)"$' }
+    WorldbookIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The single quoted strong Worldbook ETag returned by the last successful create or mutation.
+      schema: { type: string, pattern: '^"product-worldbook-[1-9][0-9]*"$' }
+    MomentIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations.
+      schema: { type: string, pattern: '^"product-moment-[1-9][0-9]*"$' }
     IfMatchOptional:
       name: If-Match
       in: header
@@ -1312,11 +2023,23 @@ components:
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
+    ProductNotFound:
+      description: The Profile or requested product catalog item does not exist.
+      x-error-codes: [profile_not_found, product_not_found]
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
     Conflict:
       description: State, revision, idempotency, replay-window or busy conflict.
       x-error-codes: [revision_conflict, idempotency_conflict, idempotency_resource_gone, mcp_server_exists, mcp_config_invalid, capacity_exceeded, unsafe_file_path, memory_storage_drift, profile_delete_conflict, session_busy, session_archived, event_history_expired, hermes_import_source_changed, hermes_import_conflict]
       headers:
         ETag: { $ref: "#/components/headers/ETag" }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    ProductRevisionConflict:
+      description: The product item changed after the supplied strong ETag was issued. Refetch the item before retrying.
+      x-error-codes: [revision_conflict]
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -1350,6 +2073,12 @@ components:
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
+    ProductCatalogUnavailable:
+      description: The local bounded product catalog could not complete the operation.
+      x-error-codes: [product_catalog_unavailable]
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
     InsufficientStorage:
       description: A bounded local retained-object quota is exhausted; callers must delete no-longer-needed objects before retrying.
       x-error-codes: [file_quota_exceeded]
@@ -1368,13 +2097,19 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     Unprocessable:
       description: A required capability/provider is unavailable, or a semantically valid request violates a protected resource constraint.
-      x-error-codes: [engine_capability_missing, memory_provider_unsupported, memory_content_blocked, memory_capacity_exceeded, session_search_unavailable, hermes_schema_unsupported, hermes_import_source_invalid, hermes_attachments_require_policy]
+      x-error-codes: [engine_capability_missing, provider_configuration_invalid, memory_provider_unsupported, memory_content_blocked, memory_capacity_exceeded, session_search_unavailable, hermes_schema_unsupported, hermes_import_source_invalid, hermes_attachments_require_policy]
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
     PayloadTooLarge:
       description: Upload or body exceeds the advertised limit.
       x-error-codes: [payload_too_large, hermes_import_too_large]
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    ProductCatalogLimit:
+      description: The request body exceeds the API limit or the Profile already contains 2,000 items of this product kind or 1,000 comments on this Moment.
+      x-error-codes: [payload_too_large, product_catalog_limit]
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -1386,13 +2121,13 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     TooManyRequests:
       description: Run, queue, or bounded asynchronous operation capacity exceeded.
-      x-error-codes: [capacity_exceeded, skill_source_rate_limited, skill_operation_capacity]
+      x-error-codes: [capacity_exceeded, provider_rate_limited, skill_source_rate_limited, skill_operation_capacity]
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
     BadGateway:
       description: External model/tool provider failed.
-      x-error-codes: [engine_unavailable]
+      x-error-codes: [engine_unavailable, provider_authentication_failed, provider_request_rejected, provider_stream_failed, provider_response_invalid]
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -1467,7 +2202,7 @@ components:
     CapabilityExtensions:
       type: object
       additionalProperties: true
-      required: [activeRunDiscovery, runQueue, toolsetManagement, toolExecution, codeExecution, workspaceManagement, skillDiscovery, skillEnablement, webSearch, webExtract, browserAutomation, browserCdp, browserDownloads, mcpStdio, mcpStreamableHttp, mcpSse]
+      required: [activeRunDiscovery, runQueue, toolsetManagement, toolExecution, codeExecution, workspaceManagement, skillDiscovery, skillEnablement, webSearch, webExtract, browserAutomation, browserCdp, browserDownloads, mcpStdio, mcpStreamableHttp, mcpSse, wechatAccounts, wechatMessaging, plugins, personas, moments, worldbooks]
       properties:
         activeRunDiscovery:
           type: boolean
@@ -1528,6 +2263,24 @@ components:
         browserDownloads:
           type: boolean
           description: True exactly when browserAutomation is true. The browser_download tool requires a current snapshot and owner-bound durable once approval, temporarily accepts one bounded file in private per-Run storage, performs filename/MIME/size/SHA-256 checks, returns metadata only, restores deny mode and removes the content. No local path, file body, auto-open, File object or Workspace import is exposed.
+        wechatAccounts:
+          type: boolean
+          description: Whether Profile-scoped WeChat configuration, QR login status, Persona binding and keychain-backed account metadata routes are available.
+        wechatMessaging:
+          type: boolean
+          description: Whether explicit bounded WeChat poll/send adapters are available. This does not imply background polling or automatic message-to-Run delivery.
+        plugins:
+          type: boolean
+          description: Whether the local manifest-only plugin catalog supports listing, registration, enablement and removal. This never implies plugin code execution.
+        personas:
+          type: boolean
+          description: Whether Profile-scoped bounded Persona CRUD with independent strong product ETags is available.
+        moments:
+          type: boolean
+          description: Whether Profile-scoped bounded Moment CRUD, comments and actor like state with independent strong product ETags are available.
+        worldbooks:
+          type: boolean
+          description: Whether Profile-scoped bounded Worldbook CRUD, Persona bindings and section snapshots with independent strong product ETags are available.
         mcpStdio:
           type: boolean
           description: Whether enabled Profile-scoped stdio MCP servers support initialize, tools/list, tools/call and Run injection with child-process cleanup.
@@ -1858,6 +2611,367 @@ components:
           items: { $ref: "#/components/schemas/NonNullJsonValue" }
         - type: object
           additionalProperties: { $ref: "#/components/schemas/NonNullJsonValue" }
+    CatalogReferenceId:
+      type: string
+      minLength: 1
+      maxLength: 256
+      pattern: '^[A-Za-z0-9_.-]+$'
+      description: Opaque product or File reference accepted for compatibility. Clients must not parse the value.
+    PersonaIdValue:
+      type: string
+      pattern: '^persona_[0-9a-f]{32}$'
+      description: Opaque Profile-scoped Persona identifier.
+    PersonaInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        avatar: { type: [string, "null"], maxLength: 4096, default: null }
+        systemPrompt:
+          type: string
+          maxLength: 64000
+          default: 你正在扮演这个角色，请保持设定一致并自然交流。
+        characterPrompt: { type: string, maxLength: 64000, default: "" }
+        outputExamples: { type: string, maxLength: 64000, default: "" }
+        systemInstructions:
+          type: string
+          maxLength: 64000
+          default: 请始终保持角色一致性，结合角色详情、世界书与长期记忆作答。
+        provider: { type: string, maxLength: 256, default: "" }
+        model: { type: string, maxLength: 256, default: "" }
+        temperature: { type: number, minimum: 0, maximum: 2, default: 0.8 }
+        maxTokens: { type: integer, minimum: 1, maximum: 1000000, default: 2048 }
+        toolsEnabled: { type: boolean, default: true }
+        memoryEnabled: { type: boolean, default: true }
+        proactiveEnabled: { type: boolean, default: false }
+        legacyAgentId:
+          type: [string, "null"]
+          maxLength: 256
+          default: null
+          description: Optional migration metadata only. It does not restore or invoke a legacy Agent runtime.
+    Persona:
+      type: object
+      additionalProperties: false
+      required: [id, name, avatar, systemPrompt, characterPrompt, outputExamples, systemInstructions, provider, model, temperature, maxTokens, toolsEnabled, memoryEnabled, proactiveEnabled, legacyAgentId, createdAt, updatedAt, revision]
+      properties:
+        id: { type: string, pattern: '^persona_[0-9a-f]{32}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        avatar: { type: [string, "null"], maxLength: 4096 }
+        systemPrompt: { type: string, maxLength: 64000 }
+        characterPrompt: { type: string, maxLength: 64000 }
+        outputExamples: { type: string, maxLength: 64000 }
+        systemInstructions: { type: string, maxLength: 64000 }
+        provider: { type: string, maxLength: 256 }
+        model: { type: string, maxLength: 256 }
+        temperature: { type: number, minimum: 0, maximum: 2 }
+        maxTokens: { type: integer, minimum: 1, maximum: 1000000 }
+        toolsEnabled: { type: boolean }
+        memoryEnabled: { type: boolean }
+        proactiveEnabled: { type: boolean }
+        legacyAgentId: { type: [string, "null"], maxLength: 256 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        revision: { type: integer, minimum: 1 }
+    WorldbookSectionInput:
+      type: object
+      additionalProperties: false
+      required: [key, content]
+      properties:
+        key: { type: string, minLength: 1, maxLength: 300 }
+        content: { type: string, minLength: 1, maxLength: 64000 }
+        enabled: { type: boolean, default: true }
+    WorldbookSection:
+      type: object
+      additionalProperties: false
+      required: [id, key, content, enabled]
+      properties:
+        id: { type: string, pattern: '^section_[0-9a-f]{32}$' }
+        key: { type: string, minLength: 1, maxLength: 300 }
+        content: { type: string, minLength: 1, maxLength: 64000 }
+        enabled: { type: boolean }
+    WorldbookInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 8000, default: "" }
+        boundPersonaIds:
+          type: array
+          maxItems: 200
+          default: []
+          items: { $ref: "#/components/schemas/CatalogReferenceId" }
+        sections:
+          type: array
+          maxItems: 200
+          default: []
+          items: { $ref: "#/components/schemas/WorldbookSectionInput" }
+    Worldbook:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, boundPersonaIds, sections, createdAt, updatedAt, revision]
+      properties:
+        id: { type: string, pattern: '^worldbook_[0-9a-f]{32}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 8000 }
+        boundPersonaIds:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/CatalogReferenceId" }
+        sections:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/WorldbookSection" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        revision: { type: integer, minimum: 1 }
+    MomentInput:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        authorId: { type: string, minLength: 1, maxLength: 120, default: user }
+        body: { type: string, minLength: 1, maxLength: 16000 }
+        coverFileId:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogReferenceId"
+            - type: "null"
+          default: null
+    MomentCommentInput:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        authorId: { type: string, minLength: 1, maxLength: 120, default: user }
+        text: { type: string, minLength: 1, maxLength: 16000 }
+        replyTo:
+          oneOf:
+            - type: string
+              pattern: '^comment_[0-9a-f]{32}$'
+            - type: "null"
+          default: null
+    MomentLikeInput:
+      type: object
+      additionalProperties: false
+      required: [liked]
+      properties:
+        actorId: { type: string, minLength: 1, maxLength: 120, default: user }
+        liked: { type: boolean }
+    MomentComment:
+      type: object
+      additionalProperties: false
+      required: [id, authorId, text, replyTo, createdAt, updatedAt]
+      properties:
+        id: { type: string, pattern: '^comment_[0-9a-f]{32}$' }
+        authorId: { type: string, minLength: 1, maxLength: 120 }
+        text: { type: string, minLength: 1, maxLength: 16000 }
+        replyTo:
+          oneOf:
+            - type: string
+              pattern: '^comment_[0-9a-f]{32}$'
+            - type: "null"
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Moment:
+      type: object
+      additionalProperties: false
+      required: [id, authorId, body, coverFileId, likedBy, comments, createdAt, updatedAt, revision]
+      properties:
+        id: { type: string, pattern: '^moment_[0-9a-f]{32}$' }
+        authorId: { type: string, minLength: 1, maxLength: 120 }
+        body: { type: string, minLength: 1, maxLength: 16000 }
+        coverFileId:
+          oneOf:
+            - $ref: "#/components/schemas/CatalogReferenceId"
+            - type: "null"
+        likedBy:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 120 }
+        comments:
+          type: array
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/MomentComment" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        revision: { type: integer, minimum: 1 }
+    WechatAccount:
+      type: object
+      additionalProperties: false
+      description: Non-secret iLink account metadata. Bot credentials and derived keychain names are never returned.
+      required: [id, note, online, createdAt, lastLoginAt, ilinkUserId, loginBaseUrl, credentialConfigured, linkedPersonaId]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 256 }
+        note: { type: string, maxLength: 320 }
+        online: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: string, format: date-time }
+        ilinkUserId: { type: string, maxLength: 256 }
+        loginBaseUrl:
+          type: string
+          format: uri
+          description: The validated official HTTPS origin used for the latest login.
+        credentialConfigured: { type: boolean }
+        linkedPersonaId:
+          oneOf:
+            - $ref: "#/components/schemas/PersonaIdValue"
+            - type: "null"
+          description: Profile Persona uniquely bound to this account, or null.
+    WechatConfig:
+      type: object
+      additionalProperties: false
+      required: [revision, baseUrl, timeoutSeconds, accounts]
+      properties:
+        revision: { type: string }
+        baseUrl:
+          type: string
+          format: uri
+          description: Official iLink HTTPS origin. Debug builds also allow an explicit loopback fixture.
+        timeoutSeconds: { type: integer, minimum: 5, maximum: 60 }
+        accounts:
+          type: array
+          maxItems: 16
+          items: { $ref: "#/components/schemas/WechatAccount" }
+    WechatConfigPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        baseUrl: { type: string, format: uri }
+        timeoutSeconds: { type: integer, minimum: 5, maximum: 60 }
+    WechatQrStartRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        baseUrl: { type: [string, "null"], format: uri }
+    WechatQrStartResult:
+      type: object
+      additionalProperties: false
+      required: [qrcode, qrImage, baseUrl]
+      properties:
+        qrcode: { type: string, minLength: 1, maxLength: 4096, writeOnly: true }
+        qrImage:
+          type: string
+          pattern: "^data:image/svg\\+xml;base64,"
+          description: QR SVG rendered locally from the upstream challenge content.
+        baseUrl: { type: string, format: uri }
+    WechatQrStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [qrcode]
+      properties:
+        qrcode: { type: string, minLength: 1, maxLength: 4096, writeOnly: true }
+        baseUrl: { type: [string, "null"], format: uri }
+    WechatQrStatusResult:
+      type: object
+      additionalProperties: false
+      required: [status, message, account, host]
+      properties:
+        status: { type: string }
+        message: { type: [string, "null"] }
+        account:
+          oneOf:
+            - $ref: "#/components/schemas/WechatAccount"
+            - type: "null"
+        host: { type: [string, "null"] }
+    WechatAccountLinkPatch:
+      type: object
+      additionalProperties: false
+      required: [linkedPersonaId]
+      properties:
+        linkedPersonaId:
+          oneOf:
+            - $ref: "#/components/schemas/PersonaIdValue"
+            - type: "null"
+    WechatPollRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        cursor: { type: [string, "null"], maxLength: 16384 }
+    WechatInboundMessage:
+      type: object
+      additionalProperties: false
+      required: [id, peer, text]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 256 }
+        peer: { type: string, minLength: 1, maxLength: 256 }
+        text: { type: string, minLength: 1, maxLength: 16000 }
+    WechatPollResult:
+      type: object
+      additionalProperties: false
+      required: [messages, nextCursor, receivedCount, skippedCount]
+      properties:
+        messages:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/WechatInboundMessage" }
+        nextCursor: { type: [string, "null"], maxLength: 16384 }
+        receivedCount: { type: integer, minimum: 0, maximum: 100 }
+        skippedCount: { type: integer, minimum: 0, maximum: 100 }
+    WechatSendRequest:
+      type: object
+      additionalProperties: false
+      required: [peer, text]
+      properties:
+        peer: { type: string, minLength: 1, maxLength: 256 }
+        text: { type: string, minLength: 1, maxLength: 16000 }
+    WechatSendResult:
+      type: object
+      additionalProperties: false
+      required: [accepted, messageId]
+      properties:
+        accepted: { type: boolean, const: true }
+        messageId: { type: [string, "null"], maxLength: 256 }
+    Plugin:
+      type: object
+      additionalProperties: false
+      required: [id, name, version, description, author, providedTools, requiresEnv, enabled, execution, installedAt, updatedAt]
+      properties:
+        id: { type: string, pattern: '^[a-z0-9][a-z0-9_.-]{0,63}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        version: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$' }
+        description: { type: string, maxLength: 4096 }
+        author: { type: string, minLength: 1, maxLength: 120 }
+        providedTools:
+          type: array
+          maxItems: 128
+          uniqueItems: true
+          items: { type: string, pattern: '^[A-Za-z0-9_.:-]{1,128}$' }
+        requiresEnv:
+          type: array
+          maxItems: 128
+          uniqueItems: true
+          items: { type: string, pattern: '^[A-Z_][A-Z0-9_]{0,127}$' }
+        enabled: { type: boolean }
+        execution: { type: string, const: manifestOnly }
+        installedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PluginPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 512
+          items: { $ref: "#/components/schemas/Plugin" }
+    InstallPlugin:
+      type: object
+      additionalProperties: false
+      required: [sourcePath]
+      properties:
+        sourcePath:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: A directory already present as a direct child of HERMES_HOME/.synthchat/plugins. Absolute paths must resolve to such a direct child; outside paths and traversal are rejected.
+    PluginPatch:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
     SecretStatus:
       type: object
       additionalProperties: false
@@ -1907,10 +3021,14 @@ components:
     Session:
       type: object
       additionalProperties: false
-      required: [id, profileId, title, preview, source, model, messageCount, archived, revision, createdAt, updatedAt, match]
+      required: [id, profileId, personaId, title, preview, source, model, messageCount, archived, revision, createdAt, updatedAt, match]
       properties:
         id: { type: string }
         profileId: { $ref: "#/components/schemas/ProfileIdValue" }
+        personaId:
+          type: [string, "null"]
+          pattern: '^persona_[0-9a-f]{32}$'
+          description: Optional persistent default Persona for Runs in this Session. Existence is validated against the Session Profile when a Run prepares inference.
         title: { type: string, minLength: 1, maxLength: 500 }
         preview: { type: string }
         source: { type: string }
@@ -1948,6 +3066,10 @@ components:
       required: [profileId]
       properties:
         profileId: { $ref: "#/components/schemas/ProfileIdValue" }
+        personaId:
+          type: [string, "null"]
+          pattern: '^persona_[0-9a-f]{32}$'
+          description: Optional persistent default Persona. The create operation validates only the opaque identifier syntax; Run preparation validates Profile-scoped existence.
         title:
           type: [string, "null"]
           minLength: 1
@@ -2134,6 +3256,10 @@ components:
       properties:
         clientRequestId: { type: string, minLength: 1, maxLength: 128 }
         message: { $ref: "#/components/schemas/ChatInput" }
+        personaId:
+          type: [string, "null"]
+          pattern: '^persona_[0-9a-f]{32}$'
+          description: Optional Persona from the Session Profile. Its bounded prompt fields and enabled bound Worldbook sections are injected as system context. It also controls Persona model, tool and memory policy for this Run.
         modelOverride: { oneOf: [{ $ref: "#/components/schemas/ModelConfig" }, { type: "null" }] }
         reasoningEffort: { type: [string, "null"], enum: [minimal, low, medium, high, xhigh, null] }
         workspaceId:

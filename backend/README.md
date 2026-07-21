@@ -31,9 +31,15 @@ Implemented API domains:
 - builtin Memory CRUD/search with ETag and threat-scan boundaries;
 - Tavily Web Search/Extract plus a readiness-gated Rust Browser
   automation/CDP/download runtime;
-- persistent, single-delivery background terminal completion/watch events.
+- persistent, single-delivery background terminal completion/watch events;
+- Profile-scoped Persona, Worldbook, and Moments product catalogs with strong
+  ETags, plus frozen Persona/bound-Worldbook context for a Run;
+- keychain-backed WeChat configuration, QR login, unique Persona binding, and
+  explicit bounded message polling/sending without an automatic Run bridge;
+- a manifest-only local plugin catalog with install plus ETag-protected
+  enable/remove metadata operations and no plugin code execution.
 
-The current Session schema is v12. Schema v8 introduced the
+The current Session schema is v13. Schema v8 introduced the
 owner/attempt-bound durable once/deny approval ledger; v9 added a bound
 immutable clarification ledger. A
 clarification request binds the Run, call, invocation checkpoint, and raw
@@ -51,6 +57,8 @@ monotonic RPC sequence. Nested arguments and results remain in the private
 journal and never become top-level Provider calls or public SSE projections.
 Schema v11 adds the persistent Run queue and epoch-fenced runtime lease; v12
 adds owner-bound durable async-delivery records for background terminal tools.
+Schema v13 adds constrained `persona_id` columns to `sessions` and
+`session_versions`, preserving the Persona selected for a Session and its Runs.
 
 The server listens on `127.0.0.1:8642` by default and refuses non-loopback
 addresses.
@@ -198,12 +206,14 @@ and residual limits.
 
 ## Verification
 
-The 2026-07-20 complete backend run passed 493/493 tests: 364 library tests,
-2 backend-binary tests and every integration binary. Formatting, all-targets
-check and `clippy -D warnings` pass. Playwright passes 12/12, including real
-Chromium navigation/snapshot and approved CDP; Browser download UI coverage,
-30-60 minute mixed load, eight-hour soak/leak evidence, native three-platform
-crash/process coverage and security release sign-off remain gates.
+The 2026-07-21 bounded, non-stress backend run passed 517/517 tests: 377
+library tests, 2 backend-binary tests and the remaining integration tests; zero
+failures and one Windows keychain test ignored because it requires explicit
+`SYNTHCHAT_RUN_NATIVE_KEYCHAIN_TESTS` authorization. Formatting, all-targets
+check and `clippy -D warnings` pass. The 2026-07-20 Playwright 12/12, npm audit,
+mixed-runtime and long-stability records remain historical evidence and were
+not rerun in this baseline. Native cross-platform packaging, signing and
+security release sign-off remain independent release gates.
 
 ```powershell
 cargo fmt -- --check

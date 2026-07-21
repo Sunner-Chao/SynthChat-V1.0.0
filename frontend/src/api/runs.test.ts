@@ -69,6 +69,7 @@ const ACTIVE_RUN_LIST = {
 const CREATE_INPUT: CreateRunInput = {
   clientRequestId: "client-request-1",
   message: { text: "Explain the migration", fileIds: ["file-1"] },
+  personaId: "persona_0123456789abcdef0123456789abcdef",
   modelOverride: null,
   reasoningEffort: "medium",
 };
@@ -446,6 +447,7 @@ describe("Run REST client", () => {
   it.each([
     ["short idempotency", CREATE_INPUT, "short"],
     ["unknown input", { ...CREATE_INPUT, secret: true }, "idem-key-123"],
+    ["bad Persona ID", { ...CREATE_INPUT, personaId: "persona-invalid" }, "idem-key-123"],
     ["too many files", { ...CREATE_INPUT, message: { text: "x", fileIds: Array(21).fill("f") } }, "idem-key-123"],
     ["bad effort", { ...CREATE_INPUT, reasoningEffort: "extreme" }, "idem-key-123"],
     ["unsafe model URL", { ...CREATE_INPUT, modelOverride: {

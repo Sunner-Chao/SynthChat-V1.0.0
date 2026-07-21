@@ -1,29 +1,32 @@
 # 阶段四测试报告
 
-**状态：Windows 全量回归、OpenAI-compatible Provider 定向回归、12 条 UI E2E（含真实 Chromium 与后台 Terminal 双 Run 流程）、崩溃恢复、日志脱敏和原生密钥链回归通过；阶段四全量验收未完成。**
+**状态：2026-07-21 Windows 非压力正确性矩阵与静态门禁通过，本地开发验收完成；2026-07-20 及更早的 UI E2E、mixed、npm audit、NSIS 和原生密钥链结果仅作为历史证据，独立发布验收仍未完成。**
 
-本报告记录当前 Windows 主机的实际验证。真实外部模型、长时间稳定性、
-内存泄漏、跨平台和发布验收仍未通过，不能由本地绿色矩阵外推。
+本报告记录当前 Windows 主机的实际验证。本轮没有重跑 Playwright、npm
+audit、压力/长稳或 mixed pilot。真实外部模型、跨平台、签名、公证、资产许可
+和其他发布验收仍未通过，不能由本地绿色矩阵外推。
 
 ## 已执行验证
 
-### 当前完整正确性矩阵
+### 2026-07-21 非压力完整正确性矩阵
 
-2026-07-20 使用 MSVC Rust 1.88、Node 22.14.0 和 npm 10.9.2 重新执行：
+2026-07-21 使用 MSVC Rust 1.88 执行以下有界验证：
 
 | 范围 | 实测结果 |
 | --- | --- |
-| Backend | fmt、all-targets check、clippy `-D warnings` 通过；Windows 串行完整矩阵 493 passed、0 failed、1 ignored，其中 library 364/364、backend binary 2/2、Run HTTP 36/36，全部集成测试二进制通过 |
-| Desktop | fmt、check、clippy 通过；21/21 测试通过 |
-| Frontend | 31 个测试文件、502/502 测试通过；TypeScript/Vite 生产构建通过 |
-| API 契约 | OpenAPI generated-type drift 与 Redocly 2.39 lint 通过 |
-| Tauri IPC | AST 门禁扫描 42 个生产 TypeScript 文件并通过内置绕过自测 |
-| npm 依赖 | root 与 `frontend/` 的 `npm audit` 均为 0 vulnerabilities |
-| Playwright | Node 22.14.0/npm 10.9.2 下 12/12，最新本地运行 43.0 秒；覆盖聊天流、Skills、Workspace write/read/search/patch 双审批与终态泄露审计、Clarification、stdio MCP、前台 Terminal、后台 Terminal 双 Run/异步 delivery/进程回收、真实 Python `execute_code`、真实 Chromium navigate/snapshot/两次一次性审批/CDP/隔离下载、两类崩溃恢复、消息 FTS5/继续对话及 Memory CRUD/搜索 |
-| Mixed runtime v2 | verifier 8 项自检通过，含严格 `session_search` 正向闭环与 call/result 负例、8 小时上限、全窗样本和 `backendRssUnavailable`；真实 backend smoke 4/4，覆盖 Profile/Session/Run/SSE/FTS、2/2 工具回路、逐 Run envelope/sequence 与全局守恒，backend/provider/temp 清理通过；60 秒资格测试 170/170 iterations、17/17 工具回路、187/187 Provider 请求通过 |
-| Windows NSIS | 当前源码生成 `SynthChat_1.1.0_x64-setup.exe`（26,009,305 bytes，SHA-256 `DFA82F256A0251B025BB78F68EE72FF3C1E622233DA9992D41CAF24E6AC81216`）；7-Zip 完整性、8 项载荷、Desktop Tauri marker 补丁、sidecar 精确哈希、禁入路径和高置信凭据扫描通过；Authenticode 为 `NotSigned` |
-| Mixed pilot (旧 text-only workload) | 30 分钟真实 Profile/Session/Run/SSE/FTS；1,094/1,094 successes、1,094 Provider requests、0 failures、356 resource samples、backend/provider/temp clean teardown；RSS 33.71→44.34 MiB，仍需 v2 8 小时 soak |
-| Mixed extension (旧 text-only workload) | 60 分钟真实 Profile/Session/Run/SSE/FTS；2,238/2,238 successes、2,238 Provider requests、0 failures；715/719 RSS samples available、0 dropped；RSS 31.95→45.06 MiB、全窗 +11.00 MiB/h、后 30 分钟 +4.70 MiB/h；current-run clean teardown，仍需 v2 8 小时 soak |
+| Backend | fmt、all-targets check、clippy `-D warnings` 通过；517/517 tests passed、0 failed，其中 library 377、backend binary 2、其余为 integration；1 个 Windows keychain test 因未获得 `SYNTHCHAT_RUN_NATIVE_KEYCHAIN_TESTS` 明示授权而 ignored |
+| Desktop | fmt、all-targets check、clippy `-D warnings` 通过；21/21 测试通过 |
+| Frontend | 37 个测试文件、551/551 测试通过；TypeScript/Vite 生产构建通过 |
+| API 与仓库门禁 | OpenAPI lint/generated-type drift、release-input self-check 与 `git diff --check` 通过 |
+| Tauri IPC（2026-07-20 历史） | AST 门禁扫描 42 个生产 TypeScript 文件并通过内置绕过自测；本轮未重跑 |
+| npm 依赖（2026-07-20 历史） | root 与 `frontend/` 的 `npm audit` 均为 0 vulnerabilities；本轮未重跑 |
+| Playwright（2026-07-20 历史） | Node 22.14.0/npm 10.9.2 下 12/12，43.0 秒；覆盖聊天流、Skills、Workspace write/read/search/patch 双审批与终态泄露审计、Clarification、stdio MCP、前台 Terminal、后台 Terminal 双 Run/异步 delivery/进程回收、真实 Python `execute_code`、真实 Chromium navigate/snapshot/两次一次性审批/CDP/隔离下载、两类崩溃恢复、消息 FTS5/继续对话及 Memory CRUD/搜索；本轮未重跑 |
+| Mixed runtime v2（2026-07-20 历史） | verifier 8 项自检、真实 backend smoke 4/4 与 60 秒资格测试 170/170 均通过；本轮未重跑 |
+| Windows NSIS（2026-07-20 历史） | 生成 `SynthChat_1.1.0_x64-setup.exe`（26,009,305 bytes，SHA-256 `DFA82F256A0251B025BB78F68EE72FF3C1E622233DA9992D41CAF24E6AC81216`）；7-Zip 完整性、8 项载荷、Desktop Tauri marker 补丁、sidecar 精确哈希、禁入路径和高置信凭据扫描通过；Authenticode 为 `NotSigned`；本轮未重跑 |
+| Mixed pilot（2026-07-20 历史旧 text-only workload） | 30 分钟真实 Profile/Session/Run/SSE/FTS；1,094/1,094 successes、1,094 Provider requests、0 failures、356 resource samples、backend/provider/temp clean teardown；RSS 33.71→44.34 MiB；本轮未重跑 |
+| Mixed extension（2026-07-20 历史旧 text-only workload） | 60 分钟真实 Profile/Session/Run/SSE/FTS；2,238/2,238 successes、2,238 Provider requests、0 failures；715/719 RSS samples available、0 dropped；RSS 31.95→45.06 MiB、全窗 +11.00 MiB/h、后 30 分钟 +4.70 MiB/h；本轮未重跑 |
+
+### 2026-07-20 历史 UI 与有界运行证据
 
 为验证 Browser 生命周期及用例间清理，Browser -> Terminal -> approval ->
 Skills 最小交错矩阵 4/4（21.8 秒）及 Browser Rust 定向矩阵 9/9 均通过。
@@ -31,7 +34,7 @@ Skills 最小交错矩阵 4/4（21.8 秒）及 Browser Rust 定向矩阵 9/9 均
 CDP 审批注入唯一下载链接、重新 snapshot 和独立一次性 download 审批；Provider
 精确验证 filename、MIME、size、SHA-256 和 scan flags，公开 UI/REST/storage/
 request body/console 不含文件体、data URL 或私有路径。该用例单独 1/1（5.2 秒）
-并与 Code 组合 2/2（8.7 秒）通过；当前完整 12/12 组合运行 43.0 秒通过。
+并与 Code 组合 2/2（8.7 秒）通过；该日完整 12/12 组合运行 43.0 秒通过。
 
 扩展后的 Files UI 用例在同一个 Run 内顺序执行 `write_file`、`read_file`、
 `search_files` 和 `patch`。write 与 patch 使用两个不同的一次性审批；Provider
@@ -223,7 +226,7 @@ pwsh -NoProfile -File .\scripts\verify-backend-runtime.ps1 `
 
 ## 未覆盖与验收缺口
 
-- 已执行 12 条 Playwright UI E2E；OpenAI-compatible Provider 已通过本地真实
+- 2026-07-20 已执行 12 条 Playwright UI E2E；OpenAI-compatible Provider 已通过本地真实
   HTTP/SSE fixture，审批已覆盖真实 Workspace write/read/search/patch，
   Clarification、stdio MCP、
   前台 Terminal 和真实 Python guardian 均已有 UI 证据。Browser 已覆盖真实
@@ -231,21 +234,22 @@ pwsh -NoProfile -File .\scripts\verify-backend-runtime.ps1 `
   CDP 和 metadata-only 隔离下载；后台
   Terminal 双 Run、唯一 delivery、审批前零副作用和 kill 回收已有 UI 证据。
   仍缺带真实第三方凭据的 Provider smoke。
-- 已验证 SSE/Run 的完成态与运行中崩溃恢复；macOS/Linux 和三平台打包
+- 历史验证已覆盖 SSE/Run 的完成态与运行中崩溃恢复；macOS/Linux 和三平台打包
   产物中的进程生命周期仍未验证。
-- 已重跑 Rust、Desktop、Frontend 全矩阵及前端生产构建，并生成/静态审计
-  当前 Windows NSIS 开发包；clean-account 安装/启动/升级/卸载、签名和公证
-  仍未完成。
-- 当前 Windows 用户的真实 Credential Manager 已验证；macOS/Linux、
+- 2026-07-21 已重跑 Rust、Desktop、Frontend 非压力全矩阵及前端生产构建；
+  Windows NSIS 生成/静态审计仅保留 2026-07-20 历史证据，本轮未重跑。
+  clean-account 安装/启动/升级/卸载、签名和公证仍未完成。
+- 2026-07-18 Windows 用户的真实 Credential Manager 历史证据已验证；macOS/Linux、
   跨用户权限隔离和系统重启持久性仍未验证。
-- 已执行早期 text-only 30 分钟与 60 分钟 backend mixed pilot（分别
-  1,094/1,094、2,238/2,238 成功），以及严格 v2 4/4 smoke 和 60 秒
-  170/170 资格测试；v2 8 小时 mixed 长稳、最终泄漏趋势和容量上限仍未完成。
+- 2026-07-20 历史记录已执行早期 text-only 30 分钟与 60 分钟 backend mixed
+  pilot（分别 1,094/1,094、2,238/2,238 成功），以及严格 v2 4/4 smoke 和
+  60 秒 170/170 资格测试；本轮未执行 v2 8 小时 mixed 长稳、最终泄漏趋势或容量
+  上限验证。
   v2 `scripts/verify-mixed-runtime.mjs --duration-seconds 28800` 支持周期
-  `session_search`、逐 Run SSE/工具契约和约 5,762 条全窗口资源样本；正式运行
-  已启动，但完成报告与人工 RSS review 之前仍是 open gate。统一 task
+  `session_search`、逐 Run SSE/工具契约和约 5,762 条全窗口资源样本；本轮未产生
+  8 小时完成报告或人工 RSS review，因此它仍是独立 release gate。统一 task
   registry、立即 lease 释放与共享关闭 deadline
   已通过定向和完整矩阵；长稳仍须验证持续并发 create/queue、Provider、
   Terminal/process 与关闭交错。
 
-因此当前结果证明本机主要功能与安全边界可重复运行，但仍不能关闭阶段四验收门。
+因此当前结果关闭本机有界、非压力的开发验收，但不能关闭独立的发布验收门。

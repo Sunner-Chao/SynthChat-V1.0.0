@@ -154,7 +154,7 @@ fn validate_request(request: &ProviderRequest) -> Result<(), ProviderError> {
             !matches!(effort, "minimal" | "low" | "medium" | "high" | "xhigh")
         })
     {
-        return Err(ProviderError::Unavailable);
+        return Err(ProviderError::InvalidConfiguration);
     }
     Ok(())
 }
@@ -225,14 +225,13 @@ fn is_http_url(url: &url::Url) -> bool {
 
 fn validate_response(response: &Response) -> Result<(), ProviderError> {
     if !response.status().is_success() {
-        return if matches!(
-            response.status(),
-            StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT
-        ) {
-            Err(ProviderError::Timeout)
-        } else {
-            Err(ProviderError::Unavailable)
-        };
+        return Err(match response.status() {
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => ProviderError::Authentication,
+            StatusCode::TOO_MANY_REQUESTS => ProviderError::RateLimited,
+            StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT => ProviderError::Timeout,
+            status if status.is_client_error() => ProviderError::RequestRejected,
+            _ => ProviderError::Unavailable,
+        });
     }
 
     let is_event_stream = response
@@ -322,7 +321,7 @@ async fn process_payload(
     let chunk: ChatCompletionChunk =
         serde_json::from_str(payload).map_err(|_| ProviderError::InvalidResponse)?;
     if chunk.error.is_some() {
-        return Err(ProviderError::Unavailable);
+        return Err(ProviderError::StreamFailed);
     }
 
     for choice in chunk.choices {
@@ -1319,10 +1318,41 @@ mod tests {
             )
             .await
             .unwrap_err();
-        assert_eq!(error, ProviderError::Unavailable);
+        assert_eq!(error, ProviderError::Authentication);
         assert!(!error.to_string().contains("never-log-this-secret"));
         assert!(!format!("{error:?}").contains("never-log-this-secret"));
         abort_server(rejected_server).await;
+    }
+
+    #[tokio::test]
+    async fn http_failures_have_safe_actionable_categories() {
+        for (status, expected) in [
+            (StatusCode::FORBIDDEN, ProviderError::Authentication),
+            (StatusCode::TOO_MANY_REQUESTS, ProviderError::RateLimited),
+            (StatusCode::BAD_REQUEST, ProviderError::RequestRejected),
+            (StatusCode::NOT_FOUND, ProviderError::RequestRejected),
+            (StatusCode::SERVICE_UNAVAILABLE, ProviderError::Unavailable),
+        ] {
+            let rejected = Router::new().route(
+                "/v1/chat/completions",
+                post(move || async move { (status, "provider details stay private") }),
+            );
+            let (endpoint, server) = spawn_server(rejected).await;
+            let (event_tx, _event_rx) = mpsc::channel(1);
+            let (_cancel_tx, cancel_rx) = watch::channel(false);
+            let error = OpenAiCompatibleProvider::new()
+                .stream_chat(
+                    request(endpoint, Some("never-log-this-secret")),
+                    event_tx,
+                    cancel_rx,
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(error, expected, "unexpected mapping for {status}");
+            assert!(!error.to_string().contains("provider details"));
+            assert!(!format!("{error:?}").contains("never-log-this-secret"));
+            abort_server(server).await;
+        }
     }
 
     #[tokio::test]
@@ -1340,6 +1370,26 @@ mod tests {
                 .await,
             Err(ProviderError::InvalidResponse)
         );
+        abort_server(server).await;
+
+        let stream_error = Router::new().route(
+            "/v1/chat/completions",
+            post(|| async {
+                one_byte_sse_response(
+                    "data: {\"error\":{\"message\":\"provider details stay private\"}}\n\n",
+                )
+            }),
+        );
+        let (endpoint, server) = spawn_server(stream_error).await;
+        let (event_tx, _event_rx) = mpsc::channel(1);
+        let (_cancel_tx, cancel_rx) = watch::channel(false);
+        let error = OpenAiCompatibleProvider::new()
+            .stream_chat(request(endpoint, None), event_tx, cancel_rx)
+            .await
+            .unwrap_err();
+        assert_eq!(error, ProviderError::StreamFailed);
+        assert!(!error.to_string().contains("provider details"));
+        assert!(!format!("{error:?}").contains("provider details"));
         abort_server(server).await;
 
         let missing_usage = Router::new().route(
@@ -1383,7 +1433,10 @@ mod tests {
         let endpoint = Url::parse("http://127.0.0.1:1/v1/chat/completions").unwrap();
         let mut value = request(endpoint.clone(), None);
         value.tools = vec![tool_definition("known"), tool_definition("known")];
-        assert_eq!(validate_request(&value), Err(ProviderError::Unavailable));
+        assert_eq!(
+            validate_request(&value),
+            Err(ProviderError::InvalidConfiguration)
+        );
 
         let mut value = request(endpoint.clone(), None);
         value.tools = vec![ProviderToolDefinition {
@@ -1392,7 +1445,10 @@ mod tests {
             parameters: json!({"type":"object"}),
             strict: None,
         }];
-        assert_eq!(validate_request(&value), Err(ProviderError::Unavailable));
+        assert_eq!(
+            validate_request(&value),
+            Err(ProviderError::InvalidConfiguration)
+        );
 
         let mut value = request(endpoint.clone(), None);
         value.tools = vec![ProviderToolDefinition {
@@ -1401,19 +1457,31 @@ mod tests {
             parameters: json!([]),
             strict: None,
         }];
-        assert_eq!(validate_request(&value), Err(ProviderError::Unavailable));
+        assert_eq!(
+            validate_request(&value),
+            Err(ProviderError::InvalidConfiguration)
+        );
 
         let mut value = request(endpoint.clone(), None);
         value.messages = vec![ProviderMessage::assistant(None, Vec::new())];
-        assert_eq!(validate_request(&value), Err(ProviderError::Unavailable));
+        assert_eq!(
+            validate_request(&value),
+            Err(ProviderError::InvalidConfiguration)
+        );
 
         let mut value = request(endpoint.clone(), None);
         value.messages = vec![ProviderMessage::tool("", "result")];
-        assert_eq!(validate_request(&value), Err(ProviderError::Unavailable));
+        assert_eq!(
+            validate_request(&value),
+            Err(ProviderError::InvalidConfiguration)
+        );
 
         let mut value = request(endpoint, None);
         value.messages = vec![ProviderMessage::new("developer", "unsupported")];
-        assert_eq!(validate_request(&value), Err(ProviderError::Unavailable));
+        assert_eq!(
+            validate_request(&value),
+            Err(ProviderError::InvalidConfiguration)
+        );
     }
 
     #[test]

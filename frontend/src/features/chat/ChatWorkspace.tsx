@@ -62,6 +62,7 @@ type WorkspaceState =
 interface Continuation {
   id: string;
   title: string;
+  personaId?: string;
 }
 
 interface SendAttempt {
@@ -116,6 +117,12 @@ function errorMessage(error: unknown, fallback: string): string {
       case "session_busy": return "该会话已有回复正在生成。";
       case "session_archived": return "归档会话需要先恢复后才能继续。";
       case "engine_unavailable": return "当前 Profile 尚未配置可用的模型或密钥。";
+      case "provider_configuration_invalid": return "当前 Profile 的 Provider、模型或 Base URL 配置无效。";
+      case "provider_authentication_failed": return "模型服务拒绝了当前 API Key，请在 Profile 与密钥中重新保存。";
+      case "provider_rate_limited": return "模型服务正在限流，请稍后重试。";
+      case "provider_request_rejected": return "模型服务拒绝了当前模型或请求参数，请核对模型名与推理设置。";
+      case "provider_stream_failed": return "模型服务在流式响应过程中返回错误，请重试。";
+      case "provider_response_invalid": return "模型服务返回了不完整或不兼容的流式响应。";
       case "secret_storage_unavailable": return "系统密钥链暂时不可用。";
       case "capacity_exceeded": return "本地推理队列已满，请稍后重试。";
       default: return error.requestId ? `${error.message} 请求 ID：${error.requestId}` : error.message;
@@ -656,6 +663,10 @@ export function ChatWorkspace({
     event.preventDefault();
     const text = draft.trim();
     if (!sessionId || !text || sending || runBusy || !activeRunDiscoveryReady) return;
+    const persistedSession = sessions.find((session) => session.id === sessionId);
+    const personaId = persistedSession
+      ? persistedSession.personaId ?? undefined
+      : continuation?.id === sessionId ? continuation.personaId : undefined;
     let attempt = sendAttemptRef.current;
     if (!attempt || attempt.sessionId !== sessionId || attempt.text !== text) {
       attempt = {
@@ -664,6 +675,7 @@ export function ChatWorkspace({
         input: {
           clientRequestId: newRequestId(),
           message: { text, fileIds: [] },
+          personaId,
         },
       };
       sendAttemptRef.current = attempt;

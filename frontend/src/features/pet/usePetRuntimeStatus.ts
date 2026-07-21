@@ -36,6 +36,7 @@ export interface PetRuntimeStatus {
   phase: PetRuntimePhase;
   title: string;
   detail: string;
+  profiles: ProfileSummary[];
   profile: ProfileSummary | null;
   latestSession: Session | null;
   activeRun: Run | null;
@@ -55,12 +56,14 @@ export interface PetRuntimeApis {
 export interface PetRuntimeStatusOptions {
   apis?: PetRuntimeApis;
   pollIntervalMs?: number;
+  selectedProfileId?: string | null;
 }
 
 const EMPTY_STATUS: PetRuntimeStatus = {
   phase: "loading",
   title: "正在连接 Hermes Rust",
   detail: "读取桌面后端状态",
+  profiles: [],
   profile: null,
   latestSession: null,
   activeRun: null,
@@ -197,6 +200,7 @@ function unavailableStatus(message: string): PetRuntimeStatus {
 
 function readyStatus(
   capabilities: Capabilities,
+  profiles: ProfileSummary[],
   profile: ProfileSummary,
   latestSession: Session | null,
   activeRun: Run | null,
@@ -209,6 +213,7 @@ function readyStatus(
       phase: "offline",
       title: "Hermes 引擎不可用",
       detail: "请在主窗口检查 Profile 和后端状态。",
+      profiles,
       profile,
       latestSession,
       activeRun,
@@ -222,6 +227,7 @@ function readyStatus(
     detail: activeRun ? runStatus.detail : latestSession
       ? `最近会话：${compactText(latestSession.title, 90)}`
       : "创建会话后，这里会显示运行状态。",
+    profiles,
     profile,
     latestSession,
     activeRun,
@@ -235,6 +241,7 @@ export function usePetRuntimeStatus(
 ): PetRuntimeStatus & { refresh(): void } {
   const apis = options.apis ?? DEFAULT_APIS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_PET_RUNTIME_CONFIG.statusPollIntervalMs;
+  const selectedProfileId = options.selectedProfileId ?? null;
   const [status, setStatus] = useState<PetRuntimeStatus>(EMPTY_STATUS);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const activeRunRef = useRef<Run | null>(null);
@@ -254,7 +261,8 @@ export function usePetRuntimeStatus(
           apis.profilesApi.getCapabilities({ signal: controller.signal }),
           apis.profilesApi.listProfiles({ signal: controller.signal }),
         ]);
-        const profile = selectPetProfile(profiles);
+        const profile = profiles.find((item) => item.id === selectedProfileId)
+          ?? selectPetProfile(profiles);
         if (!profile) {
           if (!disposed) {
             setStatus({
@@ -262,6 +270,7 @@ export function usePetRuntimeStatus(
               phase: "offline",
               title: "尚未配置 Profile",
               detail: "请在主窗口创建或导入 Hermes Profile。",
+              profiles,
               engineAvailable: capabilities.engine.available,
               runTrackingAvailable: capabilities.extensions.activeRunDiscovery,
             });
@@ -281,7 +290,7 @@ export function usePetRuntimeStatus(
           ? activeRuns.items[activeRuns.items.length - 1]!.run
           : null;
         activeRunRef.current = activeRun;
-        setStatus(readyStatus(capabilities, profile, sessions.items[0] ?? null, activeRun));
+        setStatus(readyStatus(capabilities, profiles, profile, sessions.items[0] ?? null, activeRun));
       } catch (error) {
         if (!disposed && !controller.signal.aborted) setStatus(unavailableStatus(errorText(error)));
       }
@@ -291,7 +300,7 @@ export function usePetRuntimeStatus(
       disposed = true;
       controller.abort();
     };
-  }, [apis, refreshVersion]);
+  }, [apis, refreshVersion, selectedProfileId]);
 
   useEffect(() => {
     if (!Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) return undefined;

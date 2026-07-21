@@ -78,6 +78,12 @@ const CAPABILITIES: Capabilities = {
     mcpStdio: false,
     mcpStreamableHttp: false,
     mcpSse: false,
+    wechatAccounts: false,
+    wechatMessaging: false,
+    plugins: false,
+    personas: false,
+    moments: false,
+    worldbooks: false,
   },
 };
 const PROFILES: ProfileSummary[] = [

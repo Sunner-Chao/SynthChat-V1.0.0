@@ -108,6 +108,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List registered local plugin manifests */
+        get: operations["listPlugins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a bounded plugin.json already present in the local plugin directory
+         * @description Registration stores metadata only. It does not copy, import, load or execute plugin code.
+         */
+        post: operations["installPlugin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{pluginId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pluginId: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a plugin registration without deleting its local directory */
+        delete: operations["uninstallPlugin"];
+        options?: never;
+        head?: never;
+        /**
+         * Enable or disable a registered plugin manifest
+         * @description Enablement is catalog metadata only and never authorizes plugin code execution.
+         */
+        patch: operations["updatePlugin"];
+        trace?: never;
+    };
     "/api/v1/profiles": {
         parameters: {
             query?: never;
@@ -204,6 +264,326 @@ export interface paths {
         head?: never;
         /** Update Profile web provider configuration */
         patch: operations["updateProfileWebConfig"];
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/wechat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        /** Get Profile WeChat configuration and account metadata */
+        get: operations["getWechatConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Profile WeChat connection configuration */
+        patch: operations["updateWechatConfig"];
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/wechat/qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a WeChat QR login */
+        post: operations["startWechatQr"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/wechat/qr/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check a WeChat QR login challenge */
+        post: operations["checkWechatQrStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/wechat/accounts/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                accountId: components["parameters"]["WechatAccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Bind or unbind one Profile Persona to a WeChat account
+         * @description A Persona may be bound to at most one WeChat account in the same Profile.
+         */
+        patch: operations["updateWechatAccountLink"];
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/wechat/accounts/{accountId}/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                accountId: components["parameters"]["WechatAccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicitly poll a bounded page of normalized inbound messages
+         * @description The client owns cursor persistence. This route does not create Sessions or Runs automatically.
+         */
+        post: operations["pollWechatMessages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/wechat/accounts/{accountId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                accountId: components["parameters"]["WechatAccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Explicitly send one bounded text message */
+        post: operations["sendWechatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        /** List Profile Personas */
+        get: operations["listPersonas"];
+        put?: never;
+        /** Create a Persona */
+        post: operations["createPersona"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/personas/{personaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                personaId: components["parameters"]["PersonaId"];
+            };
+            cookie?: never;
+        };
+        /** Get a Persona */
+        get: operations["getPersona"];
+        put?: never;
+        post?: never;
+        /** Delete an unbound Persona */
+        delete: operations["deletePersona"];
+        options?: never;
+        head?: never;
+        /**
+         * Replace Persona input fields using strong ETag concurrency control
+         * @description This is not JSON Merge Patch. Omitted fields take their PersonaInput defaults.
+         */
+        patch: operations["updatePersona"];
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/worldbooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        /** List Profile Worldbooks */
+        get: operations["listWorldbooks"];
+        put?: never;
+        /** Create a Worldbook */
+        post: operations["createWorldbook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/worldbooks/{worldbookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                worldbookId: components["parameters"]["WorldbookId"];
+            };
+            cookie?: never;
+        };
+        /** Get a Worldbook */
+        get: operations["getWorldbook"];
+        put?: never;
+        post?: never;
+        /** Delete a Worldbook */
+        delete: operations["deleteWorldbook"];
+        options?: never;
+        head?: never;
+        /**
+         * Replace Worldbook input fields using strong ETag concurrency control
+         * @description This is not JSON Merge Patch. Omitted description, bindings and sections reset to their defaults, and submitted sections receive new opaque IDs.
+         */
+        patch: operations["updateWorldbook"];
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        /** List Profile Moments */
+        get: operations["listMoments"];
+        put?: never;
+        /** Create a Moment */
+        post: operations["createMoment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/moments/{momentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        /** Get a Moment */
+        get: operations["getMoment"];
+        put?: never;
+        post?: never;
+        /** Delete a Moment */
+        delete: operations["deleteMoment"];
+        options?: never;
+        head?: never;
+        /**
+         * Replace editable Moment fields using strong ETag concurrency control
+         * @description Existing likes and comments are preserved. Omitted authorId and coverFileId take their MomentInput defaults.
+         */
+        patch: operations["updateMoment"];
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/moments/{momentId}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a Moment comment */
+        post: operations["addMomentComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/moments/{momentId}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+                commentId: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a Moment comment */
+        delete: operations["deleteMomentComment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/moments/{momentId}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set one actor's Moment like state */
+        put: operations["setMomentLike"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/profiles/{profileId}/secrets": {
@@ -861,6 +1241,18 @@ export interface components {
             browserCdp: boolean;
             /** @description True exactly when browserAutomation is true. The browser_download tool requires a current snapshot and owner-bound durable once approval, temporarily accepts one bounded file in private per-Run storage, performs filename/MIME/size/SHA-256 checks, returns metadata only, restores deny mode and removes the content. No local path, file body, auto-open, File object or Workspace import is exposed. */
             browserDownloads: boolean;
+            /** @description Whether Profile-scoped WeChat configuration, QR login status, Persona binding and keychain-backed account metadata routes are available. */
+            wechatAccounts: boolean;
+            /** @description Whether explicit bounded WeChat poll/send adapters are available. This does not imply background polling or automatic message-to-Run delivery. */
+            wechatMessaging: boolean;
+            /** @description Whether the local manifest-only plugin catalog supports listing, registration, enablement and removal. This never implies plugin code execution. */
+            plugins: boolean;
+            /** @description Whether Profile-scoped bounded Persona CRUD with independent strong product ETags is available. */
+            personas: boolean;
+            /** @description Whether Profile-scoped bounded Moment CRUD, comments and actor like state with independent strong product ETags are available. */
+            moments: boolean;
+            /** @description Whether Profile-scoped bounded Worldbook CRUD, Persona bindings and section snapshots with independent strong product ETags are available. */
+            worldbooks: boolean;
             /** @description Whether enabled Profile-scoped stdio MCP servers support initialize, tools/list, tools/call and Run injection with child-process cleanup. */
             mcpStdio: boolean;
             /** @description Whether Streamable HTTP MCP transport is executable with pinned validated DNS, bounded manual redirects, JSON or SSE responses, negotiated protocol-version headers, origin-bound session IDs, cancellation and Run injection. */
@@ -1095,6 +1487,247 @@ export interface components {
         NonNullJsonValue: string | number | boolean | components["schemas"]["NonNullJsonValue"][] | {
             [key: string]: components["schemas"]["NonNullJsonValue"];
         };
+        /** @description Opaque product or File reference accepted for compatibility. Clients must not parse the value. */
+        CatalogReferenceId: string;
+        /** @description Opaque Profile-scoped Persona identifier. */
+        PersonaIdValue: string;
+        PersonaInput: {
+            name: string;
+            /** @default null */
+            avatar: string | null;
+            /** @default 你正在扮演这个角色，请保持设定一致并自然交流。 */
+            systemPrompt: string;
+            /** @default  */
+            characterPrompt: string;
+            /** @default  */
+            outputExamples: string;
+            /** @default 请始终保持角色一致性，结合角色详情、世界书与长期记忆作答。 */
+            systemInstructions: string;
+            /** @default  */
+            provider: string;
+            /** @default  */
+            model: string;
+            /** @default 0.8 */
+            temperature: number;
+            /** @default 2048 */
+            maxTokens: number;
+            /** @default true */
+            toolsEnabled: boolean;
+            /** @default true */
+            memoryEnabled: boolean;
+            /** @default false */
+            proactiveEnabled: boolean;
+            /**
+             * @description Optional migration metadata only. It does not restore or invoke a legacy Agent runtime.
+             * @default null
+             */
+            legacyAgentId: string | null;
+        };
+        Persona: {
+            id: string;
+            name: string;
+            avatar: string | null;
+            systemPrompt: string;
+            characterPrompt: string;
+            outputExamples: string;
+            systemInstructions: string;
+            provider: string;
+            model: string;
+            temperature: number;
+            maxTokens: number;
+            toolsEnabled: boolean;
+            memoryEnabled: boolean;
+            proactiveEnabled: boolean;
+            legacyAgentId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            revision: number;
+        };
+        WorldbookSectionInput: {
+            key: string;
+            content: string;
+            /** @default true */
+            enabled: boolean;
+        };
+        WorldbookSection: {
+            id: string;
+            key: string;
+            content: string;
+            enabled: boolean;
+        };
+        WorldbookInput: {
+            name: string;
+            /** @default  */
+            description: string;
+            /** @default [] */
+            boundPersonaIds: components["schemas"]["CatalogReferenceId"][];
+            /** @default [] */
+            sections: components["schemas"]["WorldbookSectionInput"][];
+        };
+        Worldbook: {
+            id: string;
+            name: string;
+            description: string;
+            boundPersonaIds: components["schemas"]["CatalogReferenceId"][];
+            sections: components["schemas"]["WorldbookSection"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            revision: number;
+        };
+        MomentInput: {
+            /** @default user */
+            authorId: string;
+            body: string;
+            /** @default null */
+            coverFileId: components["schemas"]["CatalogReferenceId"] | null;
+        };
+        MomentCommentInput: {
+            /** @default user */
+            authorId: string;
+            text: string;
+            /** @default null */
+            replyTo: string | null;
+        };
+        MomentLikeInput: {
+            /** @default user */
+            actorId: string;
+            liked: boolean;
+        };
+        MomentComment: {
+            id: string;
+            authorId: string;
+            text: string;
+            replyTo: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Moment: {
+            id: string;
+            authorId: string;
+            body: string;
+            coverFileId: components["schemas"]["CatalogReferenceId"] | null;
+            likedBy: string[];
+            comments: components["schemas"]["MomentComment"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            revision: number;
+        };
+        /** @description Non-secret iLink account metadata. Bot credentials and derived keychain names are never returned. */
+        WechatAccount: {
+            id: string;
+            note: string;
+            online: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastLoginAt: string;
+            ilinkUserId: string;
+            /**
+             * Format: uri
+             * @description The validated official HTTPS origin used for the latest login.
+             */
+            loginBaseUrl: string;
+            credentialConfigured: boolean;
+            /** @description Profile Persona uniquely bound to this account, or null. */
+            linkedPersonaId: components["schemas"]["PersonaIdValue"] | null;
+        };
+        WechatConfig: {
+            revision: string;
+            /**
+             * Format: uri
+             * @description Official iLink HTTPS origin. Debug builds also allow an explicit loopback fixture.
+             */
+            baseUrl: string;
+            timeoutSeconds: number;
+            accounts: components["schemas"]["WechatAccount"][];
+        };
+        WechatConfigPatch: {
+            /** Format: uri */
+            baseUrl?: string;
+            timeoutSeconds?: number;
+        };
+        WechatQrStartRequest: {
+            /** Format: uri */
+            baseUrl?: string | null;
+        };
+        WechatQrStartResult: {
+            qrcode: string;
+            /** @description QR SVG rendered locally from the upstream challenge content. */
+            qrImage: string;
+            /** Format: uri */
+            baseUrl: string;
+        };
+        WechatQrStatusRequest: {
+            qrcode: string;
+            /** Format: uri */
+            baseUrl?: string | null;
+        };
+        WechatQrStatusResult: {
+            status: string;
+            message: string | null;
+            account: components["schemas"]["WechatAccount"] | null;
+            host: string | null;
+        };
+        WechatAccountLinkPatch: {
+            linkedPersonaId: components["schemas"]["PersonaIdValue"] | null;
+        };
+        WechatPollRequest: {
+            cursor?: string | null;
+        };
+        WechatInboundMessage: {
+            id: string;
+            peer: string;
+            text: string;
+        };
+        WechatPollResult: {
+            messages: components["schemas"]["WechatInboundMessage"][];
+            nextCursor: string | null;
+            receivedCount: number;
+            skippedCount: number;
+        };
+        WechatSendRequest: {
+            peer: string;
+            text: string;
+        };
+        WechatSendResult: {
+            /** @constant */
+            accepted: true;
+            messageId: string | null;
+        };
+        Plugin: {
+            id: string;
+            name: string;
+            version: string;
+            description: string;
+            author: string;
+            providedTools: string[];
+            requiresEnv: string[];
+            enabled: boolean;
+            /** @constant */
+            execution: "manifestOnly";
+            /** Format: date-time */
+            installedAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PluginPage: {
+            items: components["schemas"]["Plugin"][];
+        };
+        InstallPlugin: {
+            /** @description A directory already present as a direct child of HERMES_HOME/.synthchat/plugins. Absolute paths must resolve to such a direct child; outside paths and traversal are rejected. */
+            sourcePath: string;
+        };
+        PluginPatch: {
+            enabled: boolean;
+        };
         SecretStatus: {
             name: components["schemas"]["SecretName"];
             configured: boolean;
@@ -1129,6 +1762,8 @@ export interface components {
         Session: {
             id: string;
             profileId: components["schemas"]["ProfileIdValue"];
+            /** @description Optional persistent default Persona for Runs in this Session. Existence is validated against the Session Profile when a Run prepares inference. */
+            personaId: string | null;
             title: string;
             preview: string;
             source: string;
@@ -1156,6 +1791,8 @@ export interface components {
         };
         CreateSession: {
             profileId: components["schemas"]["ProfileIdValue"];
+            /** @description Optional persistent default Persona. The create operation validates only the opaque identifier syntax; Run preparation validates Profile-scoped existence. */
+            personaId?: string | null;
             /** @description Null or omission asks the backend to generate the initial title. */
             title?: string | null;
         };
@@ -1297,6 +1934,8 @@ export interface components {
         CreateRun: {
             clientRequestId: string;
             message: components["schemas"]["ChatInput"];
+            /** @description Optional Persona from the Session Profile. Its bounded prompt fields and enabled bound Worldbook sections are injected as system context. It also controls Persona model, tool and memory policy for this Run. */
+            personaId?: string | null;
             modelOverride?: components["schemas"]["ModelConfig"] | null;
             /** @enum {string|null} */
             reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh" | null;
@@ -1785,10 +2424,28 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The Profile or requested product catalog item does not exist. */
+        ProductNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description State, revision, idempotency, replay-window or busy conflict. */
         Conflict: {
             headers: {
                 ETag: components["headers"]["ETag"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The product item changed after the supplied strong ETag was issued. Refetch the item before retrying. */
+        ProductRevisionConflict: {
+            headers: {
                 [name: string]: unknown;
             };
             content: {
@@ -1840,6 +2497,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The local bounded product catalog could not complete the operation. */
+        ProductCatalogUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description A bounded local retained-object quota is exhausted; callers must delete no-longer-needed objects before retrying. */
         InsufficientStorage: {
             headers: {
@@ -1871,6 +2537,15 @@ export interface components {
         };
         /** @description Upload or body exceeds the advertised limit. */
         PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request body exceeds the API limit or the Profile already contains 2,000 items of this product kind or 1,000 comments on this Moment. */
+        ProductCatalogLimit: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1928,13 +2603,29 @@ export interface components {
         SkillId: string;
         /** @description Revision-scoped opaque item identifier from the latest page for the same target. It must never be parsed, cached across a revision change or used with another target. */
         MemoryId: string;
+        PersonaId: string;
+        WechatAccountId: string;
+        PluginId: string;
+        WorldbookId: string;
+        MomentId: string;
+        CommentId: string;
         McpServerId: string;
         SecretName: components["schemas"]["SecretName"];
         /** @description Opaque, tamper-evident continuation bound to the endpoint filters and snapshot boundary. */
         Cursor: string;
         Limit: number;
+        /** @description Optional case-insensitive substring search. Control characters are rejected. */
+        ProductSearchQuery: string;
         /** @description A single quoted strong ETag. Weak, wildcard, multiple or malformed values are invalid. */
         IfMatch: string;
+        /** @description The single quoted strong Persona ETag returned by the last successful create or mutation. */
+        PersonaIfMatch: string;
+        /** @description The single quoted strong plugin catalog ETag returned by the latest catalog response. */
+        PluginIfMatch: string;
+        /** @description The single quoted strong Worldbook ETag returned by the last successful create or mutation. */
+        WorldbookIfMatch: string;
+        /** @description The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations. */
+        MomentIfMatch: string;
         /** @description Required when the target Session still exists. It may be omitted only when replaying deletion of an already absent Session; any supplied value is syntax-validated first and must be one quoted strong ETag even when the Session is absent. */
         IfMatchOptional: string;
         /** @description Required for non-idempotent creates. Scoped by installation, method and canonical path; retained for at least 24 hours. Reuse with a different request fingerprint returns 409. */
@@ -2079,6 +2770,130 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listPlugins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded manifest-only plugin catalog and its strong catalog ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    installPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallPlugin"];
+            };
+        };
+        responses: {
+            /** @description Local plugin manifest registered in a disabled state. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plugin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    uninstallPlugin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong plugin catalog ETag returned by the latest catalog response. */
+                "If-Match": components["parameters"]["PluginIfMatch"];
+            };
+            path: {
+                pluginId: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registration removed; source files remain untouched. */
+            204: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    updatePlugin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong plugin catalog ETag returned by the latest catalog response. */
+                "If-Match": components["parameters"]["PluginIfMatch"];
+            };
+            path: {
+                pluginId: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/merge-patch+json": components["schemas"]["PluginPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated manifest-only plugin registration. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plugin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["PreconditionRequired"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };
@@ -2362,6 +3177,822 @@ export interface operations {
             409: components["responses"]["Conflict"];
             428: components["responses"]["PreconditionRequired"];
             503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getWechatConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-secret WeChat configuration. Account credentials remain in the OS keychain. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatConfig"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    updateWechatConfig: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A single quoted strong ETag. Weak, wildcard, multiple or malformed values are invalid. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/merge-patch+json": components["schemas"]["WechatConfigPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated non-secret WeChat configuration. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatConfig"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    startWechatQr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatQrStartRequest"];
+            };
+        };
+        responses: {
+            /** @description QR login challenge rendered by the local Rust backend. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatQrStartResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    checkWechatQrStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatQrStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description QR status. A confirmed account returns only non-secret metadata and stores its bot credential in the OS keychain. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatQrStatusResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    updateWechatAccountLink: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A single quoted strong ETag. Weak, wildcard, multiple or malformed values are invalid. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                accountId: components["parameters"]["WechatAccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatAccountLinkPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated non-secret account metadata and shared ProfileConfig ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatConfig"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    pollWechatMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                accountId: components["parameters"]["WechatAccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatPollRequest"];
+            };
+        };
+        responses: {
+            /** @description At most 100 normalized text messages; unknown or unsafe upstream records are counted as skipped. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatPollResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["Unprocessable"];
+            502: components["responses"]["BadGateway"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    sendWechatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                accountId: components["parameters"]["WechatAccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatSendRequest"];
+            };
+        };
+        responses: {
+            /** @description Upstream accepted the message; no account credential or raw upstream response is returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatSendResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["Unprocessable"];
+            502: components["responses"]["BadGateway"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listPersonas: {
+        parameters: {
+            query?: {
+                /** @description Optional case-insensitive substring search. Control characters are rejected. */
+                q?: components["parameters"]["ProductSearchQuery"];
+            };
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description At most 2,000 Personas ordered by updatedAt descending and ID ascending. The optional query searches names and serialized Persona fields case-insensitively. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Persona"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    createPersona: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonaInput"];
+            };
+        };
+        responses: {
+            /** @description Created Persona. ETag is `"product-persona-1"`. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Persona"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            413: components["responses"]["ProductCatalogLimit"];
+            415: components["responses"]["UnsupportedMediaType"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    getPersona: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                personaId: components["parameters"]["PersonaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persona snapshot with the strong product ETag required by mutations. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Persona"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    deletePersona: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Persona ETag returned by the last successful create or mutation. */
+                "If-Match": components["parameters"]["PersonaIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                personaId: components["parameters"]["PersonaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persona deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    updatePersona: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Persona ETag returned by the last successful create or mutation. */
+                "If-Match": components["parameters"]["PersonaIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                personaId: components["parameters"]["PersonaId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonaInput"];
+            };
+        };
+        responses: {
+            /** @description Updated Persona with its incremented strong product ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Persona"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    listWorldbooks: {
+        parameters: {
+            query?: {
+                /** @description Optional case-insensitive substring search. Control characters are rejected. */
+                q?: components["parameters"]["ProductSearchQuery"];
+            };
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description At most 2,000 Worldbooks ordered by updatedAt descending and ID ascending. The optional query searches names and serialized Worldbook fields case-insensitively. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Worldbook"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    createWorldbook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorldbookInput"];
+            };
+        };
+        responses: {
+            /** @description Created Worldbook. ETag is `"product-worldbook-1"`. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Worldbook"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            413: components["responses"]["ProductCatalogLimit"];
+            415: components["responses"]["UnsupportedMediaType"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    getWorldbook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                worldbookId: components["parameters"]["WorldbookId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Worldbook snapshot with the strong product ETag required by mutations. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Worldbook"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    deleteWorldbook: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Worldbook ETag returned by the last successful create or mutation. */
+                "If-Match": components["parameters"]["WorldbookIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                worldbookId: components["parameters"]["WorldbookId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Worldbook deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    updateWorldbook: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Worldbook ETag returned by the last successful create or mutation. */
+                "If-Match": components["parameters"]["WorldbookIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                worldbookId: components["parameters"]["WorldbookId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorldbookInput"];
+            };
+        };
+        responses: {
+            /** @description Updated Worldbook with its incremented strong product ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Worldbook"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    listMoments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description At most 2,000 Moments ordered by updatedAt descending and ID ascending. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    createMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentInput"];
+            };
+        };
+        responses: {
+            /** @description Created Moment. ETag is `"product-moment-1"`. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            413: components["responses"]["ProductCatalogLimit"];
+            415: components["responses"]["UnsupportedMediaType"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    getMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moment snapshot with the strong product ETag required by mutations. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    deleteMoment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations. */
+                "If-Match": components["parameters"]["MomentIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moment deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    updateMoment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations. */
+                "If-Match": components["parameters"]["MomentIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentInput"];
+            };
+        };
+        responses: {
+            /** @description Updated Moment with its incremented strong product ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    addMomentComment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations. */
+                "If-Match": components["parameters"]["MomentIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentCommentInput"];
+            };
+        };
+        responses: {
+            /** @description Updated Moment snapshot with its incremented strong product ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            413: components["responses"]["ProductCatalogLimit"];
+            415: components["responses"]["UnsupportedMediaType"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    deleteMomentComment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations. */
+                "If-Match": components["parameters"]["MomentIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+                commentId: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated Moment snapshot with replies to the removed comment cleared and an incremented strong product ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
+        };
+    };
+    setMomentLike: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The single quoted strong Moment ETag returned by the last successful create or mutation, including comment and like mutations. */
+                "If-Match": components["parameters"]["MomentIfMatch"];
+            };
+            path: {
+                profileId: components["parameters"]["ProfileId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentLikeInput"];
+            };
+        };
+        responses: {
+            /** @description Updated Moment snapshot with its incremented strong product ETag. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ProductNotFound"];
+            409: components["responses"]["ProductRevisionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            428: components["responses"]["PreconditionRequired"];
+            503: components["responses"]["ProductCatalogUnavailable"];
         };
     };
     listSecretStatuses: {

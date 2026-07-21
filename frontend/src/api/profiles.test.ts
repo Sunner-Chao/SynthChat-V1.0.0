@@ -70,6 +70,12 @@ export const CAPABILITIES: Capabilities = {
     mcpStdio: false,
     mcpStreamableHttp: false,
     mcpSse: false,
+    wechatAccounts: true,
+    wechatMessaging: true,
+    plugins: true,
+    personas: true,
+    moments: true,
+    worldbooks: true,
   },
 };
 
@@ -389,6 +395,26 @@ describe("Profile API runtime contract", () => {
     ["MCP runtime capability boolean type", {
       ...CAPABILITIES,
       extensions: { ...CAPABILITIES.extensions, mcpSse: "yes" },
+    }],
+    ["Product catalog capability missing", {
+      ...CAPABILITIES,
+      extensions: Object.fromEntries(
+        Object.entries(CAPABILITIES.extensions).filter(([key]) => key !== "personas"),
+      ),
+    }],
+    ["Product catalog capability boolean type", {
+      ...CAPABILITIES,
+      extensions: { ...CAPABILITIES.extensions, moments: "yes" },
+    }],
+    ["WeChat messaging capability missing", {
+      ...CAPABILITIES,
+      extensions: Object.fromEntries(
+        Object.entries(CAPABILITIES.extensions).filter(([key]) => key !== "wechatMessaging"),
+      ),
+    }],
+    ["Plugin capability boolean type", {
+      ...CAPABILITIES,
+      extensions: { ...CAPABILITIES.extensions, plugins: "yes" },
     }],
     ["negative file limit", { ...CAPABILITIES, files: { ...CAPABILITIES.files, maxBytes: -1 } }],
     ["fractional file limit", { ...CAPABILITIES, files: { ...CAPABILITIES.files, maxBytes: 1.5 } }],

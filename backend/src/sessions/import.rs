@@ -1067,8 +1067,8 @@ fn insert_session(
         .execute(
             "INSERT INTO sessions(\
                id, profile_id, title, preview, source, model, message_count, archived,\
-               revision, created_at, updated_at, next_message_sequence, current_change\
-             ) VALUES(?1, ?2, ?3, ?4, 'hermes-agent:v21', ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+               revision, created_at, updated_at, next_message_sequence, current_change, persona_id\
+             ) VALUES(?1, ?2, ?3, ?4, 'hermes-agent:v21', ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL)",
             params![
                 planned.target_session_id,
                 profile_id,
@@ -1089,8 +1089,8 @@ fn insert_session(
         .execute(
             "INSERT INTO session_versions(\
                session_id, valid_from_change, valid_to_change, profile_id, title, preview,\
-               source, model, message_count, archived, revision, created_at, updated_at\
-             ) VALUES(?1, ?2, NULL, ?3, ?4, ?5, 'hermes-agent:v21', ?6, ?7, ?8, ?9, ?10, ?11)",
+               source, model, message_count, archived, revision, created_at, updated_at, persona_id\
+             ) VALUES(?1, ?2, NULL, ?3, ?4, ?5, 'hermes-agent:v21', ?6, ?7, ?8, ?9, ?10, ?11, NULL)",
             params![
                 planned.target_session_id,
                 change,

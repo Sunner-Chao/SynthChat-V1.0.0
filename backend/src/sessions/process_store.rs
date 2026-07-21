@@ -1159,6 +1159,7 @@ mod tests {
                 .create_session(
                     &CreateSession {
                         profile_id: profile_id.to_owned(),
+                        persona_id: None,
                         title: Some(format!("process {key}")),
                     },
                     &format!("session-process-{key}"),
@@ -1179,6 +1180,7 @@ mod tests {
                 .create_run(
                     &session.value.id,
                     &CreateRun {
+                        persona_id: None,
                         client_request_id: format!("client-process-{key}"),
                         message: ChatInput {
                             text: "run a process".to_owned(),
@@ -1262,6 +1264,7 @@ mod tests {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("before process migration".to_owned()),
                 },
                 "process-migration-session",

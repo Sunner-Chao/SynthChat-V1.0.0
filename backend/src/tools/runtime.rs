@@ -2531,6 +2531,7 @@ mod tests {
                 .create_session(
                     &CreateSession {
                         profile_id: profile_id.to_owned(),
+                        persona_id: None,
                         title: Some(title.to_owned()),
                     },
                     &format!("session-{profile_id}"),

@@ -24,6 +24,7 @@ const NOW = "2026-07-16T08:00:00Z";
 const SESSION: Session = {
   id: "session_1",
   profileId: "default",
+  personaId: "persona_0123456789abcdef0123456789abcdef",
   title: "Rust migration",
   preview: "",
   source: "synthchat",
@@ -58,6 +59,7 @@ const OTHER_SESSION: Session = {
   ...SESSION,
   id: "session_2",
   profileId: OTHER_PROFILE.id,
+  personaId: null,
   title: "Other session",
 };
 const CAPABILITIES: Capabilities = {
@@ -102,6 +104,12 @@ const CAPABILITIES: Capabilities = {
     mcpStdio: false,
     mcpStreamableHttp: false,
     mcpSse: false,
+    wechatAccounts: true,
+    wechatMessaging: true,
+    plugins: true,
+    personas: true,
+    moments: true,
+    worldbooks: true,
   },
 };
 
@@ -341,7 +349,15 @@ describe("ChatWorkspace", () => {
         runEventsApi={eventClient}
         runsApi={runsClient}
       >
-        <ChatWorkspace client={makeSessionClient()} profileClient={profileClient()} />
+        <ChatWorkspace
+          client={makeSessionClient()}
+          continuation={{
+            id: SESSION.id,
+            title: SESSION.title,
+            personaId: "persona_0123456789abcdef0123456789abcdef",
+          }}
+          profileClient={profileClient()}
+        />
       </ChatRunProvider>,
     );
 
@@ -353,7 +369,10 @@ describe("ChatWorkspace", () => {
     await waitFor(() => expect(createRun).toHaveBeenCalledTimes(1));
     expect(createRun).toHaveBeenCalledWith(
       SESSION.id,
-      expect.objectContaining({ message: { text: "Hello Hermes", fileIds: [] } }),
+      expect.objectContaining({
+        message: { text: "Hello Hermes", fileIds: [] },
+        personaId: "persona_0123456789abcdef0123456789abcdef",
+      }),
       expect.any(String),
     );
     expect(await screen.findByText("Hello Hermes")).toBeTruthy();

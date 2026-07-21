@@ -1,0 +1,456 @@
+.plugin-workspace {
+  min-height: 0;
+  color: var(--text);
+}
+
+.plugin-toolbar {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.plugin-toolbar > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.plugin-toolbar small,
+.plugin-install label > span {
+  color: var(--text-faint);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.plugin-toolbar h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.plugin-toolbar__actions,
+.plugin-search,
+.plugin-install,
+.plugin-meta,
+.plugin-row__actions,
+.plugin-enable-control,
+.plugin-remove-confirm {
+  display: flex;
+  align-items: center;
+}
+
+.plugin-toolbar__actions {
+  min-width: 0;
+  gap: 8px;
+}
+
+.plugin-search {
+  width: min(260px, 32vw);
+  height: 34px;
+  gap: 7px;
+  padding: 0 9px;
+  color: var(--text-faint);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.plugin-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.plugin-toolbar__actions > button,
+.plugin-remove-button,
+.plugin-remove-confirm button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.plugin-install {
+  min-height: 76px;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.plugin-install__mark,
+.plugin-row__mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #0e6159;
+  background: #e7f4ef;
+  border: 1px solid #bedfd3;
+  border-radius: 6px;
+}
+
+.plugin-install__mark {
+  width: 36px;
+  height: 36px;
+}
+
+.plugin-install label {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 4px;
+}
+
+.plugin-install input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  color: var(--text);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.plugin-primary-button,
+.plugin-secondary-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plugin-primary-button {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.plugin-secondary-button {
+  color: var(--text);
+  background: var(--surface-muted);
+  border-color: var(--border);
+}
+
+.plugin-message {
+  margin: 10px 18px 0;
+  padding: 8px 10px;
+  color: #17665b;
+  background: #eff8f4;
+  border: 1px solid #c6e4d8;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+.plugin-message.is-error,
+.plugin-state.is-error {
+  color: #a33a3a;
+}
+
+.plugin-state {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 24px;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+.plugin-state.is-error,
+.plugin-state.is-empty {
+  flex-direction: column;
+}
+
+.plugin-state.is-empty {
+  min-height: 170px;
+}
+
+.plugin-catalog {
+  min-height: 0;
+  overflow: auto;
+}
+
+.plugin-summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 18px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+}
+
+.plugin-summary span {
+  padding: 3px 7px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.plugin-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 18px 18px;
+  list-style: none;
+}
+
+.plugin-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.plugin-row__mark {
+  width: 38px;
+  height: 38px;
+}
+
+.plugin-row__main {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.plugin-row__main > header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plugin-row__main > header strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-row__main > header code,
+.plugin-row__main > header span,
+.plugin-row__main details code {
+  padding: 2px 5px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+.plugin-row__main > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.plugin-meta {
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-faint);
+  font-size: 9px;
+}
+
+.plugin-row__main details {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.plugin-row__main details summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.plugin-row__main details div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.plugin-row__main details div > strong {
+  margin-right: 2px;
+  font-size: 9px;
+}
+
+.plugin-row__actions {
+  align-self: center;
+  gap: 10px;
+}
+
+.plugin-enable-control {
+  min-width: 92px;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.plugin-enable-control > small {
+  width: 33px;
+  color: var(--text-faint);
+  font-size: 9px;
+}
+
+.plugin-switch {
+  position: relative;
+  display: inline-flex;
+  width: 34px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.plugin-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.plugin-switch span {
+  width: 100%;
+  background: #cbd1d0;
+  border-radius: 10px;
+  transition: background 120ms ease;
+}
+
+.plugin-switch span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  content: "";
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  transition: transform 120ms ease;
+}
+
+.plugin-switch input:checked + span {
+  background: var(--accent);
+}
+
+.plugin-switch input:checked + span::after {
+  transform: translateX(14px);
+}
+
+.plugin-switch input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.plugin-remove-button {
+  width: 30px;
+  height: 30px;
+  color: #a33a3a;
+  background: #fff5f4;
+  border-color: #efc8c3;
+}
+
+.plugin-remove-confirm {
+  gap: 4px;
+}
+
+.plugin-remove-confirm > span {
+  color: #a33a3a;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.plugin-remove-confirm button {
+  width: 28px;
+  height: 28px;
+}
+
+.plugin-remove-confirm button:first-of-type {
+  color: #a33a3a;
+}
+
+.plugin-workspace button:disabled,
+.plugin-workspace input:disabled {
+  cursor: not-allowed;
+  opacity: .56;
+}
+
+@media (max-width: 760px) {
+  .plugin-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .plugin-toolbar__actions,
+  .plugin-search {
+    width: 100%;
+  }
+
+  .plugin-install {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .plugin-install label {
+    flex-basis: calc(100% - 48px);
+  }
+
+  .plugin-install .plugin-primary-button {
+    margin-left: 46px;
+  }
+
+  .plugin-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .plugin-row__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 430px) {
+  .plugin-install__mark {
+    display: none;
+  }
+
+  .plugin-install label {
+    flex-basis: 100%;
+  }
+
+  .plugin-install .plugin-primary-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .plugin-list {
+    padding: 10px;
+  }
+}

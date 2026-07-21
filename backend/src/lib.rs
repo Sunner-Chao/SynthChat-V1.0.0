@@ -7,7 +7,9 @@ pub mod files;
 pub mod mcp;
 pub mod memory;
 pub(crate) mod operations;
+pub mod plugins;
 mod processes;
+pub mod product_catalog;
 pub mod profiles;
 pub mod providers;
 pub mod runs;
@@ -15,6 +17,7 @@ pub mod sessions;
 pub mod skills;
 pub mod tools;
 mod web;
+pub mod wechat;
 
 pub use api::{AppConfig, AppShutdown, build_router, build_router_with_shutdown};
 pub use config::RuntimeConfig;

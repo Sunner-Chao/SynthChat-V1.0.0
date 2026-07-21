@@ -6,11 +6,15 @@ import {
   type DesktopTransport,
 } from "./desktopConnection";
 
-export type Session = components["schemas"]["Session"];
+export type Session = components["schemas"]["Session"] & { personaId: string | null };
 export type SearchMatch = components["schemas"]["SearchMatch"];
-export type CreateSessionInput = components["schemas"]["CreateSession"];
+export type CreateSessionInput = components["schemas"]["CreateSession"] & {
+  personaId?: string | null;
+};
 export type SessionPatch = components["schemas"]["SessionPatch"];
-export type SessionPage = components["schemas"]["SessionPage"];
+export type SessionPage = Omit<components["schemas"]["SessionPage"], "items"> & {
+  items: Session[];
+};
 export type Message = components["schemas"]["Message"];
 export type MessagePage = components["schemas"]["MessagePage"];
 export type TextPart = components["schemas"]["TextPart"];
@@ -115,6 +119,7 @@ export interface SessionsApi {
 }
 
 const PROFILE_ID_PATTERN = /^(?:default|[a-z0-9_][a-z0-9_-]{0,63})$/u;
+const PERSONA_ID_PATTERN = /^persona_[0-9a-f]{32}$/u;
 const STRONG_ETAG_PATTERN = /^"[\x21\x23-\x7e]{1,126}"$/u;
 const REVISION_PATTERN = /^[\x21\x23-\x7e]{1,126}$/u;
 const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{8,128}$/u;
@@ -281,6 +286,7 @@ export function parseSession(value: unknown): Session {
     [
       "id",
       "profileId",
+      "personaId",
       "title",
       "preview",
       "source",
@@ -300,6 +306,13 @@ export function parseSession(value: unknown): Session {
   return {
     id: nonEmptyString(record.id, "Session.id"),
     profileId: profileIdValue(record.profileId, "Session.profileId"),
+    personaId: record.personaId === null
+      ? null
+      : (() => {
+          const personaId = stringValue(record.personaId, "Session.personaId");
+          if (!PERSONA_ID_PATTERN.test(personaId)) invalidResponse("Session.personaId");
+          return personaId;
+        })(),
     title: titleValue(record.title, "Session.title"),
     preview: stringValue(record.preview, "Session.preview"),
     source: stringValue(record.source, "Session.source"),
@@ -601,10 +614,14 @@ function checkedTitle(value: string, context: string): string {
 }
 
 function checkedCreateInput(input: CreateSessionInput): CreateSessionInput {
-  const record = requestRecord(input, ["profileId", "title"], "Session creation input");
+  const record = requestRecord(input, ["profileId", "personaId", "title"], "Session creation input");
   if (
     !("profileId" in record)
     || typeof input.profileId !== "string"
+    || ("personaId" in record
+      && input.personaId !== undefined
+      && input.personaId !== null
+      && (typeof input.personaId !== "string" || !PERSONA_ID_PATTERN.test(input.personaId)))
     || ("title" in record
       && input.title !== undefined
       && input.title !== null
@@ -737,7 +754,11 @@ class DefaultSessionsApi implements SessionsApi {
       body: JSON.stringify(checked),
     }, options);
     const created = await versionedResponse(response, 201, "Created Session");
-    if (created.value.profileId !== input.profileId || created.value.archived) {
+    if (
+      created.value.profileId !== input.profileId
+      || created.value.personaId !== (input.personaId ?? null)
+      || created.value.archived
+    ) {
       return invalidResponse("Created Session");
     }
     return created;

@@ -43,6 +43,7 @@ impl Fixture {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some(title.to_owned()),
                 },
                 key,
@@ -74,6 +75,7 @@ fn create_started_run(
         .create_run(
             session_id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: format!("client-{key}"),
                 message: ChatInput {
                     text: "invoke tools".to_owned(),
@@ -103,6 +105,7 @@ fn active_run_discovery_is_stable_atomic_and_owner_filtered() {
         .create_session(
             &CreateSession {
                 profile_id: "other".to_owned(),
+                persona_id: None,
                 title: Some("other profile".to_owned()),
             },
             "active-discovery-session-3",
@@ -114,6 +117,7 @@ fn active_run_discovery_is_stable_atomic_and_owner_filtered() {
             .create_run(
                 session_id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: format!("client-{key}"),
                     message: ChatInput {
                         text: text.to_owned(),
@@ -196,6 +200,7 @@ fn persistent_run_queue_is_fifo_idempotent_and_preserves_logical_context_order()
     let fixture = Fixture::new();
     let session = fixture.create("queued runs", "queue-session-key");
     let request = |id: &str, text: &str| CreateRun {
+        persona_id: None,
         client_request_id: id.to_owned(),
         message: ChatInput {
             text: text.to_owned(),
@@ -322,6 +327,7 @@ fn queued_cancel_is_durable_and_restart_recovery_preserves_the_next_item() {
         .create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("queue recovery".to_owned()),
             },
             "queue-recovery-session",
@@ -332,6 +338,7 @@ fn queued_cancel_is_durable_and_restart_recovery_preserves_the_next_item() {
             .create_run(
                 &session.value.id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: format!("client-{key}"),
                     message: ChatInput {
                         text: text.to_owned(),
@@ -385,6 +392,7 @@ fn runtime_lease_ttl_expiry_allows_takeover_and_epoch_fences_the_displaced_owner
         .create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("runtime fence".to_owned()),
             },
             "runtime-fence-session",
@@ -397,6 +405,7 @@ fn runtime_lease_ttl_expiry_allows_takeover_and_epoch_fences_the_displaced_owner
         .create_run(
             &session.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "runtime-fence-client".to_owned(),
                 message: ChatInput {
                     text: "fence me".to_owned(),
@@ -419,6 +428,7 @@ fn runtime_lease_ttl_expiry_allows_takeover_and_epoch_fences_the_displaced_owner
         replacement.create_run(
             &session.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "runtime-fence-contender-client".to_owned(),
                 message: ChatInput {
                     text: "failed contender must stay fenced".to_owned(),
@@ -460,6 +470,7 @@ fn runtime_lease_ttl_expiry_allows_takeover_and_epoch_fences_the_displaced_owner
         first.create_run(
             &session.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "runtime-fence-stale-client".to_owned(),
                 message: ChatInput {
                     text: "stale owner must not enqueue".to_owned(),
@@ -492,6 +503,7 @@ fn released_runtime_lease_fences_late_writes_until_a_new_epoch_is_acquired() {
         .create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("released runtime fence".to_owned()),
             },
             "released-runtime-fence-session",
@@ -506,6 +518,7 @@ fn released_runtime_lease_fences_late_writes_until_a_new_epoch_is_acquired() {
         service.create_run(
             &session.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "released-runtime-stale-client".to_owned(),
                 message: ChatInput {
                     text: "late write must stay fenced".to_owned(),
@@ -535,6 +548,7 @@ fn released_runtime_lease_fences_late_writes_until_a_new_epoch_is_acquired() {
         .create_run(
             &session.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "released-runtime-current-client".to_owned(),
                 message: ChatInput {
                     text: "new epoch may write".to_owned(),
@@ -827,6 +841,136 @@ fn initializes_an_isolated_versioned_store_with_fts5() {
 }
 
 #[test]
+fn session_persona_binding_persists_across_versions_restart_and_idempotency() {
+    const PERSONA_ID: &str = "persona_0123456789abcdef0123456789abcdef";
+    let home = tempfile::tempdir().unwrap();
+    let service = SessionService::new(home.path(), TOKEN);
+    let created = service
+        .create_session(
+            &CreateSession {
+                profile_id: "default".to_owned(),
+                persona_id: Some(PERSONA_ID.to_owned()),
+                title: Some("Persistent Persona".to_owned()),
+            },
+            "persistent-persona-session",
+        )
+        .unwrap();
+    assert_eq!(created.value.persona_id.as_deref(), Some(PERSONA_ID));
+    assert_eq!(
+        service
+            .list_sessions(&ListSessions {
+                profile_id: "default".to_owned(),
+                query: None,
+                archived: false,
+                cursor: None,
+                limit: 10,
+            })
+            .unwrap()
+            .items[0]
+            .persona_id
+            .as_deref(),
+        Some(PERSONA_ID)
+    );
+
+    let updated = service
+        .update_session(
+            &created.value.id,
+            &created.etag,
+            &SessionPatch {
+                title: PatchField::Value("Renamed Persona Session".to_owned()),
+                archived: PatchField::Missing,
+            },
+        )
+        .unwrap();
+    assert_eq!(updated.value.persona_id.as_deref(), Some(PERSONA_ID));
+    assert!(matches!(
+        service.create_session(
+            &CreateSession {
+                profile_id: "default".to_owned(),
+                persona_id: Some("persona_11111111111111111111111111111111".to_owned()),
+                title: Some("Persistent Persona".to_owned()),
+            },
+            "persistent-persona-session",
+        ),
+        Err(SessionError::IdempotencyConflict)
+    ));
+    assert!(matches!(
+        service.create_session(
+            &CreateSession {
+                profile_id: "default".to_owned(),
+                persona_id: Some("persona-invalid".to_owned()),
+                title: Some("Invalid Persona".to_owned()),
+            },
+            "invalid-persona-session",
+        ),
+        Err(SessionError::InvalidRequest)
+    ));
+    drop(service);
+
+    let restarted = SessionService::new(home.path(), TOKEN);
+    assert_eq!(
+        restarted
+            .get_session(&created.value.id)
+            .unwrap()
+            .value
+            .persona_id
+            .as_deref(),
+        Some(PERSONA_ID)
+    );
+}
+
+#[test]
+fn migrates_v12_sessions_to_nullable_persona_binding() {
+    let home = tempfile::tempdir().unwrap();
+    let session_id = {
+        let service = SessionService::new(home.path(), TOKEN);
+        service
+            .create_session(
+                &CreateSession {
+                    profile_id: "default".to_owned(),
+                    persona_id: None,
+                    title: Some("v12 Persona migration".to_owned()),
+                },
+                "v12-persona-migration-session",
+            )
+            .unwrap()
+            .value
+            .id
+    };
+    let db_path = home.path().join(".synthchat/sessions-v1.db");
+    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    connection
+        .execute_batch(
+            "ALTER TABLE sessions DROP COLUMN persona_id;
+             ALTER TABLE session_versions DROP COLUMN persona_id;
+             PRAGMA user_version = 12;",
+        )
+        .unwrap();
+    drop(connection);
+
+    let service = SessionService::new(home.path(), TOKEN);
+    assert!(service.is_available());
+    assert_eq!(service.schema_version(), Some(13));
+    assert_eq!(
+        service.get_session(&session_id).unwrap().value.persona_id,
+        None
+    );
+    let connection = rusqlite::Connection::open(db_path).unwrap();
+    for table in ["sessions", "session_versions"] {
+        let persona_columns: i64 = connection
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = 'persona_id'"
+                ),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(persona_columns, 1, "missing v13 Persona column on {table}");
+    }
+}
+
+#[test]
 fn code_rpc_invocations_are_private_sequenced_and_idempotent() {
     let fixture = Fixture::new();
     let session = fixture.create("code RPC journal", "code-rpc-journal-session");
@@ -984,6 +1128,7 @@ fn migrates_v2_by_adding_run_journal_without_rewriting_messages() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("v2 fixture".to_owned()),
                 },
                 "v2-fixture-key",
@@ -1033,6 +1178,7 @@ fn migrates_v3_rows_to_current_schema_without_rewriting_the_run_journal() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("v3 fixture".to_owned()),
                 },
                 "v3-fixture-session",
@@ -1082,6 +1228,7 @@ fn migrates_v5_with_the_approval_ledger_without_rewriting_runs() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("v5 approval migration".to_owned()),
                 },
                 "v5-approval-session",
@@ -1247,6 +1394,7 @@ fn migrates_v9_tool_invocations_to_private_code_rpc_journal() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("v9 code RPC migration".to_owned()),
                 },
                 "v9-code-rpc-session",
@@ -1730,6 +1878,7 @@ fn restart_recovery_resolves_clarification_as_failure_before_run_failure() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("clarification restart".to_owned()),
                 },
                 "clarification-restart-session",
@@ -2412,6 +2561,7 @@ fn restart_recovery_completes_the_pending_approval_event_chain_fail_closed() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("approval restart".to_owned()),
                 },
                 "approval-restart-session",
@@ -2508,6 +2658,7 @@ fn tool_journal_cas_and_restart_preserve_raw_provider_context() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("tool journal".to_owned()),
                 },
                 "tool-journal-session",
@@ -2697,6 +2848,7 @@ fn recovered_running_invocation_is_retained_but_cannot_be_reclaimed() {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("interrupted tool".to_owned()),
                 },
                 "interrupted-session",
@@ -2801,6 +2953,7 @@ fn workspace_registration_is_opaque_idempotent_profile_scoped_and_run_bound() {
         .create_run(
             &session.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "workspace-run".to_owned(),
                 message: ChatInput {
                     text: "use the workspace".to_owned(),
@@ -2835,6 +2988,7 @@ fn workspace_registration_is_opaque_idempotent_profile_scoped_and_run_bound() {
         fixture.service.create_run(
             &second.value.id,
             &CreateRun {
+                persona_id: None,
                 client_request_id: "foreign-run".to_owned(),
                 message: ChatInput {
                     text: "no".to_owned(),
@@ -2859,6 +3013,7 @@ fn concurrent_tool_claim_has_exactly_one_winner_and_raw_io_stays_internal() {
         .create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("concurrent claim".to_owned()),
             },
             "concurrent-session",
@@ -3034,6 +3189,7 @@ fn create_update_delete_and_idempotent_replay_preserve_contract_boundaries() {
         fixture.service.create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("Different".to_owned()),
             },
             "create-design-notes",
@@ -3093,6 +3249,7 @@ fn create_update_delete_and_idempotent_replay_preserve_contract_boundaries() {
         fixture.service.create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("Design notes".to_owned()),
             },
             "create-design-notes",
@@ -3359,6 +3516,7 @@ fn idempotency_persists_across_restart_and_cursor_keys_are_launch_scoped() {
         .create_session(
             &CreateSession {
                 profile_id: "default".to_owned(),
+                persona_id: None,
                 title: Some("Persistent".to_owned()),
             },
             "create-persistent-session",

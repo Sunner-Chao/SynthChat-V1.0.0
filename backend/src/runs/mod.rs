@@ -34,6 +34,8 @@ pub struct CreateRun {
     pub client_request_id: String,
     pub message: ChatInput,
     #[serde(default)]
+    pub persona_id: Option<String>,
+    #[serde(default)]
     pub model_override: Option<RunModelConfig>,
     #[serde(default)]
     pub reasoning_effort: Option<String>,
@@ -215,12 +217,53 @@ impl RunProblem {
                 "The run was cancelled.",
                 false,
             ),
-            crate::providers::ProviderError::Unavailable
-            | crate::providers::ProviderError::InvalidResponse => (
+            crate::providers::ProviderError::InvalidConfiguration => (
+                422,
+                "Inference configuration invalid",
+                "provider_configuration_invalid",
+                "The active Profile has an invalid model provider, model, or base URL.",
+                false,
+            ),
+            crate::providers::ProviderError::Authentication => (
+                502,
+                "Provider authentication failed",
+                "provider_authentication_failed",
+                "The model provider rejected the configured API credential.",
+                false,
+            ),
+            crate::providers::ProviderError::RateLimited => (
+                429,
+                "Provider rate limited",
+                "provider_rate_limited",
+                "The model provider rate limited this request.",
+                true,
+            ),
+            crate::providers::ProviderError::RequestRejected => (
+                502,
+                "Provider rejected request",
+                "provider_request_rejected",
+                "The configured model or request options were rejected by the model provider.",
+                false,
+            ),
+            crate::providers::ProviderError::Unavailable => (
                 502,
                 "Inference unavailable",
                 "engine_unavailable",
                 "The model provider could not complete the request.",
+                true,
+            ),
+            crate::providers::ProviderError::StreamFailed => (
+                502,
+                "Inference stream failed",
+                "provider_stream_failed",
+                "The model provider terminated the streaming response with an error.",
+                true,
+            ),
+            crate::providers::ProviderError::InvalidResponse => (
+                502,
+                "Inference response incompatible",
+                "provider_response_invalid",
+                "The model provider returned an incomplete or incompatible streaming response.",
                 true,
             ),
         };
@@ -387,6 +430,12 @@ pub enum RunError {
     EventHistoryExpired,
     #[error("the requested capability is unavailable")]
     CapabilityMissing,
+    #[error("the requested persona is unavailable for this session profile")]
+    PersonaUnavailable,
+    #[error("the persona context exceeds the bounded run limit")]
+    PersonaContextTooLarge,
+    #[error("the product catalog is unavailable")]
+    ProductCatalogUnavailable,
     #[error("approval capability is unavailable")]
     ApprovalCapabilityMissing,
     #[error("clarification capability is unavailable")]

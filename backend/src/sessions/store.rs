@@ -109,9 +109,11 @@ impl SessionService {
         idempotency_key: &str,
     ) -> Result<Versioned<Session>, SessionError> {
         validate_profile_id(&request.profile_id)?;
+        validate_optional_persona_id(request.persona_id.as_deref())?;
         validate_idempotency_key(idempotency_key)?;
         let title = normalize_optional_title(request.title.as_deref())?;
-        let fingerprint = create_fingerprint(&request.profile_id, &title);
+        let fingerprint =
+            create_fingerprint(&request.profile_id, &title, request.persona_id.as_deref());
         let ready = self.ready()?.clone();
         let _guard = ready
             .write_lock
@@ -150,8 +152,8 @@ impl SessionService {
             .execute(
                 "INSERT INTO sessions(\
                     id, profile_id, title, preview, source, model, message_count, archived, \
-                    revision, created_at, updated_at, next_message_sequence, current_change\
-                 ) VALUES(?1, ?2, ?3, '', ?4, '', 0, 0, ?5, ?6, ?6, 1, ?7)",
+                    revision, created_at, updated_at, next_message_sequence, current_change, persona_id\
+                 ) VALUES(?1, ?2, ?3, '', ?4, '', 0, 0, ?5, ?6, ?6, 1, ?7, ?8)",
                 params![
                     id,
                     request.profile_id,
@@ -159,7 +161,8 @@ impl SessionService {
                     SESSION_SOURCE,
                     revision,
                     timestamp,
-                    change
+                    change,
+                    request.persona_id,
                 ],
             )
             .map_err(schema::map_sqlite)?;
@@ -329,7 +332,7 @@ impl SessionService {
         let mut statement = connection
             .prepare(
                 "SELECT session_id, profile_id, title, preview, source, model, message_count, \
-                    archived, revision, created_at, updated_at \
+                    archived, revision, created_at, updated_at, persona_id \
                  FROM session_versions \
                  WHERE profile_id = ?1 AND archived = ?2 \
                    AND valid_from_change <= ?3 \
@@ -624,7 +627,7 @@ pub(super) fn current_session_tx(
 
 fn current_session_sql() -> &'static str {
     "SELECT id, profile_id, title, preview, source, model, message_count, archived, \
-        revision, created_at, updated_at, next_message_sequence \
+        revision, created_at, updated_at, next_message_sequence, persona_id \
      FROM sessions WHERE id = ?1"
 }
 
@@ -636,6 +639,7 @@ fn stored_session_from_row(row: &Row<'_>) -> rusqlite::Result<StoredSession> {
         value: Session {
             id: row.get(0)?,
             profile_id: row.get(1)?,
+            persona_id: row.get(12)?,
             title: row.get(2)?,
             preview: row.get(3)?,
             source: row.get(4)?,
@@ -731,6 +735,7 @@ fn session_version_from_row(row: &Row<'_>) -> rusqlite::Result<Session> {
     Ok(Session {
         id: row.get(0)?,
         profile_id: row.get(1)?,
+        persona_id: row.get(11)?,
         title: row.get(2)?,
         preview: row.get(3)?,
         source: row.get(4)?,
@@ -1062,9 +1067,9 @@ pub(super) fn insert_current_version(
         .execute(
             "INSERT INTO session_versions(\
                 session_id, valid_from_change, valid_to_change, profile_id, title, preview, \
-                source, model, message_count, archived, revision, created_at, updated_at\
+                source, model, message_count, archived, revision, created_at, updated_at, persona_id\
              ) SELECT id, ?1, NULL, profile_id, title, preview, source, model, message_count, \
-                archived, revision, created_at, updated_at FROM sessions WHERE id = ?2",
+                archived, revision, created_at, updated_at, persona_id FROM sessions WHERE id = ?2",
             params![valid_from_change, id],
         )
         .map_err(schema::map_sqlite)?;
@@ -1164,6 +1169,20 @@ fn validate_session_id(value: &str) -> Result<(), SessionError> {
     }
 }
 
+fn validate_optional_persona_id(value: Option<&str>) -> Result<(), SessionError> {
+    if value.is_none_or(|value| {
+        value.len() == 40
+            && value.starts_with("persona_")
+            && value[8..]
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    }) {
+        Ok(())
+    } else {
+        Err(SessionError::InvalidRequest)
+    }
+}
+
 fn validate_idempotency_key(value: &str) -> Result<(), SessionError> {
     if (8..=128).contains(&value.len()) && value.bytes().all(|byte| (0x21..=0x7e).contains(&byte)) {
         Ok(())
@@ -1191,13 +1210,18 @@ fn normalize_title(value: &str) -> Result<String, SessionError> {
     }
 }
 
-fn create_fingerprint(profile_id: &str, title: &str) -> String {
+fn create_fingerprint(profile_id: &str, title: &str, persona_id: Option<&str>) -> String {
     let mut digest = Sha256::new();
     digest.update(b"synthchat-create-session-v1\0");
     digest.update((profile_id.len() as u64).to_be_bytes());
     digest.update(profile_id.as_bytes());
     digest.update((title.len() as u64).to_be_bytes());
     digest.update(title.as_bytes());
+    if let Some(persona_id) = persona_id {
+        digest.update(b"\0persona\0");
+        digest.update((persona_id.len() as u64).to_be_bytes());
+        digest.update(persona_id.as_bytes());
+    }
     hex(&digest.finalize())
 }
 

@@ -2600,6 +2600,7 @@ mod tests {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("background process".to_owned()),
                 },
                 "background-session",
@@ -2616,6 +2617,7 @@ mod tests {
             .create_run(
                 &session.value.id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: "background-run".to_owned(),
                     message: ChatInput {
                         text: "run background process".to_owned(),
@@ -2868,6 +2870,7 @@ mod tests {
             .create_session(
                 &CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some(format!("background {key}")),
                 },
                 &format!("background-session-{key}"),
@@ -2884,6 +2887,7 @@ mod tests {
             .create_run(
                 &session.value.id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: format!("background-client-{key}"),
                     message: ChatInput {
                         text: "run background process".to_owned(),

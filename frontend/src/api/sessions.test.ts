@@ -27,6 +27,7 @@ const MATCH = {
 const SESSION: Session = {
   id: "session-1",
   profileId: "default",
+  personaId: null,
   title: "Architecture review",
   preview: "Review the migration plan",
   source: "desktop",
@@ -111,6 +112,10 @@ describe("Session API runtime contract", () => {
     expect(parseSession({ ...SESSION, match: MATCH })).toEqual({ ...SESSION, match: MATCH });
     expect(parseSession({
       ...SESSION,
+      personaId: "persona_0123456789abcdef0123456789abcdef",
+    })).toMatchObject({ personaId: "persona_0123456789abcdef0123456789abcdef" });
+    expect(parseSession({
+      ...SESSION,
       match: { ...MATCH, field: "title", messageId: null },
     })).toMatchObject({ match: { field: "title", messageId: null } });
     expect(parseSessionPage({ items: [SESSION], nextCursor: "cursor-1" })).toEqual({
@@ -142,6 +147,7 @@ describe("Session API runtime contract", () => {
     ["unknown key", { ...SESSION, token: "leak" }],
     ["empty ID", { ...SESSION, id: "" }],
     ["invalid Profile", { ...SESSION, profileId: "../escape" }],
+    ["invalid Persona", { ...SESSION, personaId: "persona-invalid" }],
     ["empty title", { ...SESSION, title: "" }],
     ["long title", { ...SESSION, title: "x".repeat(501) }],
     ["negative count", { ...SESSION, messageCount: -1 }],
@@ -328,6 +334,24 @@ describe("Session API runtime contract", () => {
     expect(paths[2]).toBe("/api/v1/sessions/id%2Fwith%20space");
   });
 
+  it("creates and binds a Session to a strictly validated Persona ID", async () => {
+    const personaId = "persona_0123456789abcdef0123456789abcdef";
+    const request = vi.fn(async (_path: string, _init?: RequestInit) => (
+      versionedResponse({ ...SESSION, personaId }, 201)
+    ));
+    const client = createSessionsApi({ request });
+
+    await expect(client.createSession(
+      { profileId: "default", personaId, title: "Persona chat" },
+      "create-persona-session-001",
+    )).resolves.toMatchObject({ value: { personaId } });
+    expect(JSON.parse(String(request.mock.calls[0]![1]?.body))).toEqual({
+      profileId: "default",
+      personaId,
+      title: "Persona chat",
+    });
+  });
+
   it("enforces Session title limits by Unicode scalar rather than UTF-16 units", async () => {
     const boundaryTitle = "\u{1f642}".repeat(500);
     let requestCount = 0;
@@ -448,6 +472,7 @@ describe("Session API runtime contract", () => {
       () => client.createSession({ profileId: "bad/profile" }, "create-session-006"),
       () => client.createSession({ profileId: "default", title: "" }, "create-session-007"),
       () => client.createSession({ profileId: "default", title: "x".repeat(501) }, "create-session-008"),
+      () => client.createSession({ profileId: "default", personaId: "persona-invalid" }, "create-session-008b"),
       () => client.createSession({ profileId: "default", extra: true } as never, "create-session-009"),
       () => client.createSession({} as never, "create-session-010"),
       () => client.createSession(null as never, "create-session-011"),

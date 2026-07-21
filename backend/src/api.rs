@@ -6,12 +6,15 @@ mod import_routes;
 mod mcp_routes;
 mod memory_routes;
 mod operation_routes;
+mod plugin_routes;
+mod product_routes;
 mod profile_routes;
 mod run_routes;
 mod session_routes;
 mod skill_routes;
 mod tool_routes;
 mod web_routes;
+mod wechat_routes;
 mod workspace_routes;
 
 use axum::{
@@ -38,11 +41,14 @@ use crate::{
     files::FileService,
     mcp::McpService,
     memory::MemoryService,
+    plugins::PluginService,
+    product_catalog::ProductCatalogService,
     profiles::ProfileService,
     runs::RunService,
     sessions::SessionService,
     skills::{SkillRegistryRuntimeConfig, SkillService},
     web::{WebRuntimeConfig, WebService},
+    wechat::WechatService,
 };
 
 use self::error::{ApiError, RequestContext};
@@ -110,6 +116,9 @@ pub(crate) struct AppState {
     memory: Arc<MemoryService>,
     mcp: Arc<McpService>,
     web: Arc<WebService>,
+    wechat: Arc<WechatService>,
+    plugins: Arc<PluginService>,
+    product_catalog: Arc<ProductCatalogService>,
 }
 
 pub struct AppShutdown {
@@ -145,6 +154,12 @@ pub fn build_router_with_shutdown(config: AppConfig) -> (Router, AppShutdown) {
     ));
     let memory = Arc::new(MemoryService::new(profiles.clone(), &config.desktop_token));
     let mcp = Arc::new(McpService::new(profiles.clone()));
+    let plugins = Arc::new(PluginService::new(profiles.hermes_home()));
+    let product_catalog = Arc::new(ProductCatalogService::new(profiles.hermes_home()));
+    let wechat = Arc::new(WechatService::new(
+        profiles.clone(),
+        product_catalog.clone(),
+    ));
     let web_runtime_config = config.web_runtime_config.clone();
     let web = Arc::new({
         #[cfg(debug_assertions)]
@@ -185,6 +200,9 @@ pub fn build_router_with_shutdown(config: AppConfig) -> (Router, AppShutdown) {
         memory,
         mcp,
         web,
+        wechat,
+        plugins,
+        product_catalog,
     };
     let protected = Router::new()
         .route("/api/v1/capabilities", get(get_capabilities))
@@ -199,6 +217,9 @@ pub fn build_router_with_shutdown(config: AppConfig) -> (Router, AppShutdown) {
         .merge(skill_routes::routes())
         .merge(tool_routes::routes())
         .merge(web_routes::routes())
+        .merge(wechat_routes::routes())
+        .merge(plugin_routes::routes())
+        .merge(product_routes::routes())
         .merge(workspace_routes::routes())
         .fallback(protected_not_found)
         .method_not_allowed_fallback(protected_method_not_allowed)
@@ -407,6 +428,12 @@ impl Capabilities {
                 serde_json::json!(mcp.streamable_http_available()),
             ),
             ("mcpSse".to_owned(), serde_json::json!(mcp.sse_available())),
+            ("wechatAccounts".to_owned(), serde_json::json!(true)),
+            ("wechatMessaging".to_owned(), serde_json::json!(true)),
+            ("plugins".to_owned(), serde_json::json!(true)),
+            ("personas".to_owned(), serde_json::json!(true)),
+            ("moments".to_owned(), serde_json::json!(true)),
+            ("worldbooks".to_owned(), serde_json::json!(true)),
         ]);
         Self {
             contract_version: "v1",

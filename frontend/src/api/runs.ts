@@ -129,6 +129,7 @@ const APPROVAL_CHOICES = new Set(["once", "session", "always", "deny"] as const)
 const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"] as const);
 const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{8,128}$/u;
 const REVISION_PATTERN = /^[\x21\x23-\x7e]{1,126}$/u;
+const PERSONA_ID_PATTERN = /^persona_[0-9a-f]{32}$/u;
 const RFC3339_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
 const PROFILE_ID_PATTERN = /^(?:default|[a-z0-9_][a-z0-9_-]{0,63})$/u;
 const SESSION_ID_PATTERN = /^session_[A-Za-z0-9_-]{1,120}$/u;
@@ -828,7 +829,7 @@ function checkedModelConfig(value: unknown): components["schemas"]["ModelConfig"
 function checkedCreateRun(input: CreateRunInput): CreateRunInput {
   const record = requestRecord(
     input,
-    ["clientRequestId", "message", "modelOverride", "reasoningEffort", "workspaceId"],
+    ["clientRequestId", "message", "personaId", "modelOverride", "reasoningEffort", "workspaceId"],
     "Run input",
   );
   if (!("clientRequestId" in record) || !("message" in record) || typeof record.clientRequestId !== "string") {
@@ -846,6 +847,14 @@ function checkedCreateRun(input: CreateRunInput): CreateRunInput {
     return invalidRequest("Run message exceeds the contract limits.");
   }
   for (const fileId of message.fileIds) checkedIdentifier(fileId as string, "File ID");
+  if (
+    "personaId" in record
+    && record.personaId !== null
+    && record.personaId !== undefined
+    && (typeof record.personaId !== "string" || !PERSONA_ID_PATTERN.test(record.personaId))
+  ) {
+    return invalidRequest("Run Persona ID is invalid.");
+  }
   if ("modelOverride" in record && record.modelOverride !== null && record.modelOverride !== undefined) {
     checkedModelConfig(record.modelOverride);
   }

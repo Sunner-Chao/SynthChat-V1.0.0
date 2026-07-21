@@ -5,7 +5,9 @@ use axum::{
 use http_body_util::BodyExt;
 use rusqlite::Connection;
 use serde_json::Value;
-use synthchat_hermes_backend::{AppConfig, ProfileService, build_router};
+use synthchat_hermes_backend::{
+    AppConfig, ProfileService, build_router, sessions::SESSION_SCHEMA_VERSION,
+};
 use tempfile::TempDir;
 use tower::ServiceExt;
 
@@ -38,7 +40,10 @@ async fn preview_policy_import_and_cross_restart_replay_match_the_contract() {
     let app = router(&home);
 
     let capabilities = json_body(get(app.clone(), "/api/v1/capabilities").await).await;
-    assert_eq!(capabilities["sessionStorage"]["schemaVersion"], 12);
+    assert_eq!(
+        capabilities["sessionStorage"]["schemaVersion"],
+        SESSION_SCHEMA_VERSION
+    );
     assert_eq!(
         capabilities["sessionStorage"]["hermesImportAvailable"],
         true

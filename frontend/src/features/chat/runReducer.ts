@@ -630,6 +630,22 @@ function syncRun(current: ChatRunState, run: Run): ChatRunState {
 }
 
 function publicProblemMessage(problem: ProblemDetails): string {
+  switch (problem.code) {
+    case "provider_configuration_invalid":
+      return "当前 Profile 的 Provider、模型或 Base URL 配置无效。";
+    case "provider_authentication_failed":
+      return "模型服务拒绝了当前 API Key，请在 Profile 与密钥中重新保存。";
+    case "provider_rate_limited":
+      return "模型服务正在限流，请稍后重试。";
+    case "provider_request_rejected":
+      return "模型服务拒绝了当前模型或请求参数，请核对模型名与推理设置。";
+    case "provider_stream_failed":
+      return "模型服务在流式响应过程中返回错误，请重试。";
+    case "provider_response_invalid":
+      return "模型服务返回了不完整或不兼容的流式响应。";
+    default:
+      break;
+  }
   const detail = problem.detail?.trim();
   return detail ? `${problem.title}: ${detail}` : problem.title;
 }

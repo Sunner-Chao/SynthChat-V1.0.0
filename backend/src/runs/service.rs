@@ -22,6 +22,7 @@ use crate::{
     mcp::{McpRuntimeError, McpService, McpToolBinding},
     memory::{MemoryError, MemoryService},
     processes::{ProcessExecutionContext, ProcessManager},
+    product_catalog::{ProductCatalogError, ProductCatalogService},
     profiles::{ProfileError, ProfileService},
     providers::{
         OpenAiCompatibleProvider, ProviderError, ProviderEvent, ProviderFinish, ProviderMessage,
@@ -108,6 +109,7 @@ struct RunServiceInner {
     skills: Arc<SkillService>,
     memory: Arc<MemoryService>,
     web: Arc<WebService>,
+    product_catalog: Arc<ProductCatalogService>,
     browser: BrowserManager,
     mcp: Arc<McpService>,
     provider: Arc<dyn ProviderTransport>,
@@ -144,7 +146,9 @@ struct PreparedModel {
     model_label: String,
     tools: Vec<ProviderToolDefinition>,
     mcp_tools: BTreeMap<String, McpToolBinding>,
+    tools_enabled: bool,
     memory_prompt: Option<String>,
+    persona_context: Option<String>,
 }
 
 struct ProviderTurnOutput {
@@ -254,6 +258,7 @@ impl RunService {
         let runtime_lease_valid = runtime_lease.is_some();
         let processes = ProcessManager::new(sessions.clone());
         let mcp = Arc::new(McpService::new(profiles.clone()));
+        let product_catalog = Arc::new(ProductCatalogService::new(profiles.hermes_home()));
         let service = Self {
             inner: Arc::new(RunServiceInner {
                 profiles,
@@ -261,6 +266,7 @@ impl RunService {
                 skills,
                 memory,
                 web,
+                product_catalog,
                 browser,
                 mcp,
                 provider,
@@ -810,6 +816,7 @@ impl RunService {
             let tools = self.inner.tools.clone();
             let memory = self.inner.memory.clone();
             let web = self.inner.web.clone();
+            let product_catalog = self.inner.product_catalog.clone();
             let session_id = claim.run.session_id.clone();
             let request = claim.request.clone();
             move || {
@@ -819,6 +826,7 @@ impl RunService {
                         sessions: &sessions,
                         memory: &memory,
                         web: &web,
+                        product_catalog: &product_catalog,
                         tools: &tools,
                         browser_available,
                     },
@@ -839,30 +847,32 @@ impl RunService {
                 return;
             }
         };
-        let discovered = match self.inner.mcp.discover_tools(&prepared.profile_id).await {
-            Ok(discovered) => discovered,
-            Err(_) => {
-                if stop.reason().is_some() {
-                    self.finish_for_stop(&run_id, &stop).await;
+        if prepared.tools_enabled {
+            let discovered = match self.inner.mcp.discover_tools(&prepared.profile_id).await {
+                Ok(discovered) => discovered,
+                Err(_) => {
+                    if stop.reason().is_some() {
+                        self.finish_for_stop(&run_id, &stop).await;
+                        return;
+                    }
+                    self.fail_local(&claim.run.id).await;
                     return;
                 }
-                self.fail_local(&claim.run.id).await;
-                return;
+            };
+            for binding in discovered {
+                let name = binding.provider_name().to_owned();
+                if prepared.mcp_tools.contains_key(&name)
+                    || prepared
+                        .tools
+                        .iter()
+                        .any(|definition| definition.name == name)
+                {
+                    self.fail_local(&claim.run.id).await;
+                    return;
+                }
+                prepared.tools.push(binding.provider_definition());
+                prepared.mcp_tools.insert(name, binding);
             }
-        };
-        for binding in discovered {
-            let name = binding.provider_name().to_owned();
-            if prepared.mcp_tools.contains_key(&name)
-                || prepared
-                    .tools
-                    .iter()
-                    .any(|definition| definition.name == name)
-            {
-                self.fail_local(&claim.run.id).await;
-                return;
-            }
-            prepared.tools.push(binding.provider_definition());
-            prepared.mcp_tools.insert(name, binding);
         }
         if stop.reason().is_some() {
             self.finish_for_stop(&run_id, &stop).await;
@@ -914,6 +924,7 @@ impl RunService {
             let tools = self.inner.tools.clone();
             let memory = self.inner.memory.clone();
             let web = self.inner.web.clone();
+            let product_catalog = self.inner.product_catalog.clone();
             let session_id = session_id.clone();
             let request = request.clone();
             move || {
@@ -923,6 +934,7 @@ impl RunService {
                         sessions: &sessions,
                         memory: &memory,
                         web: &web,
+                        product_catalog: &product_catalog,
                         tools: &tools,
                         browser_available,
                     },
@@ -932,24 +944,26 @@ impl RunService {
             }
         })
         .await?;
-        let discovered = self
-            .inner
-            .mcp
-            .discover_tools(&prepared.profile_id)
-            .await
-            .map_err(|_| RunError::CapabilityMissing)?;
-        for binding in discovered {
-            let name = binding.provider_name().to_owned();
-            if prepared.mcp_tools.contains_key(&name)
-                || prepared
-                    .tools
-                    .iter()
-                    .any(|definition| definition.name == name)
-            {
-                return Err(RunError::CapabilityMissing);
+        if prepared.tools_enabled {
+            let discovered = self
+                .inner
+                .mcp
+                .discover_tools(&prepared.profile_id)
+                .await
+                .map_err(|_| RunError::CapabilityMissing)?;
+            for binding in discovered {
+                let name = binding.provider_name().to_owned();
+                if prepared.mcp_tools.contains_key(&name)
+                    || prepared
+                        .tools
+                        .iter()
+                        .any(|definition| definition.name == name)
+                {
+                    return Err(RunError::CapabilityMissing);
+                }
+                prepared.tools.push(binding.provider_definition());
+                prepared.mcp_tools.insert(name, binding);
             }
-            prepared.tools.push(binding.provider_definition());
-            prepared.mcp_tools.insert(name, binding);
         }
         let admission = self
             .inner
@@ -1277,6 +1291,14 @@ impl RunService {
                     0,
                     ProviderContextMessage::System {
                         content: prompt.clone(),
+                    },
+                );
+            }
+            if let Some(persona_context) = prepared.persona_context.as_ref() {
+                context.insert(
+                    0,
+                    ProviderContextMessage::System {
+                        content: persona_context.clone(),
                     },
                 );
             }
@@ -2643,6 +2665,7 @@ struct ModelPreparationDependencies<'a> {
     sessions: &'a SessionService,
     memory: &'a MemoryService,
     web: &'a WebService,
+    product_catalog: &'a ProductCatalogService,
     tools: &'a ToolRegistry,
     browser_available: bool,
 }
@@ -2657,38 +2680,78 @@ fn prepare_model(
         sessions,
         memory,
         web,
+        product_catalog,
         tools,
         browser_available,
     } = dependencies;
     let session = sessions.get_session(session_id).map_err(run_from_session)?;
     let profile_id = session.value.profile_id;
     let profile = profiles.get_config(&profile_id).map_err(run_from_profile)?;
-    let memory_snapshot = memory.snapshot(&profile_id).map_err(run_from_memory)?;
+    let persona = request
+        .persona_id
+        .as_deref()
+        .or(session.value.persona_id.as_deref())
+        .map(|persona_id| {
+            product_catalog
+                .run_persona_snapshot(&profile_id, persona_id)
+                .map_err(run_from_product_catalog)
+        })
+        .transpose()?;
+    let persona_allows_memory = persona
+        .as_ref()
+        .map(|snapshot| snapshot.memory_enabled)
+        .unwrap_or(true);
+    let (memory_enabled, memory_prompt) = if persona_allows_memory {
+        let memory_snapshot = memory.snapshot(&profile_id).map_err(run_from_memory)?;
+        (memory_snapshot.enabled, memory_snapshot.prompt)
+    } else {
+        (false, None)
+    };
+    let tools_enabled = persona
+        .as_ref()
+        .map(|snapshot| snapshot.tools_enabled)
+        .unwrap_or(true);
     let web_readiness = web
         .readiness(&profile_id)
         .unwrap_or(crate::web::WebReadiness {
             search_ready: false,
             extract_ready: false,
         });
-    let tool_definitions = tools.definitions_for_profile_capabilities(
-        &profile.value,
-        request.workspace_id.is_some(),
-        memory_snapshot.enabled,
-        web_readiness,
-        browser_available,
-    );
+    let tool_definitions = if tools_enabled {
+        tools.definitions_for_profile_capabilities(
+            &profile.value,
+            request.workspace_id.is_some(),
+            memory_enabled,
+            web_readiness,
+            browser_available,
+        )
+    } else {
+        Vec::new()
+    };
     let configured = profile.value.model;
+    let mut selected_model = RunModelConfig {
+        provider: configured.provider,
+        model: configured.model,
+        base_url: configured.base_url,
+        reasoning_effort: configured.reasoning_effort,
+    };
+    if let Some(persona) = persona.as_ref() {
+        if !persona.provider.is_empty() {
+            selected_model.provider = persona.provider.clone();
+        }
+        if !persona.model.is_empty() {
+            selected_model.model = persona.model.clone();
+        }
+    }
+    if let Some(model_override) = request.model_override.clone() {
+        selected_model = model_override;
+    }
     let RunModelConfig {
         provider,
         model,
         base_url,
         reasoning_effort: model_reasoning,
-    } = request.model_override.clone().unwrap_or(RunModelConfig {
-        provider: configured.provider,
-        model: configured.model,
-        base_url: configured.base_url,
-        reasoning_effort: configured.reasoning_effort,
-    });
+    } = selected_model;
     if provider.is_empty()
         || model.is_empty()
         || provider.len() > 128
@@ -2778,7 +2841,9 @@ fn prepare_model(
         model_label,
         tools: tool_definitions,
         mcp_tools: BTreeMap::new(),
-        memory_prompt: memory_snapshot.prompt,
+        tools_enabled,
+        memory_prompt,
+        persona_context: persona.map(|snapshot| snapshot.system_context),
     })
 }
 
@@ -2872,6 +2937,16 @@ fn run_from_memory(error: MemoryError) -> RunError {
             RunError::StorageUnavailable
         }
         _ => RunError::DataInvalid,
+    }
+}
+
+fn run_from_product_catalog(error: ProductCatalogError) -> RunError {
+    match error {
+        ProductCatalogError::InvalidRequest
+        | ProductCatalogError::NotFound
+        | ProductCatalogError::RevisionConflict { .. } => RunError::PersonaUnavailable,
+        ProductCatalogError::LimitReached => RunError::PersonaContextTooLarge,
+        ProductCatalogError::StorageUnavailable => RunError::ProductCatalogUnavailable,
     }
 }
 
@@ -3237,6 +3312,7 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Approved browser download".to_owned()),
                 },
                 "approved-browser-download-session",
@@ -3267,6 +3343,7 @@ mod tests {
             .create_run(
                 session.value.id.clone(),
                 CreateRun {
+                    persona_id: None,
                     client_request_id: "approved-browser-download-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "download the report".to_owned(),
@@ -3386,6 +3463,7 @@ mod tests {
         let memory = MemoryService::new(profiles_handle.clone(), TOKEN);
         let web = WebService::new(profiles_handle)
             .unwrap_or_else(|_| WebService::unavailable(Arc::new(profiles.clone())));
+        let product_catalog = ProductCatalogService::new(home.path());
         let config = profiles.get_config("default").unwrap();
         profiles
             .update_config(
@@ -3405,12 +3483,14 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Browser tool injection".to_owned()),
                 },
                 "browser-tool-injection-session",
             )
             .unwrap();
         let request = CreateRun {
+            persona_id: None,
             client_request_id: "browser-tool-injection-request".to_owned(),
             message: crate::runs::ChatInput {
                 text: "Inspect this page".to_owned(),
@@ -3427,6 +3507,7 @@ mod tests {
                 sessions: &sessions,
                 memory: &memory,
                 web: &web,
+                product_catalog: &product_catalog,
                 tools: &tools,
                 browser_available: false,
             },
@@ -3447,6 +3528,7 @@ mod tests {
                 sessions: &sessions,
                 memory: &memory,
                 web: &web,
+                product_catalog: &product_catalog,
                 tools: &tools,
                 browser_available: true,
             },
@@ -3462,6 +3544,155 @@ mod tests {
                 .count(),
             13
         );
+    }
+
+    #[test]
+    fn model_preparation_applies_profile_scoped_persona_policy_and_run_override() {
+        let home = tempfile::tempdir().unwrap();
+        let profiles = ProfileService::without_credential_store(home.path().to_owned());
+        let sessions = SessionService::new(home.path(), TOKEN);
+        let profiles_handle = Arc::new(profiles.clone());
+        let memory = MemoryService::new(profiles_handle.clone(), TOKEN);
+        let web = WebService::new(profiles_handle)
+            .unwrap_or_else(|_| WebService::unavailable(Arc::new(profiles.clone())));
+        let product_catalog = ProductCatalogService::new(home.path());
+        let config = profiles.get_config("default").unwrap();
+        profiles
+            .update_config(
+                "default",
+                &config.etag,
+                &serde_json::json!({
+                    "model": {
+                        "provider": "lmstudio",
+                        "model": "profile-model",
+                        "baseUrl": "http://127.0.0.1:1234/v1"
+                    },
+                    "toolsets": {"browser": true}
+                }),
+            )
+            .unwrap();
+        let session = sessions
+            .create_session(
+                &crate::sessions::CreateSession {
+                    profile_id: "default".to_owned(),
+                    persona_id: None,
+                    title: Some("Persona model preparation".to_owned()),
+                },
+                "persona-model-preparation-session",
+            )
+            .unwrap();
+        let persona_input = crate::product_catalog::PersonaInput {
+            name: "旅行顾问".to_owned(),
+            avatar: None,
+            system_prompt: "始终给出可执行行程。".to_owned(),
+            character_prompt: "语气友好。".to_owned(),
+            output_examples: "示例：先问预算。".to_owned(),
+            system_instructions: "不要编造预订结果。".to_owned(),
+            provider: "lmstudio".to_owned(),
+            model: "persona-model".to_owned(),
+            temperature: 0.8,
+            max_tokens: 2_048,
+            tools_enabled: false,
+            memory_enabled: false,
+            proactive_enabled: false,
+            legacy_agent_id: None,
+        };
+        let persona = product_catalog
+            .create_persona("default", &persona_input)
+            .unwrap();
+        product_catalog
+            .create_worldbook(
+                "default",
+                &crate::product_catalog::WorldbookInput {
+                    name: "行程设定".to_owned(),
+                    description: String::new(),
+                    bound_persona_ids: vec![persona.id.clone()],
+                    sections: vec![crate::product_catalog::WorldbookSectionInput {
+                        key: "城市".to_owned(),
+                        content: "京都".to_owned(),
+                        enabled: true,
+                    }],
+                },
+            )
+            .unwrap();
+        let foreign_persona = product_catalog
+            .create_persona("other", &persona_input)
+            .unwrap();
+        let request = CreateRun {
+            persona_id: Some(persona.id.clone()),
+            client_request_id: "persona-model-preparation-request".to_owned(),
+            message: crate::runs::ChatInput {
+                text: "Plan a trip".to_owned(),
+                file_ids: Vec::new(),
+            },
+            model_override: None,
+            reasoning_effort: None,
+            workspace_id: None,
+        };
+        let tools = ToolRegistry::hermes_v0182();
+        let dependencies = || ModelPreparationDependencies {
+            profiles: &profiles,
+            sessions: &sessions,
+            memory: &memory,
+            web: &web,
+            product_catalog: &product_catalog,
+            tools: &tools,
+            browser_available: true,
+        };
+
+        let prepared = prepare_model(dependencies(), &session.value.id, &request).unwrap();
+        assert_eq!(prepared.provider_id, "lmstudio");
+        assert_eq!(prepared.model, "persona-model");
+        assert!(!prepared.tools_enabled);
+        assert!(prepared.tools.is_empty());
+        assert!(prepared.memory_prompt.is_none());
+        let context = prepared.persona_context.as_deref().unwrap();
+        for expected in [
+            "始终给出可执行行程",
+            "语气友好",
+            "先问预算",
+            "不要编造",
+            "京都",
+        ] {
+            assert!(context.contains(expected));
+        }
+
+        let mut overridden = request.clone();
+        overridden.model_override = Some(RunModelConfig {
+            provider: "lmstudio".to_owned(),
+            model: "run-override-model".to_owned(),
+            base_url: Some("http://127.0.0.1:4321/v1".to_owned()),
+            reasoning_effort: Some("high".to_owned()),
+        });
+        let prepared = prepare_model(dependencies(), &session.value.id, &overridden).unwrap();
+        assert_eq!(prepared.model, "run-override-model");
+        assert_eq!(prepared.base_url.as_str(), "http://127.0.0.1:4321/v1");
+        assert_eq!(prepared.reasoning_effort.as_deref(), Some("high"));
+        assert!(prepared.persona_context.is_some());
+
+        let bound_session = sessions
+            .create_session(
+                &crate::sessions::CreateSession {
+                    profile_id: "default".to_owned(),
+                    persona_id: Some(persona.id),
+                    title: Some("Persisted Persona binding".to_owned()),
+                },
+                "persisted-persona-binding-session",
+            )
+            .unwrap();
+        let mut inherited = request.clone();
+        inherited.persona_id = None;
+        let prepared = prepare_model(dependencies(), &bound_session.value.id, &inherited).unwrap();
+        assert_eq!(prepared.model, "persona-model");
+        assert!(prepared.persona_context.is_some());
+        assert!(!prepared.tools_enabled);
+
+        let mut cross_profile = request;
+        cross_profile.persona_id = Some(foreign_persona.id);
+        assert!(matches!(
+            prepare_model(dependencies(), &session.value.id, &cross_profile),
+            Err(RunError::PersonaUnavailable)
+        ));
     }
 
     #[tokio::test]
@@ -3520,6 +3751,7 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Async delivery notification lifetime".to_owned()),
                 },
                 "async-delivery-notification-session",
@@ -3538,6 +3770,7 @@ mod tests {
             .create_run(
                 &session.value.id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: "async-delivery-notification-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "start a background command".to_owned(),
@@ -3733,6 +3966,7 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Cancellation priority".to_owned()),
                 },
                 "cancellation-priority-session",
@@ -3742,6 +3976,7 @@ mod tests {
             .create_run(
                 &session.value.id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: "cancellation-priority-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "cancel this run".to_owned(),
@@ -3786,6 +4021,7 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Drain a stuck provider".to_owned()),
                 },
                 "drain-stuck-provider-session",
@@ -3797,6 +4033,7 @@ mod tests {
             .create_run(
                 session.value.id,
                 CreateRun {
+                    persona_id: None,
                     client_request_id: "drain-stuck-provider-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "wait forever".to_owned(),
@@ -3845,6 +4082,7 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Preserve a stuck provider".to_owned()),
                 },
                 "preserve-stuck-provider-session",
@@ -3857,6 +4095,7 @@ mod tests {
             .create_run(
                 session_id.clone(),
                 CreateRun {
+                    persona_id: None,
                     client_request_id: "preserve-running-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "remain recoverable".to_owned(),
@@ -3875,6 +4114,7 @@ mod tests {
             .create_run(
                 session_id,
                 CreateRun {
+                    persona_id: None,
                     client_request_id: "preserve-queued-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "continue after restart".to_owned(),
@@ -3944,6 +4184,7 @@ mod tests {
             .create_session(
                 &crate::sessions::CreateSession {
                     profile_id: "default".to_owned(),
+                    persona_id: None,
                     title: Some("Invalid recovery state".to_owned()),
                 },
                 "invalid-recovery-session",
@@ -3953,6 +4194,7 @@ mod tests {
             .create_run(
                 &session.value.id,
                 &CreateRun {
+                    persona_id: None,
                     client_request_id: "invalid-recovery-request".to_owned(),
                     message: crate::runs::ChatInput {
                         text: "force recovery to fail".to_owned(),

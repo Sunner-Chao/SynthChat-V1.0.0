@@ -145,8 +145,18 @@ pub enum ProviderEvent {
 pub enum ProviderError {
     #[error("provider request was cancelled")]
     Cancelled,
+    #[error("provider configuration is invalid")]
+    InvalidConfiguration,
+    #[error("provider authentication failed")]
+    Authentication,
+    #[error("provider rate limited the request")]
+    RateLimited,
+    #[error("provider rejected the request")]
+    RequestRejected,
     #[error("provider is unavailable")]
     Unavailable,
+    #[error("provider terminated the response stream with an error")]
+    StreamFailed,
     #[error("provider request timed out")]
     Timeout,
     #[error("provider returned an invalid response")]

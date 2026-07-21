@@ -151,6 +151,25 @@ Hermes inference/tool loop remains Rust, while `extensions.codeExecution` and
 the `code_execution` Toolset's `configured` field are false until backend
 restart and a successful probe.
 
+## Product-facing Rust extensions
+
+Persona, Worldbook, and Moments data is stored by the Rust product catalog at
+`HERMES_HOME/.synthchat/product-catalog-v1.db`; the frontend uses only the
+authenticated REST client and strong product ETags. A Session or Run may select
+a same-Profile Persona. The first model turn freezes that Persona and every
+enabled Worldbook section bound to it, so editing catalog data never mutates an
+already-started Run snapshot.
+
+The WeChat settings panel uses the Rust iLink adapter for non-sensitive Profile
+configuration, QR login, unique Persona binding, and explicit bounded poll/send
+operations. Bot credentials are written only to the OS keychain. There is no
+background polling, automatic Session/Run creation, or automatic reply loop.
+
+The Plugins page manages bounded `plugin.json` manifests under
+`HERMES_HOME/.synthchat/plugins`. Enablement is catalog metadata only: the
+backend does not load an entry point, expose declared environment values, inject
+plugin tools into Runs, or restore a Python/Node/legacy Agent plugin runtime.
+
 ## Configure a text Run
 
 Use the Profile UI to select a supported OpenAI-compatible Provider and a
@@ -183,9 +202,9 @@ any partial apply failure. Terminal/process execution is available within the
 documented host-authority boundary; PTY and long-lived approval scopes remain
 unavailable. Async completion/watch delivery is available only when the Run
 runtime reports `asyncToolDelivery=true`. `clarify` uses the v9 bound
-immutable ledger retained by the current schema v12: the pending request is durable, answers
-are preserved
-exactly but stay private to Provider continuation, and cancel or any terminal
+immutable ledger retained by the current schema v13: the pending request is
+durable, answers are preserved exactly but stay private to Provider
+continuation, and cancel or any terminal
 failure resolves the clarification before ending the tool/Run. Installed Skills
 can be listed, searched, enabled/disabled, installed and uninstalled through the
 Skills API. Install/uninstall use durable Operations, owner leases, crash
@@ -366,38 +385,37 @@ child stdout handshake, then exposes the actual address only through the
 reviewed Tauri connection bridge. Set `SYNTHCHAT_BACKEND_ADDR` explicitly only
 when a standalone diagnostic run needs a stable loopback port.
 
-The latest complete worktree baseline on 2026-07-20 is backend `493/493`
-(364 library, 2 backend-binary and all integration tests), frontend `502/502`,
-desktop `21/21`, and Playwright `12/12`. Backend/desktop formatting, all-targets
-checks and `clippy -D warnings`, OpenAPI drift/lint, TypeScript, the Vite
-production build and mixed-runtime verifier self-tests also pass. The schema v2
-bounded mixed smoke completes 4/4 real Profile/Session/Run/SSE/FTS iterations,
-including 2/2 strict read-only `session_search` continuations, per-Run SSE
-sequence/envelope checks and global event conservation, with zero failures and
-clean process/temp teardown. A 60-second qualification run completes 170/170
-iterations and 17/17 tool probes. The canonical eight-hour raw/manifest contract
-is documented in [release-evidence/README.md](release-evidence/README.md). The
-unified Run task registry now
+The latest bounded, non-stress worktree baseline on 2026-07-21 is backend
+`517/517` (377 library, 2 backend-binary and the remaining integration tests;
+zero failures and one explicitly unauthorized native Windows keychain test
+ignored), frontend `551/551` across 37 test files, and desktop `21/21`.
+Backend/desktop formatting, all-targets checks and `clippy -D warnings`, OpenAPI
+drift/lint, TypeScript, the Vite production build, release-input self-check and
+`git diff --check` also pass. Playwright, npm audit, mixed-runtime pilots and
+pressure/long-stability runs were not rerun in this baseline; the dated
+2026-07-20 results below remain historical evidence. The unified Run task registry now
 closes admission before a shared shutdown deadline, drains or preserves tracked
 workers, gates terminal launches and releases the fenced runtime lease without
 waiting for its TTL. The earlier text-only 60-minute mixed extension passes;
 schema v2 eight-hour soak/leak testing and the native Windows/macOS/Linux package/process
 matrix remain phase-four gates.
 
-The latest 12/12 Playwright run also covers one real Workspace sequence across
+The historical 2026-07-20 12/12 Playwright run also covers one real Workspace sequence across
 `write_file`, `read_file`, `search_files` and `patch`. Write and patch require
 separate once approvals; private contents and absolute paths remain absent from
 the terminal Run, SSE, Message and UI surfaces.
 
 ## Data and security
 
-The backend owns `.hermes/.synthchat/sessions-v1.db` at Session schema v12. v8
+The backend owns `.hermes/.synthchat/sessions-v1.db` at Session schema v13. v8
 introduced the owner-bound approval ledger; v9 added the bound immutable
 clarification ledger and its single-use continuation claim; v10 adds immutable
 `provider|codeRpc` invocation origin plus `parent_call_id`/`rpc_sequence`
 bindings for private nested code-tool calls; v11 adds the persistent Run queue
 and epoch-fenced runtime lease; v12 adds durable single-delivery records for
-background terminal completion/watch notifications. Upstream Hermes
+background terminal completion/watch notifications; v13 adds constrained
+`persona_id` columns to `sessions` and `session_versions` so Session/Run Persona
+ownership survives reload and restart. Upstream Hermes
 `state.db` is opened only through the locked v21 read-only importer. Never add
 runtime databases, `synthchat-data/`, `.env`, logs, coverage output or secrets
 to Git. Historical credentials from the original repository still require

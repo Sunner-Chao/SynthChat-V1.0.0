@@ -6,7 +6,7 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use synthchat_hermes_backend::{
     AppConfig, ProfileService, SessionService, build_router,
-    sessions::{CommitMessage, MessagePart, MessageRole},
+    sessions::{CommitMessage, MessagePart, MessageRole, SESSION_SCHEMA_VERSION},
 };
 use tempfile::TempDir;
 use tower::ServiceExt;
@@ -154,7 +154,10 @@ async fn capabilities_reports_only_the_implemented_engine_features() {
         })
     );
     assert_eq!(body["sessionStorage"]["available"], true);
-    assert_eq!(body["sessionStorage"]["schemaVersion"], 12);
+    assert_eq!(
+        body["sessionStorage"]["schemaVersion"],
+        SESSION_SCHEMA_VERSION
+    );
     assert_eq!(body["sessionStorage"]["hermesImportAvailable"], true);
     assert_eq!(body["sessionSearch"]["mode"], "fts5");
     assert_eq!(body["files"]["maxBytes"], 8 * 1024 * 1024);
@@ -212,7 +215,13 @@ async fn capabilities_reports_only_the_implemented_engine_features() {
             "browserDownloads": browser_downloads,
             "mcpStdio": true,
             "mcpStreamableHttp": true,
-            "mcpSse": true
+            "mcpSse": true,
+            "wechatAccounts": true,
+            "wechatMessaging": true,
+            "plugins": true,
+            "personas": true,
+            "moments": true,
+            "worldbooks": true
         })
     );
 
@@ -715,7 +724,7 @@ async fn profile_cors_preflight_allows_contract_headers_and_write_methods() {
 #[tokio::test]
 async fn session_crud_search_messages_and_conditions_match_the_contract() {
     let (app, _home, sessions) = app_with_session_service();
-    let create_body = r#"{"profileId":"default","title":"Contract session"}"#;
+    let create_body = r#"{"profileId":"default","personaId":"persona_0123456789abcdef0123456789abcdef","title":"Contract session"}"#;
     let create = app
         .clone()
         .oneshot(
@@ -736,6 +745,10 @@ async fn session_crud_search_messages_and_conditions_match_the_contract() {
         .to_owned();
     let created = json_body(create).await;
     let session_id = created["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        created["personaId"],
+        "persona_0123456789abcdef0123456789abcdef"
+    );
     assert_eq!(location, format!("/api/v1/sessions/{session_id}"));
     assert_eq!(
         initial_etag,
@@ -761,6 +774,10 @@ async fn session_crud_search_messages_and_conditions_match_the_contract() {
     assert_eq!(list.status(), StatusCode::OK);
     let list = json_body(list).await;
     assert_eq!(list["items"][0]["id"], session_id);
+    assert_eq!(
+        list["items"][0]["personaId"],
+        "persona_0123456789abcdef0123456789abcdef"
+    );
     assert_eq!(list["items"][0]["match"], Value::Null);
 
     let missing_precondition = app
@@ -796,7 +813,12 @@ async fn session_crud_search_messages_and_conditions_match_the_contract() {
     assert_eq!(updated.status(), StatusCode::OK);
     let updated_etag = updated.headers()[header::ETAG].to_str().unwrap().to_owned();
     assert_ne!(updated_etag, initial_etag);
-    assert_eq!(json_body(updated).await["title"], "Renamed");
+    let updated = json_body(updated).await;
+    assert_eq!(updated["title"], "Renamed");
+    assert_eq!(
+        updated["personaId"],
+        "persona_0123456789abcdef0123456789abcdef"
+    );
 
     let stale = app
         .clone()

@@ -100,6 +100,7 @@ fn preview_and_atomic_import_preserve_history_context_and_provenance() {
     assert!(sessions[0].id.starts_with("session_hv21_"));
     assert_eq!(sessions[0].title, "Synthetic fixture");
     assert_eq!(sessions[0].message_count, 5);
+    assert_eq!(sessions[0].persona_id, None);
     assert_eq!(sessions[0].source, "hermes-agent:v21");
     let messages = fixture
         .service

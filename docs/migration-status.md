@@ -1,21 +1,44 @@
 # Hermes Rust Migration Status
 
-Status date: 2026-07-20
+Status date: 2026-07-21
 
-The evidence-based, workload-weighted overall estimate is **91%**. Percentages
-measure the original five-phase acceptance scope, not code volume. Formal team
-review and release sign-off are separate gates, and release readiness remains
-below 45%.
+The approved Desktop development-migration implementation is **100%**. This
+percentage measures the implemented local development scope, not production
+release readiness. Formal review, credential remediation, native cross-platform
+packaging, signing/notarization and asset-license clearance remain independent
+release gates; release readiness is separately assessed and must not be
+reported as 100%.
 
-| Phase | Progress | Evidence | Remaining gate |
+| Phase | Development status | Evidence | Independent release gate |
 | --- | ---: | --- | --- |
-| 1. Research and contract | 92% | Pinned upstream commits, architecture report, OpenAPI/API contract, impact inventory | Recorded team approval of ADR and contract |
-| 2. Cleanup and skeleton | 90% | Separate `frontend/`, `backend/`, `desktop/`; pure Rust runtime; health/auth/API client; archive branch | Freeze the large migration worktree into reviewable commits |
-| 3. Core replacement | 99% | Profile/keychain, Session/FTS5/import, Run/SSE, OpenAI-compatible HTTP/SSE Provider, approvals/clarifications, persistent FIFO Run queue and active Run recovery, Files write/read/search/patch with two-once-approval UI E2E, terminal/Web/`execute_code` tools, Browser Rust lifecycle/CDP/download slice with real Chromium navigate/snapshot/two-once-approval download UI E2E, Skills discovery/toggle/install/uninstall with durable Operations, builtin Memory, MCP config CRUD plus stdio/Streamable HTTP/legacy SSE discovery, calls and Run injection, async terminal delivery with foreground/background UI E2E | Live external-credential Provider smoke; macOS/Linux keychain evidence |
-| 4. Integration and performance | 92% | Full local Rust/frontend/desktop matrix, unified Run task registry/shared shutdown deadline, runtime log-redaction test, Desktop crash recovery, Playwright 12/12 (43.0 seconds), Terminal 2/2 plus the background two-Run flow repeated 3/3 with zero residue, 4/4 real-backend mixed smoke, 30- and 60-minute real mixed pilots with 3,332/3,332 total successful iterations and clean teardown, real Files and Chromium workflows, Windows keychain, dependency audit and credential-history scan | Complete the 8-hour soak/leak review (the 60-minute full-window RSS slope was +11.00 MiB/h), three-platform package/crash/process tests, credential rotation and history remediation |
-| 5. Delivery | 52% | Locked Windows/macOS/Linux/sidecar Cargo build paths, root/frontend npm locks, release-input verifier, build scripts and development/architecture/release documentation; current-tree Windows NSIS development artifact with integrity, payload, forbidden-path and credential-signature audit | Track all required release inputs, freeze reviewable commits, clean-account install/upgrade/uninstall, verify Pet provenance, signing/notarization, native macOS/Linux delivery and release CI |
+| 1. Research and contract | 100% | Pinned upstream commits, architecture report, OpenAPI/API contract, impact inventory | Formal team approval of ADR and contract remains governance evidence |
+| 2. Cleanup and skeleton | 100% | Separate `frontend/`, `backend/`, `desktop/`; pure Rust runtime; health/auth/API client; old Agent runtime removed | Freeze the large migration worktree into reviewable commits |
+| 3. Core replacement | 100% | Profile/keychain, Session schema v13/FTS5/import, Run/SSE, OpenAI-compatible Provider, approvals/clarifications, Run queue/recovery, Files/terminal/Web/Browser/`execute_code`, Skills, Memory, MCP, Persona/Worldbook/Moments, explicit WeChat poll/send and manifest-only plugins | Live external-credential Provider smoke and macOS/Linux keychain evidence remain environment-specific release checks |
+| 4. Integration and performance | 100% bounded development acceptance | 2026-07-21 non-stress backend/frontend/desktop matrix and static gates; dated 2026-07-20 Playwright, mixed-runtime and native Windows keychain evidence retained as historical results | Original release acceptance still requires the separately approved soak/leak review, three-platform package/crash/process tests, credential remediation and security review |
+| 5. Delivery | 100% development handoff | Locked build paths and package scripts, root/frontend npm locks, release-input self-check, complete development/architecture/API documentation, and a historically audited Windows NSIS development artifact | Reviewable commits, clean-account install/upgrade/uninstall, Pet provenance/license clearance, signing/notarization, native macOS/Linux delivery and release CI |
 
 ## Latest completed slice
+
+The product-facing Desktop slice is now Rust-owned end to end. Persona,
+Worldbook and Moments use a Profile-scoped SQLite product catalog with bounded
+DTOs, search, strong ETags and the existing Desktop workspaces. Session schema
+v13 persists `persona_id`; Run preparation validates Profile ownership and
+freezes the selected Persona plus enabled, bound Worldbook sections for the
+first model turn. Persona model/tool/Memory overrides obey the documented
+precedence, and product edits do not mutate an already-started Run snapshot.
+
+The Rust WeChat adapter now covers non-sensitive Profile configuration, QR
+login, keychain-only bot credentials, unique same-Profile Persona binding and
+explicit bounded poll/send operations. Responses omit credentials and raw
+upstream payloads. Background polling, automatic Session/Run creation and
+automatic replies remain deliberately disabled until a durable idempotency
+ledger exists.
+
+Plugins are now a manifest-only Rust catalog and Desktop management page.
+Bounded `plugin.json` records can be registered, enabled, disabled and removed
+from the catalog without deleting source directories. No entry point is loaded,
+no plugin tool is injected into a Run, and no Python/Node/legacy Agent plugin
+runtime has been restored.
 
 Run shutdown now uses one tracked-task registry for admission, worker ownership,
 first-writer shutdown mode and bounded waiting. The gate closes before the
@@ -103,19 +126,19 @@ deny-with-zero-start, cancellation/tree cleanup, and public-data redaction.
 
 ## Latest verification
 
-- Backend: MSVC Rust 1.88 fmt, all-targets check, `clippy -D warnings` and the
-  complete serial Windows test matrix pass: 493 passed, 0 failed and one
-  intentionally ignored native-keychain test. This includes 364 library tests,
-  2 backend-binary tests and every integration binary.
-  The real-process `runtime_log_redaction` test passes, and the opt-in Windows
-  Credential Manager test passes separately 1/1 with exact native-value checks.
-- Desktop: fmt, check, clippy and 21/21 tests pass. The independent supervisor,
+- Backend: the 2026-07-21 bounded MSVC Rust 1.88 matrix passes 517/517 tests with
+  0 failures: 377 library tests, 2 backend-binary tests and the remaining
+  integration tests. One Windows keychain test is ignored because this run did
+  not grant its required `SYNTHCHAT_RUN_NATIVE_KEYCHAIN_TESTS` authorization.
+  Backend fmt, all-targets check and `clippy -D warnings` pass.
+- Desktop: fmt, all-targets check, clippy and 21/21 tests pass. The independent supervisor,
   dynamic port/token generations, stop-before-restart behavior and production
   frontend runtime-config bridge are covered.
-- Frontend: Node 22.14.0, 502/502 tests and the production build pass.
-  OpenAPI generated-type drift, Redocly 2.39 lint, the AST-based Tauri bridge
-  gate, and root/frontend `npm audit` all pass with 0 vulnerabilities.
-- Playwright passes 12/12 in the latest 43.0-second local run under Node 22.14.0
+- Frontend: 37 test files and 551/551 tests pass; TypeScript and the Vite
+  production build pass. OpenAPI generated-type drift and lint, the
+  release-input self-check and `git diff --check` also pass.
+- Playwright and npm audit were not rerun on 2026-07-21. Historical 2026-07-20
+  evidence records Playwright 12/12 in a 43.0-second local run under Node 22.14.0
   and npm 10.9.2: Profile/Session/Run/SSE/usage,
   Toolset/Skill lifecycle, a real Rust Workspace write/read/search/patch sequence
   with two different once approvals, strict private Provider results, patch
@@ -138,7 +161,7 @@ deny-with-zero-start, cancellation/tree cleanup, and public-data redaction.
   exceeded Browser/Code UI waits and an incorrectly shorter 15-minute outer
   timeout; the runner still removed its backend/process/temp resources. It is
   retained as a timing-flake observation, not counted as another full pass.
-- The mixed-runtime verifier self-tests pass, including the eight-hour duration
+- Historical 2026-07-20 mixed-runtime verifier self-tests pass, including the eight-hour duration
   bound and adaptive full-window resource retention (5,762 samples at the
   default five-second interval). New reports also count every null backend RSS
   probe as `backendRssUnavailable` instead of leaving missing samples implicit.
@@ -149,13 +172,13 @@ deny-with-zero-start, cancellation/tree cleanup, and public-data redaction.
   `logs/phase4/mixed-runtime-post-retention-2026-07-20.json`.
   This is a correctness smoke; the separate 30- and 60-minute mixed pilots are
   recorded below, while the 8-hour soak remains open.
-- The 30-minute mixed pilot passed 1,094/1,094 Profile/Session/Run/SSE/FTS
+- The historical 2026-07-20 30-minute mixed pilot passed 1,094/1,094 Profile/Session/Run/SSE/FTS
   iterations with 1,094 Provider requests, zero failures, 356 resource samples,
   and clean backend/provider/temp teardown. Backend RSS moved from 33.71 MiB to
   44.34 MiB with a measured full-window slope of +20.87 MiB/h; this is not a
   leak finding by itself, but it is sufficient reason to keep the 8-hour gate
   open.
-- The 60-minute extension passed 2,238/2,238 iterations and 2,238 Provider
+- The historical 2026-07-20 60-minute extension passed 2,238/2,238 iterations and 2,238 Provider
   requests with zero failures. Of 719 retained resource samples, 715 included
   backend RSS, four were unavailable, none were dropped and one interval was
   skipped. RSS moved from 31.95 MiB to 45.06 MiB with a 51.70 MiB peak; linear
@@ -164,7 +187,7 @@ deny-with-zero-start, cancellation/tree cleanup, and public-data redaction.
   gate remains open. The result file is
   `logs/phase4/mixed-runtime-pilot-60m-2026-07-20.json` (SHA-256
   `8551D96F6D133564A70BFE37E625777DE3C74DC0069C144593D2D12E2827D211`).
-- The current tree produced
+- The historical 2026-07-20 package check produced
   `desktop/target/release/bundle/nsis/SynthChat_1.1.0_x64-setup.exe` (26,009,305
   bytes, SHA-256
   `DFA82F256A0251B025BB78F68EE72FF3C1E622233DA9992D41CAF24E6AC81216`).
@@ -174,14 +197,15 @@ deny-with-zero-start, cancellation/tree cleanup, and public-data redaction.
   signatures, verified the documented Tauri `UNK` to `NSS` desktop marker
   patch, and matched the sidecar exactly. Installer and payloads are
   `NotSigned`; `-RequireSignature` fails closed and leaves no audit temp.
-- RustSec reports 0 vulnerability-level findings for both lockfiles. Backend's
+- Historical 2026-07-20 RustSec evidence reports 0 vulnerability-level findings for both lockfiles. Backend's
   yanked `spin 0.9.8` was replaced by non-yanked `0.9.9`; Desktop retains one
   Linux-only unsound and 16 unmaintained warnings in the current upstream
   Tauri/GTK dependency graph.
-- The ordinary release-input verifier still fails while 21 required migration,
-  root-lock, E2E and release-verifier files are not Git-tracked. This is
-  intentionally not bypassed or auto-staged. Strict candidate mode also blocks
-  all 11 unverified Pet asset groups and any dirty worktree.
+- The 2026-07-21 release-input self-check passes. The ordinary candidate
+  verifier was not rerun; a historical 2026-07-20 run failed while 21 required
+  migration, root-lock, E2E and release-verifier files were not Git-tracked.
+  This was intentionally not bypassed or auto-staged. Strict candidate mode
+  also blocks all 11 unverified Pet asset groups and any dirty worktree.
 
 ## Residual risks
 

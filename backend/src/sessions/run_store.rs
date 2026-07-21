@@ -4483,6 +4483,14 @@ fn validate_create_run(
             .all(|byte| (0x21..=0x7e).contains(&byte))
         || request.message.text.chars().count() > MAX_MESSAGE_TEXT_CHARS
         || request.message.file_ids.len() > MAX_FILE_IDS
+        || request.persona_id.as_deref().is_some_and(|id| {
+            !id.strip_prefix("persona_").is_some_and(|suffix| {
+                suffix.len() == 32
+                    && suffix
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            })
+        })
     {
         return Err(RunError::InvalidRequest);
     }

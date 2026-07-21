@@ -7,10 +7,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./features/sessions/SessionsWorkspace", () => ({
   SessionsWorkspace: ({ onContinue }: {
-    onContinue?: (session: { id: string; title: string }) => void;
+    onContinue?: (session: { id: string; title: string; personaId: string | null }) => void;
   }) => (
     <button
-      onClick={() => onContinue?.({ id: "session-test", title: "Test session" })}
+      onClick={() => onContinue?.({
+        id: "session-test",
+        title: "Test session",
+        personaId: "persona_0123456789abcdef0123456789abcdef",
+      })}
       type="button"
     >
       模拟继续对话
@@ -30,7 +34,37 @@ vi.mock("./features/tools/ToolsWorkspace", () => ({
   ToolsWorkspace: () => <div>Tools workspace mock</div>,
 }));
 
-import { App, PHASE_TWO_SECTIONS, PhaseTwoWorkspace } from "./App";
+vi.mock("./features/plugins/PluginWorkspace", () => ({
+  PluginWorkspace: () => (
+    <section aria-label="插件管理工作区">
+      <button type="button">登记插件目录</button>
+    </section>
+  ),
+}));
+
+vi.mock("./features/product/ProductCatalogWorkspaces", () => ({
+  ContactsWorkspace: ({ onNavigate, onOpenSession }: {
+    onNavigate: (destination: string) => void;
+    onOpenSession?: (session: { id: string; title: string; personaId: string }) => void;
+  }) => (
+    <section aria-label="通讯录产品面板">
+      <span>角色目录已接入</span>
+      <button onClick={() => {
+        onOpenSession?.({
+          id: "persona-session",
+          title: "角色会话",
+          personaId: "persona_0123456789abcdef0123456789abcdef",
+        });
+        onNavigate("chat");
+      }} type="button">发消息</button>
+    </section>
+  ),
+  PersonasWorkspace: () => <section aria-label="角色产品面板"><button type="button">保存角色</button></section>,
+  MomentsWorkspace: () => <section aria-label="朋友圈产品面板"><button type="button">发布</button></section>,
+  WorldbooksWorkspace: () => <section aria-label="世界书产品面板"><button type="button">新建世界书</button></section>,
+}));
+
+import { App, PHASE_TWO_SECTIONS } from "./App";
 
 afterEach(() => cleanup());
 
@@ -61,16 +95,6 @@ describe("phase two frontend shell", () => {
     expect(markup).not.toContain("智能体");
   });
 
-  it("keeps the generic capability fallback explicit", () => {
-    const section = PHASE_TWO_SECTIONS.find((item) => item.id === "plugins")!;
-    const markup = renderToStaticMarkup(<PhaseTwoWorkspace section={section} />);
-
-    expect(markup).toContain(section.unavailableTitle);
-    expect(markup).toContain("未启用");
-    expect(markup).toContain("接口版本");
-    expect(markup).toContain("v1");
-  });
-
   it("routes existing Rust workspaces and a selected Session into chat", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -95,34 +119,31 @@ describe("phase two frontend shell", () => {
     expect(screen.getByRole("button", { name: /Profile 与密钥/u }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("renders restored product shells without mock-success actions", async () => {
+  it("routes the Rust-backed product and plugin workspaces", async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "通讯录" }));
     const contacts = await screen.findByRole("region", { name: "通讯录产品面板" });
-    expect(within(contacts).getByText("角色目录未启用")).toBeTruthy();
-    expect((within(contacts).getByRole("button", { name: "导入角色" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(contacts).getByText("角色目录已接入")).toBeTruthy();
+    expect((within(contacts).getByRole("button", { name: "发消息" }) as HTMLButtonElement).disabled).toBe(false);
 
     await user.click(screen.getByRole("button", { name: "角色" }));
     const personas = await screen.findByRole("region", { name: "角色产品面板" });
-    expect(within(personas).getByRole("tab", { name: "角色设定" })).toBeTruthy();
-    expect((within(personas).getByRole("button", { name: "保存角色" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(personas).getByRole("button", { name: "保存角色" }) as HTMLButtonElement).disabled).toBe(false);
 
     await user.click(screen.getByRole("button", { name: "朋友圈" }));
-    expect(await screen.findByText("朋友圈数据服务未启用")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "发布" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((await screen.findByRole("button", { name: "发布" }) as HTMLButtonElement).disabled).toBe(false);
 
     await user.click(screen.getByRole("button", { name: "世界书" }));
-    expect(await screen.findByText("世界书目录未启用")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "新建世界书" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((await screen.findByRole("button", { name: "新建世界书" }) as HTMLButtonElement).disabled).toBe(false);
 
     await user.click(screen.getByRole("button", { name: "插件" }));
-    expect(await screen.findByText("插件目录未启用")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "安装插件" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByRole("region", { name: "插件管理工作区" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "登记插件目录" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("keeps Discover navigation functional and settings categories capability-aware", async () => {
+  it("keeps Discover navigation functional and routes model settings to the Profile backend", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -134,6 +155,6 @@ describe("phase two frontend shell", () => {
     await user.click(screen.getByRole("button", { name: "设置" }));
     await user.click(screen.getByRole("button", { name: /模型服务/u }));
     expect(screen.getByRole("heading", { name: "模型服务" })).toBeTruthy();
-    expect(screen.getByText("模型服务未启用")).toBeTruthy();
+    expect(screen.getByText("Profile workspace mock")).toBeTruthy();
   });
 });

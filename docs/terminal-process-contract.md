@@ -274,7 +274,7 @@ socket、数据库连接和 `SYNTHCHAT_*` 等未列入项不会继承；Windows 
 - `processes/direct.rs`: direct guardian handoff、RAII tree lifetime 与 stdout/stderr 分流；
 - `processes/manager.rs`: owner 隔离、状态机、action 和 CAS race；
 - `processes/guardian.rs`: launch/control frame、父连接生命周期与 shell handoff；
-- `sessions/process_store.rs`: schema v7 引入的 process journal（当前 Session schema v12）、spawn intent、completion/restart journal 与 v12 async delivery record；
+- `sessions/process_store.rs`: schema v7 引入的 process journal（当前 Session schema v13）、spawn intent、completion/restart journal 与 v12 async delivery record；
 - `sessions/{schema,run_store}.rs`: v8 approval、v9 clarification、v10 code RPC invocation binding 与 v12 delivery event settlement；
 - `processes/output.rs`: bounded capture、UTF-8/ANSI/CRLF 和 redaction；
 - `processes/shell.rs`: shell discovery、cwd/env snapshot；

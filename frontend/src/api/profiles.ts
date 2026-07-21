@@ -12,10 +12,17 @@ import {
 } from "./fileContract";
 
 type GeneratedCapabilities = components["schemas"]["Capabilities"];
-export type Capabilities = Omit<GeneratedCapabilities, "files"> & {
+export type Capabilities = Omit<GeneratedCapabilities, "files" | "extensions"> & {
   files: {
     maxBytes: number;
     allowedMimeTypes: FileMimeType[];
+  };
+  extensions: GeneratedCapabilities["extensions"] & {
+    wechatMessaging: boolean;
+    plugins: boolean;
+    personas: boolean;
+    moments: boolean;
+    worldbooks: boolean;
   };
 };
 export type Provider = components["schemas"]["Provider"];
@@ -299,6 +306,12 @@ function parseCapabilityExtensions(value: unknown): Capabilities["extensions"] {
     "mcpStdio",
     "mcpStreamableHttp",
     "mcpSse",
+    "wechatAccounts",
+    "wechatMessaging",
+    "plugins",
+    "personas",
+    "moments",
+    "worldbooks",
   ] as const;
   if (required.some((key) => !(key in record))) {
     return invalidResponse("Capabilities extensions");
@@ -351,6 +364,18 @@ function parseCapabilityExtensions(value: unknown): Capabilities["extensions"] {
       "Capabilities extensions.mcpStreamableHttp",
     ),
     mcpSse: booleanValue(record.mcpSse, "Capabilities extensions.mcpSse"),
+    wechatAccounts: booleanValue(
+      record.wechatAccounts,
+      "Capabilities extensions.wechatAccounts",
+    ),
+    wechatMessaging: booleanValue(
+      record.wechatMessaging,
+      "Capabilities extensions.wechatMessaging",
+    ),
+    plugins: booleanValue(record.plugins, "Capabilities extensions.plugins"),
+    personas: booleanValue(record.personas, "Capabilities extensions.personas"),
+    moments: booleanValue(record.moments, "Capabilities extensions.moments"),
+    worldbooks: booleanValue(record.worldbooks, "Capabilities extensions.worldbooks"),
   } as Capabilities["extensions"];
 }
 

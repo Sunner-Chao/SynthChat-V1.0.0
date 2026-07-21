@@ -14,8 +14,8 @@
 3. 时间统一为带时区的 RFC 3339 字符串。
 4. 除 `GET /health` 和浏览器 CORS `OPTIONS` 预检外，所有请求都必须携带 `Authorization: Bearer <desktop-session-token>`。
 5. Secret write-only：请求可提交 secret，任何响应、日志、SSE 和错误都不得返回 secret value。
-6. 列表统一 cursor pagination，不使用逐步放大 `limit` 的方式加载历史。
-7. 写操作支持幂等或显式 `Idempotency-Key`；配置写入使用 ETag/`If-Match` 防止覆盖。
+6. 历史与可增长流列表统一 cursor pagination；Profiles、Provider catalog 和每类硬上限 2,000 条的本地产品目录是明确例外。
+7. OpenAPI 标记需要跨重试去重的创建操作必须使用显式 `Idempotency-Key`；条件写使用 ETag/`If-Match` 防止覆盖。产品目录创建当前不承诺重放幂等，前端必须抑制重复提交。
 8. Chat 使用 REST 创建 Run、SSE 接收事件、REST 回答 approval/clarification。v1 不公开 WebSocket；纯 Rust backend 也不依赖上游 `/api/ws`。
 9. 前端只处理本契约定义的 DTO，不读取 `providerData: unknown` 或字符串化 ToolEvent。
 
@@ -37,8 +37,8 @@
 | `Authorization` | 除 `/health` 和 CORS `OPTIONS` 预检外必需 |
 | `X-Request-Id` | 客户端可传；错误时以 `Problem.requestId` 返回，服务端也可回传同名响应头 |
 | `Idempotency-Key` | OpenAPI 标记该 header 的创建操作必须提供 |
-| `If-Match` | Session PATCH/DELETE、Profile metadata PATCH、config/toolset/skill PATCH，以及全部 Memory 写操作的条件写 revision |
-| `ETag` | 单资源响应和 Memory page 的带引号 strong revision；响应体中的 `revision` 是不带引号的对应值 |
+| `If-Match` | Session PATCH/DELETE、Profile metadata PATCH、config/toolset/skill PATCH、全部 Memory 写操作，以及产品目录更新/删除/评论/点赞的条件写 revision |
+| `ETag` | 单资源、条件写成功响应和 Memory page 的带引号 strong revision；产品目录的单项 GET、创建和成功 mutation 返回对应 ETag，列表只在各 item body 返回数值 `revision` |
 | `Last-Event-ID` | Run SSE 断线重放 |
 
 ### 3.2 分页
@@ -82,6 +82,7 @@
 | 400 | `invalid_cursor` | cursor 无效、已过期或与本次筛选条件不匹配 |
 | 401 | `unauthorized` | token 缺失或失效 |
 | 404 | `resource_not_found` | 资源不存在或不属于当前 Profile |
+| 404 | `product_not_found` | Persona、Worldbook、Moment 或 Moment comment 不存在 |
 | 404 | `approval_not_found` | approval 不存在或不属于指定 Run |
 | 409 | `revision_conflict` | ETag 过期 |
 | 409 | `idempotency_conflict` | 同一幂等键被用于不同请求内容 |
@@ -102,9 +103,11 @@
 | 409 | `hermes_import_source_changed` | POST 指定的预检快照已发生变化 |
 | 409 | `hermes_import_conflict` | 来源映射或目标 Session 已变化；整个导入未写入 |
 | 413 | `payload_too_large` | 文件或请求体超限 |
+| 413 | `product_catalog_limit` | 某 Profile 的某类产品条目已达 2,000，或某 Moment 已达 1,000 comments |
 | 413 | `hermes_import_too_large` | Hermes 快照超过固定导入上限 |
 | 415 | `unsupported_media_type` | 请求没有且仅有一个 endpoint 要求的 Content-Type |
 | 422 | `engine_capability_missing` | 当前 Rust engine 能力未实现或未启用 |
+| 422 | `provider_configuration_invalid` | 当前 Profile 的 Provider、模型或 Base URL 配置无效 |
 | 422 | `memory_provider_unsupported` | Profile 当前不是 builtin Memory provider；管理路由不会模拟外部 provider CRUD |
 | 422 | `memory_content_blocked` | Memory 内容命中 strict prompt-injection/exfiltration threat scan |
 | 422 | `memory_capacity_exceeded` | 规范化后的完整 target 超过当前字符预算 |
@@ -114,11 +117,17 @@
 | 422 | `session_search_unavailable` | 本地会话搜索能力尚未初始化 |
 | 428 | `precondition_required` | 条件写缺少 `If-Match` |
 | 429 | `capacity_exceeded` | Run 并发/队列上限 |
+| 429 | `provider_rate_limited` | 外部模型 Provider 对请求限流 |
 | 502 | `engine_unavailable` | Rust inference engine 或外部 Provider 不可用 |
+| 502 | `provider_authentication_failed` | 外部模型 Provider 拒绝了配置的凭据 |
+| 502 | `provider_request_rejected` | 外部模型 Provider 拒绝了模型或请求参数 |
+| 502 | `provider_stream_failed` | 外部模型 Provider 在流式过程中返回错误 |
+| 502 | `provider_response_invalid` | 外部模型 Provider 返回了不完整或不兼容的流 |
 | 503 | `secret_storage_unavailable` | OS keychain 被锁定、不可用或拒绝访问 |
 | 503 | `session_storage_busy` | SQLite 超过 busy timeout，客户端可退避重试 |
 | 503 | `session_storage_unavailable` | 会话库未初始化、损坏或迁移失败 |
 | 503 | `hermes_state_unavailable` | Hermes 来源库暂时无法只读打开或读取 |
+| 503 | `product_catalog_unavailable` | 本地产品目录 SQLite 无法初始化、加锁或提交事务 |
 | 504 | `engine_timeout` | Rust engine 等待外部 Provider/tool 超时 |
 
 `detail` 必须经过脱敏，不得包含上游响应正文中的 key、token 或本地绝对路径。OpenAPI response component 的 `x-error-codes` 是该 HTTP 状态当前已锁定值的非穷尽机器可读列表；未来可新增错误码，但不得改变既有码的语义。
@@ -146,7 +155,7 @@
 
 `capabilities.engine.features` 是稳定布尔集合：`runStreaming`、`reasoningStreaming`、`toolProgress`、`approvals`、`clarifications`、`asyncToolDelivery`、`profileManagement`、`skillManagement`、`memoryWrite`、`mcpManagement`、`oauthAccounts`。值为 false 时 UI 必须禁用对应操作并说明不可用，不能通过探测隐藏 endpoint 猜测能力。
 
-`capabilities.extensions` 当前必须包含 `activeRunDiscovery`、`runQueue`、`toolsetManagement`、`toolExecution`、`codeExecution`、`workspaceManagement`、`skillDiscovery`、`skillEnablement`、`webSearch`、`webExtract`、`browserAutomation`、`browserCdp`、`browserDownloads`、`mcpStdio`、`mcpStreamableHttp` 和 `mcpSse`。`codeExecution=true` 只在 Rust Run engine 可监督 host Python 3.8+ 子进程并完整执行本文的审批、环境剥离、动态 RPC 白名单、取消和输出边界时返回；它不表示 OS/container sandbox，也不表示 Python Hermes Agent 成为运行时依赖。Web-first 实现通过路由、Rust executor、安全边界和 Run E2E 验收后，`webSearch=true`、`webExtract=true`；这两个值只表示 engine 已实现对应域，不表示任意 Profile 已选择可用 provider，Profile 实际状态必须读取 `WebConfig.effectiveSearch/effectiveExtract`。`mcpStdio=true`、`mcpStreamableHttp=true` 和 `mcpSse=true` 分别表示对应 transport 已通过真实 fixture 与 Run E2E；它们不表示每个 Profile 的远端 URL、secret 或网络均处于可用状态。`browserAutomation`、`browserCdp` 与 `browserDownloads` 只有在 Rust Run engine 可用且本机发现受支持 Chromium-family binary 时才同为 true；它们表示 per-Profile/Run 隔离浏览器、loopback CDP、受控 egress proxy、bounded AX/image output、owner-bound approval 及下述隔离下载元数据工作流已可用，不表示任意浏览器、自动打开或 Workspace 文件写入权限。
+`capabilities.extensions` 当前必须包含 `activeRunDiscovery`、`runQueue`、`toolsetManagement`、`toolExecution`、`codeExecution`、`workspaceManagement`、`skillDiscovery`、`skillEnablement`、`webSearch`、`webExtract`、`browserAutomation`、`browserCdp`、`browserDownloads`、`mcpStdio`、`mcpStreamableHttp`、`mcpSse`、`wechatAccounts`、`wechatMessaging`、`plugins`、`personas`、`moments` 和 `worldbooks`。`personas/moments/worldbooks=true` 表示下述 Profile-scoped Rust 产品目录及条件写路由可用；Persona 可通过 `CreateRun.personaId` 参与 Run，启用且绑定的 Worldbook section 随 Persona 快照注入，Moments 仍不主动触发模型。`wechatAccounts=true` 表示配置、扫码、Persona 唯一绑定和 keychain-backed account metadata 可用；`wechatMessaging=true` 表示显式、有限且脱敏的 poll/send adapter 可用，不表示后台轮询或自动消息到 Run。`plugins=true` 只表示本地 manifest 登记、启停和移除登记可用，绝不表示执行插件代码。`codeExecution=true` 只在 Rust Run engine 可监督 host Python 3.8+ 子进程并完整执行本文的审批、环境剥离、动态 RPC 白名单、取消和输出边界时返回；它不表示 OS/container sandbox，也不表示 Python Hermes Agent 成为运行时依赖。Web-first 实现通过路由、Rust executor、安全边界和 Run E2E 验收后，`webSearch=true`、`webExtract=true`；这两个值只表示 engine 已实现对应域，不表示任意 Profile 已选择可用 provider，Profile 实际状态必须读取 `WebConfig.effectiveSearch/effectiveExtract`。`mcpStdio=true`、`mcpStreamableHttp=true` 和 `mcpSse=true` 分别表示对应 transport 已通过真实 fixture 与 Run E2E；它们不表示每个 Profile 的远端 URL、secret 或网络均处于可用状态。`browserAutomation`、`browserCdp` 与 `browserDownloads` 只有在 Rust Run engine 可用且本机发现受支持 Chromium-family binary 时才同为 true；它们表示 per-Profile/Run 隔离浏览器、loopback CDP、受控 egress proxy、bounded AX/image output、owner-bound approval 及下述隔离下载元数据工作流已可用，不表示任意浏览器、自动打开或 Workspace 文件写入权限。
 
 Run 始终只发送“Profile 已启用、Rust registry 已注册且全部先决条件满足”的严格工具定义。现有 executors 是 Profile 隔离的 `session_search`、`skills_list`、`skill_view`、`read_file`、`search_files`、`write_file`、`patch`、`terminal`、`process`、`clarify`、`memory`、`web_search`、`web_extract`，以及 Browser 的 `browser_navigate`、`browser_snapshot`、`browser_click`、`browser_download`、`browser_type`、`browser_scroll`、`browser_back`、`browser_press`、`browser_get_images`、`browser_vision`、`browser_console`、`browser_cdp`、`browser_dialog`，并包括动态发现的 `mcp__<server>__<tool>`。Browser definitions 还要求 runtime Browser readiness；`navigate/snapshot/images/console` 是有界读取，click/download/type/scroll/back/press/dialog 以及限定为 `Runtime.evaluate` 的 CDP 均要求当前 snapshotId、一次 durable `once/deny` approval 和同 Run/Profile/Session/Call/参数 SHA-256 claim。`execute_code` 仅在 host Python 3.8+ 可用且 `code_execution` Toolset 已启用时注入，schema 描述只列出同一 Run 实际可用的七类内部 RPC 工具子集，刻意不包含 Browser RPC。`code_execution` 的 `Toolset.configured=true` 只表示当前后端进程已检测到可用 host Python 3.8+；UI 仍必须同时要求全局 `capabilities.extensions.codeExecution=true` 与 Profile 的 `enabled=true`，不得把 `configured` 单独解释为可执行。四个文件工具只在 Run 绑定到同一 Profile 下已注册且当前可用的 Workspace、并且 Profile 的 `file` Toolset 已启用时注入；Web 工具还要求对应 provider ready。`write_file`、`patch`、`terminal`、`memory`、整个 `execute_code` 脚本和所有动态 MCP 工具要求 durable `once/deny` 审批。Skills 列表/搜索、启停和带持久 Operation 的安装/卸载可用，因此 `skillManagement=true`。Workspace 注册只接受一次性的绝对路径写入，Rust canonicalize 后内部保存，响应只返回 opaque ID/显示名/可用状态。`approvals=true`、`clarifications=true`、`memoryWrite=true`、`activeRunDiscovery=true`、`runQueue=true`、`mcpManagement=true`、`asyncToolDelivery=true`；`oauthAccounts` 继续为 false。
 
@@ -154,17 +163,17 @@ Run 始终只发送“Profile 已启用、Rust registry 已注册且全部先决
 
 `execute_code` 锁定 pinned Hermes 的 Python programmatic-tool-calling 语义：输入必须且只能含 1..60 KiB 的 `code`，默认 300 秒、50 次内部工具调用、50 KB stdout 和 10 KB stderr；Profile `code_execution.mode` 为 `project|strict`，并通过 ProfileConfig 的 `codeExecution` 读写。Rust backend 仅接受探测成功的 Python 3.8+ executable，并拒绝 WindowsApps alias；该 host interpreter 只执行用户批准的代码工具，不承载 Hermes Agent runtime。脚本写入私有临时 staging，经 direct guardian 启动；`project` 在有 Workspace 时以其为 cwd，`strict` 以 staging 为 cwd。子进程环境从最小 allowlist 重建，不继承 API key、token、secret、password、credential、auth、DSN 或 webhook 类变量。一次性 loopback RPC port/token 通过 guardian 的强类型 bootstrap 单独注入，generic environment 不接受这些凭据；RPC 服务端强制动态工具白名单、参数 schema、64 KiB request/response 和调用次数。脚本可直接使用 Python 文件、网络、`subprocess`/`ctypes` 等宿主能力，因此这两个 mode 都不是安全沙箱；durable `once` 审批覆盖整段脚本及其中的 nested mutating RPC，审批/claim 前不得启动 guardian，deny 不得产生 nested invocation。内部受管工具仍执行现有路径、SSRF、硬拒绝命令、deadline、取消和输出规则，但不会创建第二个公开审批。
 
-Session schema v10 引入并由当前 v12 保留的边界把顶层 Provider 调用与 code RPC 子调用分开：`tool_invocations.origin` 只能是 `provider|codeRpc`；`codeRpc` 必须以 `parent_call_id` 绑定同 Run/turn 中仍在 running 的 Provider `execute_code`，并以 1..100 的 `rpc_sequence` 严格递增，三项绑定创建后不可变。nested 参数、结果和 checkpoint 只进入私有 journal；Provider continuation 的顶层 tool-call 列表只读取 `origin=provider`，公开 Run/SSE/Message 同样不投影 nested row。stdout 使用 50 KB head-tail retention，stderr 独立使用 10 KB head-only retention，二者经 ANSI/控制字符清理及 Profile secret/token/Bearer 脱敏后才写入私有结果；公开面只保留有界摘要与参数 digest。cancel、deadline、backend disconnect 或 RAII drop 都要求 guardian 收敛 Job Object/process group 中的受管 Python 树；Run 已是 `cancelling` 时只允许 invocation 失败终结，晚到成功不得覆盖取消。
+Session schema v10 引入并由当前 v13 保留的边界把顶层 Provider 调用与 code RPC 子调用分开：`tool_invocations.origin` 只能是 `provider|codeRpc`；`codeRpc` 必须以 `parent_call_id` 绑定同 Run/turn 中仍在 running 的 Provider `execute_code`，并以 1..100 的 `rpc_sequence` 严格递增，三项绑定创建后不可变。nested 参数、结果和 checkpoint 只进入私有 journal；Provider continuation 的顶层 tool-call 列表只读取 `origin=provider`，公开 Run/SSE/Message 同样不投影 nested row。stdout 使用 50 KB head-tail retention，stderr 独立使用 10 KB head-only retention，二者经 ANSI/控制字符清理及 Profile secret/token/Bearer 脱敏后才写入私有结果；公开面只保留有界摘要与参数 digest。cancel、deadline、backend disconnect 或 RAII drop 都要求 guardian 收敛 Job Object/process group 中的受管 Python 树；Run 已是 `cancelling` 时只允许 invocation 失败终结，晚到成功不得覆盖取消。
 
 Workspace 工具只允许相对路径下的有界访问：Workspace 注册层打开唯一 ambient root authority，后续目录和文件访问全部经 `cap-std` capability、逐级 no-follow 目录句柄及最终 no-follow 文件句柄完成；路径穿越、Workspace 逸出、符号链接/重解析点逸出、Windows 非可移植组件和敏感文件均被拒绝或排除。`read_file` 拒绝二进制、非 UTF-8 或超过 2 MiB 的内容，`search_files` 排除二进制、非 UTF-8 或超过 1 MiB 的候选内容，并受 10,000 条目、16 MiB 扫描量、100 个结果及 60 KiB 输出上限约束，截断时显式分页。`write_file` 接受不超过 60 KiB 的 UTF-8 文本。`patch` 接受 pinned Hermes 的 `mode=replace|patch`：replace 使用九策略 fuzzy matcher；V4A 支持 Update/Add/Delete/Move、最多 64 个 operation/256 个 hunk、单目标 2 MiB 和聚合快照 16 MiB。Add 采用本地更安全的 must-not-exist 规则。JSON/YAML/TOML 候选在触盘前 fail closed 校验；BOM、CRLF 与既有权限被保留。
 
 每个 `write_file`/`patch` 调用在审批前生成仅驻内存的参数绑定 plan 与 Existing/Missing SHA-256 precondition，不产生副作用。只有持久化 `once` 决策的单次 claim CAS 成功后，执行器才会获取全部目标的排序锁、复核原始参数 hash 和所有 precondition，再逐文件提交并复读验证；`deny`、过期、取消、外部变化和重启恢复均在首个提交前 fail closed。V4A 保证全批预检，但不宣称跨文件事务：后续单项提交失败时，provider 结果以 `success=false` 和明确 error 报告 partial state。真实 bounded diff 仅进入内部 tool journal/provider continuation；公开 Run、Message 与 SSE 只含相对路径和有界摘要。文件工具复用 Workspace 注册、`CreateRun.workspaceId` 与 Toolset 配置契约；审批通过既有 Run action 与 SSE 契约完成。
 
-`terminal` 每次前台或后台调用都需 durable `once/deny` 审批；`process list/poll/log/wait` 是只读操作，`kill/write/submit/close` 每次都需要新审批。RunService 将这两个工具路由到异步 executor，持久化 tool progress 与 approval journal；后台 process metadata 另持久化到 schema v7 引入、当前 Session schema v12 的 `terminal_processes` 和私有 async-delivery record，owner 固定为 `(profile_id, session_id, creator_run_id, call_id)`，终态不可逆且由 CAS 保护。全局 64 个 `starting|running` 槽通过单个 `BEGIN IMMEDIATE` 事务内的 count + insert 原子预留。它们是 Run 内的模型工具，v1 不新增 REST process-management endpoint。
+`terminal` 每次前台或后台调用都需 durable `once/deny` 审批；`process list/poll/log/wait` 是只读操作，`kill/write/submit/close` 每次都需要新审批。RunService 将这两个工具路由到异步 executor，持久化 tool progress 与 approval journal；后台 process metadata 另持久化到 schema v7 引入、当前 Session schema v13 的 `terminal_processes` 和私有 async-delivery record，owner 固定为 `(profile_id, session_id, creator_run_id, call_id)`，终态不可逆且由 CAS 保护。全局 64 个 `starting|running` 槽通过单个 `BEGIN IMMEDIATE` 事务内的 count + insert 原子预留。它们是 Run 内的模型工具，v1 不新增 REST process-management endpoint。
 
 Terminal 的 Workspace 仅是初始 cwd 边界，不是 filesystem confinement 或 OS/container sandbox；命令在审批后具有宿主机权限。参数、command、stdin、timeout 和输出均有固定上限。backend 只先启动 guardian，在 PID/平台强 identity 已持久化并收到完整合法 launch frame 后才启动 shell；script 不进入 argv，父控制 pipe 断开会终止受管命令树。后台 tool result/event 先持久化，随后 commit launch lease；commit 前的 cancel/deadline 默认回滚并 kill。stdin 控制使用独立有界 writer 与 deadline；root exit/kill 先收敛 Job Object/process group，再限时 drain stdout/stderr。输出执行 ANSI/CRLF 清理、secret redaction、4 KiB 裁剪 guard 和 provider 上限；后台输出仅位于内存，backend 重启后不可恢复。shell 环境从最小 allowlist 重建，不继承 secret/proxy/agent socket/backend 变量。
 
-重启恢复、shutdown 和 detached kill 都要求强 identity：Windows 使用 creation FILETIME，Linux 使用 boot ID + start ticks，macOS 使用 `proc_pidinfo` 启动时间；无效或无法验证的候选项标记为 `lost`，detached `killed` 只在平台终止成功且 tracked root identity 退出后写入。公开事件与 Message 的 `inputSummary` 只使用不含 command/stdin 正文的通用摘要；单行转义、脱敏、限长且附参数 digest 的知情摘要只进入 pending approval，`approval.required` SSE/Message 回放仍使用通用摘要。当前 Session schema 为 v12：v8 approval ledger 持久化 owner 与完整参数 SHA-256，执行 claim 重新绑定 Run ID、Profile/Session/Workspace、call/tool 和 invocation checkpoint；v9 clarification ledger 以同一原始参数 hash 绑定 Run/call/checkpoint，并把私有回答交给 single-use continuation claim；v10 增加上述 code RPC invocation origin/parent/sequence 约束；v11 增加持久 Run queue 与 epoch-fenced runtime lease；v12 增加 owner-bound async delivery record。
+重启恢复、shutdown 和 detached kill 都要求强 identity：Windows 使用 creation FILETIME，Linux 使用 boot ID + start ticks，macOS 使用 `proc_pidinfo` 启动时间；无效或无法验证的候选项标记为 `lost`，detached `killed` 只在平台终止成功且 tracked root identity 退出后写入。公开事件与 Message 的 `inputSummary` 只使用不含 command/stdin 正文的通用摘要；单行转义、脱敏、限长且附参数 digest 的知情摘要只进入 pending approval，`approval.required` SSE/Message 回放仍使用通用摘要。当前 Session schema 为 v13：v8 approval ledger 持久化 owner 与完整参数 SHA-256，执行 claim 重新绑定 Run ID、Profile/Session/Workspace、call/tool 和 invocation checkpoint；v9 clarification ledger 以同一原始参数 hash 绑定 Run/call/checkpoint，并把私有回答交给 single-use continuation claim；v10 增加上述 code RPC invocation origin/parent/sequence 约束；v11 增加持久 Run queue 与 epoch-fenced runtime lease；v12 增加 owner-bound async delivery record；v13 为 `sessions` 与 `session_versions` 增加受约束的 `persona_id`，使 Session 选择可作为未显式指定 `CreateRun.personaId` 时的持久默认值。
 
 当前 `pty=true` 被拒绝，Windows ConPTY 尚未实现，长期授权也仍未开放，choices 只有 `once/deny`。后台 `terminal` 可选择且只能选择一个异步模式：`notify_on_complete=true` 在 process 进入任一终态时投递一次，或 1..16 个 `watch_patterns` 在当前有界、已脱敏 output snapshot 首次匹配时投递一次。两种模式都要求 `background=true`，不得组合；pattern、command、stdin、raw result 和 output 只存在私有 journal/内存，公开 `tool.delivery` 只包含稳定 `callId`/`processId`、delivery kind、状态、可选 exit code 与 watch 匹配数量。投递 event 与 delivered CAS 在同一事务提交，重启重扫未决 record；同一 process 无论并发 scheduler 或重连都最多出现一个 `tool.delivery`。原始 Run 已终态但仍有未决 delivery 时，SSE 保持可重连，直到投递或未匹配 watch 在 process 终态时被持久结算；显式 `process` poll/log/wait/kill 保持可用且 owner 隔离。`toolExecution=true` 不代表 OS sandbox、对已发生外部副作用的回滚或 exactly-once shell 事务；完整边界以 `docs/terminal-process-contract.md` 为准。
 
@@ -204,6 +213,72 @@ Profile 生命周期与 clone 规则：
 - secret status 返回 Rust model/Web Provider catalog 声明的全部 secret 名称及本安装索引中的自定义名称，未配置项仍返回 `configured=false`。
 
 Secret name 必须匹配 `^[A-Z][A-Z0-9_]{0,127}$`；Provider catalog、secret status 与 secret path 参数复用同一规则。Provider 默认 URL、Profile model URL 与模型发现覆盖 URL 非空时均只接受包含 host 的 `http` 或 `https` URL，且不得包含 userinfo、query 或 fragment，避免凭据和请求参数进入 YAML。
+
+### 4.2.1 Persona、Worldbook 与 Moments 产品目录
+
+产品目录是 Profile-scoped 的纯 Rust SQLite 扩展，用于恢复现有 Desktop UI 所需的 Persona、Worldbook 和 Moments 数据。它不重新引入 Agent runtime，也不把旧 Python/Agent binding 当作执行依赖。数据库固定位于 `HERMES_HOME/.synthchat/product-catalog-v1.db`，使用 WAL、事务和进程内锁；数据库初始化、锁超时或提交失败返回 503 `product_catalog_unavailable`。
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| GET | `/api/v1/profiles/{profileId}/personas?q=` | 列出 Persona；可选 `q` 最多 200 个 Unicode scalar，按名称和序列化字段做不区分大小写子串搜索 |
+| POST | `/api/v1/profiles/{profileId}/personas` | 创建 Persona；`application/json`，成功 201 + ETag |
+| GET | `/api/v1/profiles/{profileId}/personas/{personaId}` | 读取 Persona snapshot；成功 200 + ETag |
+| PATCH | `/api/v1/profiles/{profileId}/personas/{personaId}` | 使用 Persona strong ETag 全量替换输入字段；成功 200 + ETag |
+| DELETE | `/api/v1/profiles/{profileId}/personas/{personaId}` | 使用 Persona strong ETag 删除未被 Worldbook 绑定的 Persona；成功 204 |
+| GET | `/api/v1/profiles/{profileId}/worldbooks?q=` | 列出 Worldbook；可选 `q` 规则同 Persona |
+| POST | `/api/v1/profiles/{profileId}/worldbooks` | 创建 Worldbook；成功 201 + ETag |
+| GET | `/api/v1/profiles/{profileId}/worldbooks/{worldbookId}` | 读取 Worldbook snapshot；成功 200 + ETag |
+| PATCH | `/api/v1/profiles/{profileId}/worldbooks/{worldbookId}` | 使用 Worldbook strong ETag 全量替换输入字段；成功 200 + ETag |
+| DELETE | `/api/v1/profiles/{profileId}/worldbooks/{worldbookId}` | 使用 Worldbook strong ETag 删除；成功 204 |
+| GET | `/api/v1/profiles/{profileId}/moments` | 列出 Moments，按 updatedAt descending、ID ascending 排序 |
+| POST | `/api/v1/profiles/{profileId}/moments` | 创建 Moment；成功 201 + ETag |
+| GET | `/api/v1/profiles/{profileId}/moments/{momentId}` | 读取 Moment、likes 和 comments snapshot；成功 200 + ETag |
+| PATCH | `/api/v1/profiles/{profileId}/moments/{momentId}` | 使用 Moment strong ETag 替换 author/body/cover；保留 likes/comments；成功 200 + ETag |
+| DELETE | `/api/v1/profiles/{profileId}/moments/{momentId}` | 使用 Moment strong ETag 删除；成功 204 |
+| POST | `/api/v1/profiles/{profileId}/moments/{momentId}/comments` | 使用 Moment strong ETag 新增 comment；返回更新后的 Moment + ETag |
+| DELETE | `/api/v1/profiles/{profileId}/moments/{momentId}/comments/{commentId}` | 使用 Moment strong ETag 删除 comment；返回更新后的 Moment + ETag，并清除指向它的 replyTo |
+| PUT | `/api/v1/profiles/{profileId}/moments/{momentId}/like` | 使用 Moment strong ETag 设置一个 actor 的 `liked` 状态；返回更新后的 Moment + ETag |
+
+OpenAPI 中的 `PersonaInput`、`WorldbookInput`、`MomentInput`、`MomentCommentInput` 和 `MomentLikeInput` 都使用 `additionalProperties=false`。字段边界如下：
+
+- Persona 的 `name` 最多 120，`avatar` 最多 4,096，四个 prompt/instruction 字段各最多 64,000，`provider/model` 各最多 256；`temperature` 为 0..2，`maxTokens` 为 1..1,000,000。未提交字段使用 schema 中的默认值；`legacyAgentId` 只保留迁移元数据，绝不恢复旧 Agent 执行路径。
+- Worldbook 的 `name` 最多 120，`description` 最多 8,000，`sections` 最多 200，`boundPersonaIds` 最多 200；每个 section 的 `key` 最多 300、`content` 最多 64,000。更新是完整输入替换，提交的 sections 会重新生成 opaque section ID。
+- Moment 的 `authorId` 最多 120，`body` 最多 16,000；`coverFileId` 可为空。Comment 的 `text` 最多 16,000，单个 Moment 最多 1,000 comments；`replyTo` 必须为空或当前 Moment 中已有的 comment ID。Like 的 `actorId` 最多 120，`liked` 是必需 boolean。
+- 每个 Profile、每一种 product kind 最多 2,000 条。超过条目或 comment 上限返回 413 `product_catalog_limit`；超过通用请求体上限返回 413 `payload_too_large`。`q` 中的控制字符、文本字段中的 NUL、空白必填字段、非法 opaque reference、未知 JSON 字段和超出字段边界均返回 400 `validation_failed`。
+
+#### 产品 revision 与条件写
+
+- 新建资源的 body `revision=1`，响应 `ETag: "product-persona-1"`、`"product-worldbook-1"` 或 `"product-moment-1"`。成功的资源更新、comment、like 都使对应资源 revision 加一并返回同格式 ETag；body 中的 revision 始终是不带引号的数字。
+- 单项 GET 发送与 body `revision` 一致的 quoted strong ETag；列表不发送聚合 ETag，各 item 仍在 body 暴露数值 `revision`。客户端可直接使用单项 GET 的 ETag，或从列表项的 kind/revision 构造相同值，例如 `If-Match: "product-moment-2"`；不得把 Profile config ETag 与 product ETag 混用。
+- Persona PATCH/DELETE 只接受 `"product-persona-N"`；Worldbook PATCH/DELETE 只接受 `"product-worldbook-N"`；Moment 更新、删除、comment 和 like 只接受 `"product-moment-N"`。缺 header 返回 428 `precondition_required`，弱 ETag、`*`、多个值、错误 kind 或非法数字返回 400 `invalid_if_match`，旧 revision 返回 409 `revision_conflict`。当前 product conflict Problem 不承诺携带新的 ETag，客户端必须重新 GET。
+- PATCH 不是 RFC 7396 Merge Patch，Content-Type 必须是 `application/json`。Persona/Worldbook/Moment 输入中省略的字段会按对应 Input 默认值处理；因此前端更新前必须发送完整的意图快照，不能把省略理解为“保留旧值”。
+- 删除不存在或 Profile 不存在分别返回 404 `product_not_found` 或 `profile_not_found`。删除仍被 Worldbook `boundPersonaIds` 引用的 Persona 返回 400 `validation_failed`。产品数据库错误返回 503 `product_catalog_unavailable`；所有产品 route 仍受桌面 Bearer 鉴权和 `X-Request-Id` 约定约束。
+
+Moments 不会自动发布、轮询或触发模型。Persona/Worldbook 的 Run 绑定由显式契约完成：`CreateRun.personaId` 必须引用 Session 所属 Profile 的 Persona；准备首个模型 turn 时 Rust 冻结 Persona 与所有启用且绑定的 Worldbook section，并将有界角色字段作为 system context。Persona 的非空 provider/model 可覆盖 Profile 默认模型，显式 `CreateRun.modelOverride` 优先级更高；`toolsEnabled=false` 与 `memoryEnabled=false` 分别禁止该 Run 注入工具与 Memory。保存产品资料本身不会修改已经开始的 Run 快照。
+
+### 4.2.2 微信账号与显式消息适配器
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| GET/PATCH | `/api/v1/profiles/{profileId}/wechat` | 读取或条件更新非敏感 iLink 配置；共用 ProfileConfig ETag |
+| POST | `/api/v1/profiles/{profileId}/wechat/qr` | 创建扫码登录 challenge；本地渲染 QR SVG |
+| POST | `/api/v1/profiles/{profileId}/wechat/qr/status` | 查询扫码状态；确认后只把 bot credential 写入 OS keychain |
+| PATCH | `/api/v1/profiles/{profileId}/wechat/accounts/{accountId}` | 使用 ProfileConfig ETag 唯一绑定或解绑同 Profile Persona |
+| POST | `/api/v1/profiles/{profileId}/wechat/accounts/{accountId}/poll` | 按客户端 cursor 显式拉取最多 100 条规范化文本消息 |
+| POST | `/api/v1/profiles/{profileId}/wechat/accounts/{accountId}/messages` | 显式发送一条最多 16,000 字符的文本消息 |
+
+账号响应只包含非敏感 metadata、`credentialConfigured` 和可空 `linkedPersonaId`；bot credential、派生 keychain name、请求认证头及原始上游载荷均不返回。一个 Persona 在同一 Profile 最多绑定一个账号。Poll cursor 最多 16 KiB，由 Desktop 客户端持有并显式续传；服务端最多接受 100 条上游记录，只返回含稳定 ID、peer 与有界文本的规范化子集，并报告 `receivedCount/skippedCount`。当前不启用后台自动 poll、自动 Session/Run 或自动回复，因为这些工作流还需要持久 cursor、消息 ID 和 peer→Session 幂等账本。
+
+### 4.2.3 Manifest-only 插件目录
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| GET | `/api/v1/plugins` | 列出最多 512 个本地登记项；返回 plugin catalog ETag |
+| POST | `/api/v1/plugins/install` | 登记插件根目录直接子项中的有界 `plugin.json`；初始 disabled |
+| PATCH | `/api/v1/plugins/{pluginId}` | 使用 catalog ETag 启用或停用登记项 |
+| DELETE | `/api/v1/plugins/{pluginId}` | 使用 catalog ETag 移除登记；不删除源目录 |
+
+插件根固定为 `HERMES_HOME/.synthchat/plugins`。source path 解析后必须是该目录的直接子项；外部路径、穿越、symlink/reparse point、超过 64 KiB 或带未知字段的 manifest 均被拒绝。公开 DTO 固定 `execution=manifestOnly`，最多声明 128 个 tool name 与 128 个环境变量名称。`enabled` 仅是目录 metadata，不加载 entry point、不注入 Run 工具、不读取所需环境变量，也不恢复 Python/Node/旧 Agent 插件运行时。
 
 ### 4.3 Session 与消息
 
@@ -696,17 +771,20 @@ Secret value 的跨平台上限为 2560 UTF-8 bytes（同时受 OpenAPI 2560 字
 | Skills | Rust parser/registry 与本地 installer/uninstaller | 列表/搜索/启停、持久 Operation、owner lease、崩溃恢复和有界清理已实现；内容目录仍继续做 handle-relative 加固 |
 | Memory | Rust builtin/provider trait | 按 provider capabilities 降级 |
 | MCP | Rust Profile config CRUD + stdio JSON-RPC runtime | CRUD 原子读写兼容 YAML；stdio 直接完成 initialize/tools/list/tools/call 与 Run 注入，不调用 Dashboard/CLI adapter；远程 HTTP/SSE runtime 仍待实现 |
+| Persona/Worldbook/Moments CRUD | `product_catalog` + Rust SQLite | Profile-scoped bounded product data；独立 product ETag；Persona/绑定 Worldbook 由显式 `personaId` 冻结注入 Run |
+| WeChat account/message adapter | `wechat` + OS keychain | 配置、扫码、Persona 绑定与显式有限 poll/send；bot credential 不进 YAML/响应，后台自动 Run 仍关闭 |
+| Manifest-only plugins | `plugins` + Rust bounded registry | 本地 manifest 登记/启停/移除；不执行插件代码，不恢复旧 Agent runtime |
 
-当前 Run transport 只启用明确标记为 OpenAI-compatible 的 catalog Provider。原生 Anthropic、Gemini、Copilot、MiniMax-Anthropic 与 Azure Foundry adapter 未实现时返回 502 `engine_unavailable`，不得把“存在于 Provider catalog”解释为“已支持推理”。流式 Provider 必须返回可信 usage；缺失 usage 的成功流按无效响应失败，不能以零值伪造 Token 用量。
+当前 Run transport 只启用明确标记为 OpenAI-compatible 的 catalog Provider。原生 Anthropic、Gemini、Copilot、MiniMax-Anthropic 与 Azure Foundry adapter 未实现时返回 502 `engine_unavailable`，不得把“存在于 Provider catalog”解释为“已支持推理”。Provider HTTP 认证、限流、请求拒绝、流中错误和不完整响应分别映射为稳定的 `provider_*` 错误码；`detail` 只保留可操作的脱敏说明，不转发上游正文。流式 Provider 必须返回可信 usage；缺失 usage 的成功流按 `provider_response_invalid` 失败，不能以零值伪造 Token 用量。
 
 ## 9. 非本契约范围
 
-以下是桌面壳或尚未批准的产品域，不进入 Agent API v1：
+以下是桌面壳或尚未批准的产品域，不进入核心 Rust API v1：
 
 - 窗口移动、托盘、文件选择、打开/定位本地文件、截图、桌宠命中测试；
 - Theme/emoji 等纯 UI 设置；
-- Moments、Worldbook、当前 SynthChat Plugins 模型；
-- 微信账号绑定、主动消息、桌宠视觉等未完成映射评审的扩展；
+- SynthChat Plugins 代码执行模型；
+- 微信后台自动轮询/消息到 Run、Moments 主动生成/发布、桌宠视觉控制等尚未完成映射评审的扩展；
 - Hermes Dashboard 的 200+ 内部管理 routes；
 - 远程公网模式、TLS、多用户认证。
 
@@ -737,5 +815,9 @@ Secret value 的跨平台上限为 2560 UTF-8 bytes（同时受 OpenAPI 2560 字
 19. `codeExecution` 仅在 Run/session runtime 与 Python 3.8+ probe 同时 ready 时为 true；WindowsApps alias、旧版本、失败或超时 probe 均不得启用能力或 Toolset `configured`。
 20. `execute_code` E2E 覆盖审批前零 spawn、once 后 Python + nested RPC、deny 后零启动/零 nested row、Profile secret 环境剥离、stdout/stderr 边界脱敏，以及 cancel 后 guardian 进程树停止且晚到 success 不覆盖取消。
 21. schema v10 验证 `provider|codeRpc` origin、parent/sequence 完整性与不可变性；nested 参数/结果只存在于私有 journal，不进入 Provider 顶层 tool-call、公开 Run/SSE/Message 或重放事件。
+22. 产品目录测试覆盖 Profile 隔离、三类 CRUD、搜索、字段/数量上限、Persona 绑定删除保护、Moment comment/reply/like、错误 kind/缺失/过期 strong ETag，以及响应不恢复或调用旧 Agent runtime。
+23. Persona Run 测试覆盖同 Profile 校验、角色 prompt、启用且绑定的 Worldbook、模型覆盖优先级、toolsEnabled、memoryEnabled 与首 turn 快照冻结。
+24. WeChat fixture 覆盖扫码凭据只写 keychain、Persona 唯一绑定、poll cursor/100 条上限/未知消息跳过、send、上游错误映射及响应/Problem 无 credential/raw payload。
+25. 插件测试覆盖根目录约束、manifest 字段/大小/数量限制、symlink/reparse point、catalog ETag 冲突、登记/启停/移除不删除源文件，以及无 entry point/代码执行路径。
 
 截至 2026-07-17 的完整验证基线：backend unit `246/246`、integration `91/91`（合计 `337/337`），frontend `389/389`，desktop `1/1`；backend/desktop fmt 与 `clippy -D warnings`、OpenAPI drift、TypeScript 和 Vite production build 均通过。该基线不包含 Browser UI 自动化、压力/长稳或三平台原生 crash/process 发布矩阵。

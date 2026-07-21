@@ -24,7 +24,7 @@ pub use import::{
 };
 pub use store::SessionService;
 
-pub const SESSION_SCHEMA_VERSION: u32 = 12;
+pub const SESSION_SCHEMA_VERSION: u32 = 13;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RuntimeLease {
@@ -443,6 +443,7 @@ pub(crate) struct StorageReady {
 pub struct Session {
     pub id: String,
     pub profile_id: String,
+    pub persona_id: Option<String>,
     pub title: String,
     pub preview: String,
     pub source: String,
@@ -484,6 +485,8 @@ pub struct SearchRange {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateSession {
     pub profile_id: String,
+    #[serde(default)]
+    pub persona_id: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
 }
